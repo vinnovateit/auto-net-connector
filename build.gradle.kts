@@ -31,8 +31,8 @@ buildscript {
             }
             // 3.16.0 recurses without a depth bound on long inputs, so a large
             // string can overflow the stack. Reached through AGP.
-            classpath("org.apache.commons:commons-lang3:3.18.0") {
-                because("GHSA-j288-q9x7-2f5v: uncontrolled recursion in commons-lang3 < 3.18.0")
+            classpath("org.apache.commons:commons-lang3:3.20.0") {
+                because("GHSA-j288-q9x7-2f5v: uncontrolled recursion in commons-lang3 < 3.20.0")
             }
             // AGP declares 4.5.6, vulnerable to XSS in its error responses. Conflict
             // resolution already lands on 4.5.14; this states the safe floor rather than
