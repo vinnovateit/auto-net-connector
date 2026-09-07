@@ -77,8 +77,8 @@ class AutoLoginManager(
 
             connection.setRequestProperty("Content-Type", "application/x-www-form-urlencoded")
             connection.setRequestProperty("User-Agent", "Mozilla/5.0 (Android)")
-            connection.connectTimeout = 2000
-            connection.readTimeout = 2000
+            connection.connectTimeout = 5000
+            connection.readTimeout = 5000
 
             val postData = "userId=${URLEncoder.encode(userId, "UTF-8")}" +
                 "&password=${URLEncoder.encode(password, "UTF-8")}" +
@@ -181,8 +181,8 @@ class AutoLoginManager(
             val connection = transport.open(url, handle)
             connection.requestMethod = "GET"
             connection.instanceFollowRedirects = false
-            connection.connectTimeout = 1500
-            connection.readTimeout = 1500
+            connection.connectTimeout = 3000
+            connection.readTimeout = 3000
 
             return try {
                 connection.connect()

@@ -256,7 +256,7 @@ class LatchEngine(
             ConnectionStatus.Connecting(ConnectionStatus.Step.CheckingInternet)
         )
 
-        val code = withTimeoutOrNull(3500L) {
+        val code = withTimeoutOrNull(5000L) {
             portal.checkPortalStatus(handle)
         } ?: -1
         logger.d(TAG, "[ConnectAnalysis] Step 2/4: Portal Probe Response Code: $code (204 = Direct Internet, 200/302 = Captive Portal, -1 = Network Error)")
@@ -446,7 +446,7 @@ class LatchEngine(
         if (handle != null && authenticated) {
             platform.wifi.bindProcess(handle)
             try {
-                val ok = withTimeoutOrNull(2000L) {
+                val ok = withTimeoutOrNull(4500L) {
                     login.attemptLogout(handle, false, platform.wifi.gatewayIp())
                 } ?: false
 
@@ -480,7 +480,7 @@ class LatchEngine(
                     logger.d(TAG, "Detected resume from sleep (drift ${drift}ms); re-checking.")
                 }
 
-                val code = withTimeoutOrNull(3500L) {
+                val code = withTimeoutOrNull(5000L) {
                     portal.checkPortalStatus(handle)
                 } ?: -1
                 if (code == 204) {
