@@ -88,11 +88,13 @@ class LinuxWifiPlatform(private val logger: Logger) : WifiPlatform {
         val wifiEnabled = checkWifiEnabled()
         val (iface, ssid) = resolveConnectedWifi()
         val gateway = resolveGateway(iface)
+        val hasIp = iface?.let { hasIpv4(it) } ?: false
+        val isConnected = hasIp || !gateway.isNullOrEmpty() || !ssid.isNullOrEmpty()
 
         val snap = WifiSnapshot(
             interfaceName = iface,
             wifiEnabled = wifiEnabled,
-            connected = !ssid.isNullOrEmpty(),
+            connected = isConnected,
             ssid = ssid?.takeIf { it.isNotEmpty() },
             gateway = gateway?.takeIf { it.isNotEmpty() },
         )
@@ -212,11 +214,27 @@ class LinuxWifiPlatform(private val logger: Logger) : WifiPlatform {
     private fun findFirstWirelessInterface(): String? {
         val netDir = File("/sys/class/net")
         if (netDir.exists()) {
-            return netDir.listFiles()
+            val sysfsName = netDir.listFiles()
                 ?.firstOrNull { File(it, "wireless").exists() || File(it, "phy80211").exists() }
                 ?.name
+            if (sysfsName != null) return sysfsName
         }
-        return null
+        return try {
+            java.net.NetworkInterface.getNetworkInterfaces()?.asSequence()?.firstOrNull { iface ->
+                !iface.isLoopback && iface.isUp && (iface.name.startsWith("wl") || iface.name.startsWith("wlan"))
+            }?.name
+        } catch (_: Throwable) {
+            null
+        }
+    }
+
+    private fun hasIpv4(ifaceName: String): Boolean = try {
+        val nif = java.net.NetworkInterface.getByName(ifaceName)
+        nif != null && nif.isUp && nif.inetAddresses.asSequence().any {
+            it is java.net.Inet4Address && !it.isLoopbackAddress && !it.isLinkLocalAddress
+        }
+    } catch (_: Throwable) {
+        false
     }
 
     private fun resolveGateway(iface: String?): String? {
@@ -306,8 +324,8 @@ class LinuxWifiPlatform(private val logger: Logger) : WifiPlatform {
 
     override val events: Flow<WifiEvent> = flow {
         val seed = snapshot()
-        var lastKey = if (seed.connected && seed.ssid != null && seed.interfaceName != null) {
-            "${seed.interfaceName}::${seed.ssid}"
+        var lastKey = if (seed.connected && seed.interfaceName != null) {
+            "${seed.interfaceName}::${seed.ssid ?: "unknown"}"
         } else {
             null
         }
@@ -315,8 +333,8 @@ class LinuxWifiPlatform(private val logger: Logger) : WifiPlatform {
         while (true) {
             invalidate()
             val snap = snapshot()
-            val key = if (snap.connected && snap.ssid != null && snap.interfaceName != null) {
-                "${snap.interfaceName}::${snap.ssid}"
+            val key = if (snap.connected && snap.interfaceName != null) {
+                "${snap.interfaceName}::${snap.ssid ?: "unknown"}"
             } else {
                 null
             }
