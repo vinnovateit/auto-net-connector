@@ -1,7 +1,6 @@
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
-    id("com.google.devtools.ksp")
     id("org.jetbrains.kotlin.plugin.serialization")
 }
 
@@ -57,7 +56,6 @@ kotlin {
 
 dependencies {
     implementation(project(":core"))
-    implementation(libs.androidx.compose.material.core)
 
     // Core & Lifecycle
     implementation(libs.androidx.core.ktx)

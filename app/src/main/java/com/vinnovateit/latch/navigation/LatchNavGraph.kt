@@ -73,16 +73,16 @@ fun LatchNavGraph(
     wifiStatusViewModel: WiFiStatusViewModel,
     startDestination: String
 ) {
+    val statsViewModel: StatsViewModel = viewModel()
+
     val homeContent: @Composable () -> Unit = {
-        val statsViewModel: StatsViewModel = viewModel()
         val isConnected by wifiStatusViewModel.isConnected.collectAsStateWithLifecycle()
         val liveStatus by statsViewModel.liveStatus.collectAsStateWithLifecycle()
         val connectionStatus by wifiStatusViewModel.connectionStatus.collectAsStateWithLifecycle()
         val speedUnits by SettingsManager.speedUnits.collectAsStateWithLifecycle()
+        val sessionToShow by statsViewModel.sessionToShow.collectAsStateWithLifecycle()
 
-        val sessionForHomeScreen = if (isConnected && liveStatus != null) {
-            statsViewModel.sessionToShow.collectAsStateWithLifecycle().value
-        } else null
+        val sessionForHomeScreen = if (isConnected && liveStatus != null) sessionToShow else null
 
         Surface(modifier = Modifier.fillMaxSize()) {
             HomeScreen(
@@ -183,7 +183,6 @@ fun LatchNavGraph(
 
         // Stats
         composable(LatchRoutes.STATS) {
-            val statsViewModel: StatsViewModel = viewModel()
             val coroutineScope = rememberCoroutineScope()
             val context = LocalContext.current
 
