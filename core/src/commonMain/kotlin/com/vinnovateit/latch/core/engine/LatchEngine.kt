@@ -92,7 +92,7 @@ class LatchEngine(
     private val commands = Channel<QueuedCommand>(Channel.UNLIMITED)
     private var healthCheckJob: Job? = null
     private var activeActionJob: Job? = null
-    private var currentHandle: NetworkHandle? = null
+    @Volatile private var currentHandle: NetworkHandle? = null
     private var started = false
 
     /**
@@ -157,7 +157,12 @@ class LatchEngine(
             }
 
             is WifiEvent.Lost -> {
-                logger.d(TAG, "Wi-Fi lost")
+                val lostHandle = event.handle
+                logger.d(TAG, "Wi-Fi lost: ${lostHandle?.id} (current=${currentHandle?.id})")
+                if (lostHandle != null && lostHandle != currentHandle) {
+                    logger.d(TAG, "Ignoring onLost for non-current network handle.")
+                    return
+                }
                 currentHandle = null
                 activeActionJob?.cancel()
                 activeActionJob = null
@@ -408,7 +413,16 @@ class LatchEngine(
                 }
             }
 
-            logger.d(TAG, "[ConnectAnalysis] Login request submitted (result=$result). Revalidating network access...")
+            if (result is LoginResult.Failure) {
+                logger.w(TAG, "[ConnectAnalysis] Login failed; not entering revalidation.")
+                unlatch()
+                ConnectionStatusManager.postStatus(
+                    ConnectionStatus.Failed(ConnectionStatus.Reason.LoginFailed)
+                )
+                return
+            }
+
+            logger.d(TAG, "[ConnectAnalysis] Login successful. Revalidating network access...")
             checkAndAct(handle, revalidating = true)
         } catch (e: Exception) {
             logger.e(TAG, "[ConnectAnalysis] Exception during handleCaptivePortal: ${e.message}", e)
@@ -466,7 +480,6 @@ class LatchEngine(
         healthCheckJob?.cancel()
         healthCheckJob = scope.launch {
             var lastTick = System.currentTimeMillis()
-            var failCount = 0
             while (isActive) {
                 delay(HEALTH_CHECK_INTERVAL_MS)
 
@@ -484,16 +497,10 @@ class LatchEngine(
                     portal.checkPortalStatus(handle)
                 } ?: -1
                 if (code == 204) {
-                    failCount = 0
+                    logger.d(TAG, "Health check passed.")
                 } else {
-                    failCount++
-                    logger.w(TAG, "Health check probe failed ($failCount/3, status $code).")
-                    if (failCount >= 3) {
-                        logger.w(TAG, "Health check failed 3 consecutive times; session may have expired.")
-                        failCount = 0
-                        unlatch()
-                        checkAndActExclusive(handle, revalidating = false)
-                    }
+                    logger.w(TAG, "Health check failed (status $code). Triggering re-login.")
+                    checkAndActExclusive(handle, revalidating = false)
                 }
             }
         }
