@@ -37,8 +37,12 @@ fun UsageInsightsCards(
         GameStatRow(
             label = "Active streak",
             value = "${insights.currentStreakDays}",
-            unit = if (insights.currentStreakDays == 1) "day" else "days",
-            sublabel = if (insights.longestStreakDays > insights.currentStreakDays) "Best: ${insights.longestStreakDays} days" else ""
+            unit = if (insights.currentStreakDays == 1) "day" else "days"
+        )
+        GameStatRow(
+            label = "Max streak",
+            value = "${insights.longestStreakDays}",
+            unit = if (insights.longestStreakDays == 1) "day" else "days"
         )
         GameStatRow(
             label = "Active days",
