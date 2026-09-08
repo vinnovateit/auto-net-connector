@@ -63,9 +63,9 @@ done
     # InRelease is the inline-signed form apt prefers; Release.gpg is the
     # detached signature older clients look for. Publish both.
     rm -f "dists/$suite/InRelease" "dists/$suite/Release.gpg"
-    gpg --batch --yes --local-user "$key_id" \
+    gpg --batch --yes --pinentry-mode loopback --local-user "$key_id" \
         --clearsign -o "dists/$suite/InRelease" "dists/$suite/Release"
-    gpg --batch --yes --local-user "$key_id" \
+    gpg --batch --yes --pinentry-mode loopback --local-user "$key_id" \
         --armor --detach-sign -o "dists/$suite/Release.gpg" "dists/$suite/Release"
 )
 
@@ -89,7 +89,7 @@ if [[ ${#rpms[@]} -gt 0 ]]; then
 
     createrepo_c --update "$site/rpm"
     rm -f "$site/rpm/repodata/repomd.xml.asc"
-    gpg --batch --yes --local-user "$key_id" \
+    gpg --batch --yes --pinentry-mode loopback --local-user "$key_id" \
         --armor --detach-sign "$site/rpm/repodata/repomd.xml"
 fi
 

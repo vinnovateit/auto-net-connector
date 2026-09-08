@@ -33,8 +33,11 @@ default_branch=$(gh api "repos/$upstream" --jq .default_branch)
 echo "Upstream default branch: $default_branch"
 
 # A stale fork would branch from old history; the PR would still apply, but
-# syncing keeps the diff to just our three files.
-gh repo sync "$fork" --source "$upstream" --branch "$default_branch" --force
+# syncing keeps the diff to just our three files. If the PAT lacks permission
+# to sync (403), continue anyway — the PR will still be created.
+if ! gh repo sync "$fork" --source "$upstream" --branch "$default_branch" --force; then
+    echo "Warning: fork sync failed (token may lack repo scope); continuing anyway" >&2
+fi
 
 base_sha=$(gh api "repos/$fork/git/ref/heads/$default_branch" --jq .object.sha)
 
