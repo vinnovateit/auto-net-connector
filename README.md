@@ -23,7 +23,7 @@ Latch is a Kotlin application developed by VinnovateIT that automates the login 
 - Automatic detection of VIT hostel WiFi networks
 - Auto-login with securely stored credentials
 - Logging and display of network usage statistics
-- Standalone CLI for Linux terminals and Windows PowerShell
+- Standalone CLI for Linux terminals and Windows PowerShell (unreleased, build from source)
 
 ## Prerequisites
 
@@ -54,27 +54,39 @@ Before you start, make sure you have:
 
 2. Launch Latch from your application menu, or run `latch` in a terminal.
 
-   To install manually instead, download `latch-1.3.8-linux-x64.tar.gz` from the [latest release](https://github.com/vinnovateit/latch/releases/latest) and extract it.
+   To install manually instead, download the `latch-<version>-linux-x64.tar.gz` archive from the [latest release](https://github.com/vinnovateit/latch/releases/latest) and extract it.
 
 ### Command-line app
 
-`latch-cli` is a standalone application with its own trimmed Java runtime; Java does not need to be installed separately.
-
-On Debian or Ubuntu, download the `.deb` from the [latest release](https://github.com/vinnovateit/latch/releases/latest), then run:
+**`latch-cli` is not released yet.** Releases carry the desktop app only, so
+there is nothing to install with `apt`, `dnf`, winget, or the AUR at this point.
+Build it from a checkout instead:
 
 ```sh
-sudo apt install ./latch-cli_1.3.8_amd64.deb
+./gradlew :cli:packageCliTarGz   # portable tarball
+./gradlew :cli:packageCliDeb     # .deb
+./gradlew :cli:packageCliRpm     # .rpm
 ```
 
-RPM-based distributions can install the release package with `sudo dnf install ./latch-cli-*.rpm`. Arch users can install the `latch-cli-bin` AUR package after its release metadata is submitted. The portable `latch-cli-1.3.8-linux-x64.tar.gz` works without package-manager installation.
+On Windows:
 
-A hosted APT repository can be added later; the initial `.deb` is installed directly with `apt`. Flatpak is intentionally outside the CLI release scope because its sandbox and desktop-first distribution model do not fit a host-network command-line daemon.
+```powershell
+.\gradlew.bat :cli:packageCliZip
+```
 
-On Windows, install `VinnovateIT.LatchCLI` with winget after its manifest is accepted, or download and extract `latch-cli-1.3.8-windows-x64.zip`. The executable works directly from PowerShell:
+Packages land in `cli/build/distributions/`, and the runnable image is at
+`cli/build/cli-package/image/latch-cli/`. Each bundle carries its own trimmed
+Java runtime, so Java does not need to be installed separately. On Windows the
+executable works directly from PowerShell:
 
 ```powershell
 .\latch-cli.exe --status
 ```
+
+Packaging targets, a hosted APT repository, and the winget and AUR submissions
+are all deferred until the CLI is actually published. Flatpak is intentionally
+out of scope because its sandbox and desktop-first distribution model do not fit
+a host-network command-line daemon.
 
 Run `latch-cli` with no arguments the first time. It prompts for your VIT credentials, starts the auto-login daemon in the background, and enables per-user startup at login. On later runs, `latch-cli` prints its help menu.
 
