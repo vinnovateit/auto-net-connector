@@ -3,6 +3,7 @@ package com.vinnovateit.latch.features.settings
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.spring
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -25,6 +26,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -359,18 +361,22 @@ fun SettingsScreen(onBackClick: () -> Unit, onNavigateToCredentials: () -> Unit)
               },
               trailingContent = {
                 val (previewDl, previewUl) = com.vinnovateit.latch.common.util.StatsColorPalettes.resolveColors(chartPalette)
-                Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                  Box(
-                    modifier = Modifier
-                      .size(16.dp)
-                      .clip(androidx.compose.foundation.shape.CircleShape)
-                      .background(previewDl)
+                Canvas(
+                  modifier = Modifier
+                    .size(20.dp)
+                    .clip(CircleShape)
+                ) {
+                  drawArc(
+                    color = previewDl,
+                    startAngle = 90f,
+                    sweepAngle = 180f,
+                    useCenter = true
                   )
-                  Box(
-                    modifier = Modifier
-                      .size(16.dp)
-                      .clip(androidx.compose.foundation.shape.CircleShape)
-                      .background(previewUl)
+                  drawArc(
+                    color = previewUl,
+                    startAngle = 270f,
+                    sweepAngle = 180f,
+                    useCenter = true
                   )
                 }
               },
