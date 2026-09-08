@@ -502,7 +502,7 @@ private fun PortalDailyBarChart(history: List<PortalSessionRecord>) {
 
     val displayedUsage = selectedBar?.usage ?: totalUsageData
     val displayedLabel = if (selectedBar != null) {
-        formatDate(selectedBar.timestamp, "EEE, dd MMM yyyy")
+        formatDisplayDate(selectedBar.timestamp)
     } else {
         "Total Usage (${selectedFilter.label})"
     }

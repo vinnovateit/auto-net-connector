@@ -26,6 +26,23 @@ class StatsInsightsEngineTest {
     }
 
     @Test
+    fun testFormatDisplayDateOmitsWeekdayAndCurrentYear() {
+        val cal = Calendar.getInstance().apply {
+            set(2026, Calendar.MARCH, 8, 12, 0, 0)
+        }
+        val fixedNow = cal.timeInMillis
+
+        // Same year (2026) -> "08 Mar"
+        val formattedSameYear = formatDisplayDate(fixedNow, fixedNow)
+        assertEquals("08 Mar", formattedSameYear)
+
+        // Previous year (2025) -> "08 Mar 2025"
+        cal.set(2025, Calendar.MARCH, 8, 12, 0, 0)
+        val formattedOlderYear = formatDisplayDate(cal.timeInMillis, fixedNow)
+        assertEquals("08 Mar 2025", formattedOlderYear)
+    }
+
+    @Test
     fun testComputeStatsInsightsCalculatesAccurateMetrics() {
         val cal = Calendar.getInstance().apply { set(2026, Calendar.MARCH, 1, 14, 0, 0) }
         val session1 = PortalSessionRecord(

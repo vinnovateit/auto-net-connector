@@ -43,6 +43,7 @@ import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
@@ -89,10 +90,21 @@ sealed class HistoryChartItem {
         val usage: DataUsage,
         val label: String,
         val timestamp: Long,
-        val formattedDate: String = ""
+        val formattedDate: String = "",
+        val sessionCount: Int = 0,
+        val durationMillis: Long = 0L,
+        val durationFormatted: String = ""
     ) : HistoryChartItem()
     data class MonthSeparator(val monthName: String) : HistoryChartItem()
 }
+
+@Immutable
+data class ChartDetailState(
+    val usage: DataUsage,
+    val label: String,
+    val sessionCount: Int = 0,
+    val durationFormatted: String = ""
+)
 
 @Composable
 fun HistoryBarChart(
@@ -259,8 +271,22 @@ private fun HistoryBarChartContent(chartItems: List<HistoryChartItem>) {
         val totalTx = chartItems.filterIsInstance<HistoryChartItem.BarData>().sumOf { it.usage.txBytes }
         DataUsage(totalRx, totalTx)
     }
-    val totalUsageLabel = "Total Data Usage"
-    var displayedData by remember { mutableStateOf(totalUsageData to totalUsageLabel) }
+    val totalSessions = remember(chartItems) {
+        chartItems.filterIsInstance<HistoryChartItem.BarData>().sumOf { it.sessionCount }
+    }
+    val totalDurationFormatted = remember(chartItems) {
+        val ms = chartItems.filterIsInstance<HistoryChartItem.BarData>().sumOf { it.durationMillis }
+        com.vinnovateit.latch.common.util.formatDurationDynamic(ms)
+    }
+    val totalUsageDetail = remember(totalUsageData, totalSessions, totalDurationFormatted) {
+        ChartDetailState(
+            usage = totalUsageData,
+            label = "Total Data Usage",
+            sessionCount = totalSessions,
+            durationFormatted = totalDurationFormatted
+        )
+    }
+    var displayedData by remember { mutableStateOf(totalUsageDetail) }
     var revertJob by remember { mutableStateOf<Job?>(null) }
 
     val maxDailyUsage = remember(chartItems) {
@@ -273,7 +299,7 @@ private fun HistoryBarChartContent(chartItems: List<HistoryChartItem>) {
     LaunchedEffect(chartItems) {
         selectedIndex = -1
         revertJob?.cancel()
-        displayedData = totalUsageData to totalUsageLabel
+        displayedData = totalUsageDetail
         if (todayIdx in chartItems.indices) {
             lazyListState.scrollToItem(todayIdx)
         }
@@ -317,16 +343,23 @@ private fun HistoryBarChartContent(chartItems: List<HistoryChartItem>) {
                                     if (selectedIndex == idx) {
                                         selectedIndex = -1
                                         revertJob?.cancel()
-                                        displayedData = totalUsageData to totalUsageLabel
+                                        displayedData = totalUsageDetail
                                     } else {
                                         selectedIndex = idx
-                                        val formattedDate = clickedItem.formattedDate.ifBlank { dateFormatter.format(Date(clickedItem.timestamp)) }
-                                        displayedData = clickedItem.usage to formattedDate
+                                        val formattedDate = clickedItem.formattedDate.ifBlank {
+                                            com.vinnovateit.latch.common.util.formatDisplayDate(clickedItem.timestamp)
+                                        }
+                                        displayedData = ChartDetailState(
+                                            usage = clickedItem.usage,
+                                            label = formattedDate,
+                                            sessionCount = clickedItem.sessionCount,
+                                            durationFormatted = clickedItem.durationFormatted
+                                        )
                                         revertJob?.cancel()
                                         revertJob = coroutineScope.launch {
                                             delay(7000)
                                             selectedIndex = -1
-                                            displayedData = totalUsageData to totalUsageLabel
+                                            displayedData = totalUsageDetail
                                         }
                                         coroutineScope.launch {
                                             lazyListState.animateScrollToItem(idx)
@@ -506,8 +539,8 @@ private fun Bar(
 }
 
 @Composable
-private fun StatDetailRow(data: Pair<DataUsage, String>) {
-    val (currentUsage, label) = data
+private fun StatDetailRow(data: ChartDetailState) {
+    val (currentUsage, label, sessionCount, durationFormatted) = data
 
     val (totalFmt, dlFmt, ulFmt) = remember(currentUsage) {
         Triple(
@@ -541,7 +574,10 @@ private fun StatDetailRow(data: Pair<DataUsage, String>) {
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
         Spacer(Modifier.height(8.dp))
-        Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(16.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
             AnimatedContent(dlFmt, label = "DLStat", transitionSpec = { fadeIn() togetherWith fadeOut() }) { (value, unit) ->
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(Icons.Rounded.ArrowDownward, null, tint = ColorGraphDownload, modifier = Modifier.size(16.dp))
@@ -560,6 +596,40 @@ private fun StatDetailRow(data: Pair<DataUsage, String>) {
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
+                }
+            }
+        }
+        if (sessionCount > 0 || (durationFormatted.isNotBlank() && durationFormatted != "0s")) {
+            Spacer(Modifier.height(8.dp))
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                if (sessionCount > 0) {
+                    Surface(
+                        shape = CircleShape,
+                        color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.7f)
+                    ) {
+                        Text(
+                            text = "$sessionCount ${if (sessionCount == 1) "session" else "sessions"}",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSecondaryContainer,
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
+                        )
+                    }
+                }
+                if (durationFormatted.isNotBlank() && durationFormatted != "0s") {
+                    Surface(
+                        shape = CircleShape,
+                        color = MaterialTheme.colorScheme.surfaceVariant
+                    ) {
+                        Text(
+                            text = "⏱ $durationFormatted",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
+                        )
+                    }
                 }
             }
         }

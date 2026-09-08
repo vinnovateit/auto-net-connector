@@ -93,7 +93,7 @@ class StatsViewModel(application: Application) : AndroidViewModel(application) {
           val totalDur = daySessions.sumOf { it.durationMillis }
           AggregatedDayRecord(
             dayTimestamp = first.loginTime,
-            dateFormatted = formatDate(first.loginTime, "EEE, dd MMM yyyy"),
+            dateFormatted = com.vinnovateit.latch.common.util.formatDisplayDate(first.loginTime),
             downloadBytes = dl,
             uploadBytes = ul,
             totalBytes = total,
@@ -207,9 +207,11 @@ class StatsViewModel(application: Application) : AndroidViewModel(application) {
 
   val chartItems: StateFlow<List<HistoryChartItem>> =
     combine(selectedFilter, nonZeroPortalHistory, liveStatus) { filter, records, live ->
-      val groupedByDay = records
+      val recordsByDay = records
         .filter { it.loginTime > 0 }
         .groupBy { formatDate(it.loginTime, "yyyy-MM-dd") }
+
+      val groupedByDay = recordsByDay
         .mapValues { (_, list) ->
           DataUsage(
             rxBytes = list.sumOf { it.downloadBytes },
@@ -218,8 +220,8 @@ class StatsViewModel(application: Application) : AndroidViewModel(application) {
         }
         .toMutableMap()
 
+      val todayKey = formatDate(System.currentTimeMillis(), "yyyy-MM-dd")
       live?.let {
-        val todayKey = formatDate(System.currentTimeMillis(), "yyyy-MM-dd")
         val current = groupedByDay[todayKey] ?: DataUsage(0L, 0L)
         groupedByDay[todayKey] = DataUsage(
           rxBytes = current.rxBytes + it.totalRxBytes,
@@ -296,9 +298,22 @@ class StatsViewModel(application: Application) : AndroidViewModel(application) {
         val key = formatDate(dayTimestamp, "yyyy-MM-dd")
         val usage = groupedByDay[key] ?: DataUsage(0, 0)
         val label = formatDate(dayTimestamp, "dd")
-        val datePattern = if (itemYear == currentYear) "dd MMM" else "dd MMM yyyy"
-        val formattedDate = formatDate(dayTimestamp, datePattern)
-        items.add(HistoryChartItem.BarData(usage, label, dayTimestamp, formattedDate))
+        val formattedDate = com.vinnovateit.latch.common.util.formatDisplayDate(dayTimestamp)
+        val dayRecords = recordsByDay[key] ?: emptyList()
+        val sessionCount = dayRecords.size + (if (live != null && key == todayKey) 1 else 0)
+        val durationMillis = dayRecords.sumOf { it.durationMillis }
+        val durationFormatted = com.vinnovateit.latch.common.util.formatDurationDynamic(durationMillis)
+        items.add(
+          HistoryChartItem.BarData(
+            usage = usage,
+            label = label,
+            timestamp = dayTimestamp,
+            formattedDate = formattedDate,
+            sessionCount = sessionCount,
+            durationMillis = durationMillis,
+            durationFormatted = durationFormatted
+          )
+        )
         cursor.add(Calendar.DAY_OF_YEAR, 1)
       }
       items.distinct()

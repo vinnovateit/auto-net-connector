@@ -201,7 +201,7 @@ fun PortraitHomeScreen(
     val buttonDiameterPx = screenWidthPx * 0.6f
     val colorScheme = MaterialTheme.colorScheme
     val usePureBlack by SettingsManager.usePureBlack.collectAsStateWithLifecycle()
-    val isAmoled = usePureBlack && com.vinnovateit.latch.ui.theme.LocalIsDarkTheme.current
+    val isAmoled = usePureBlack && LocalIsDarkTheme.current
 
     Box(modifier = Modifier.fillMaxSize()) {
         LeafOverlay(
@@ -420,7 +420,7 @@ fun PowerButtonOverlay(
     )
 
     val usePureBlack by SettingsManager.usePureBlack.collectAsStateWithLifecycle()
-    val isAmoled = usePureBlack && com.vinnovateit.latch.ui.theme.LocalIsDarkTheme.current
+    val isAmoled = usePureBlack && LocalIsDarkTheme.current
 
     val containerColor = if (isAmoled) Color.Black else MaterialTheme.colorScheme.primaryContainer
 

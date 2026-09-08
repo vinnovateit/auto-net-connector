@@ -40,6 +40,7 @@ import com.vinnovateit.latch.features.settings.manager.SettingsManager
 import com.vinnovateit.latch.features.stats.AggregatedDayRecord
 import com.vinnovateit.latch.ui.theme.ColorGraphDownload
 import com.vinnovateit.latch.ui.theme.ColorGraphUpload
+import com.vinnovateit.latch.ui.theme.LocalIsDarkTheme
 
 fun groupedItemShape(index: Int, totalCount: Int, cornerRadius: Dp = 24.dp, innerRadius: Dp = 4.dp): Shape {
   return when {
@@ -56,7 +57,7 @@ fun TodaySessionListItem(
   shape: Shape = RoundedCornerShape(16.dp),
 ) {
   val usePureBlack by SettingsManager.usePureBlack.collectAsStateWithLifecycle()
-  val isAmoled = usePureBlack && com.vinnovateit.latch.ui.theme.LocalIsDarkTheme.current
+  val isAmoled = usePureBlack && LocalIsDarkTheme.current
 
   Surface(
     modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),

@@ -79,6 +79,16 @@ fun formatDurationDynamic(ms: Long): String {
 fun formatDate(millis: Long, pattern: String): String =
     SimpleDateFormat(pattern, Locale.US).format(Date(millis))
 
+fun formatDisplayDate(millis: Long, nowMillis: Long = System.currentTimeMillis()): String {
+    val cal = java.util.Calendar.getInstance().apply { timeInMillis = millis }
+    val recordYear = cal.get(java.util.Calendar.YEAR)
+    val nowCal = java.util.Calendar.getInstance().apply { timeInMillis = nowMillis }
+    val currentYear = nowCal.get(java.util.Calendar.YEAR)
+
+    val pattern = if (recordYear == currentYear) "dd MMM" else "dd MMM yyyy"
+    return SimpleDateFormat(pattern, Locale.US).format(Date(millis))
+}
+
 fun createGraphPaths(
     history: List<LiveDataPoint>,
     width: Float,

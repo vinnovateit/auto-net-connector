@@ -48,6 +48,14 @@ import com.vinnovateit.latch.core.model.PortalSessionRecord
 import com.vinnovateit.latch.core.model.SessionSummary
 import com.vinnovateit.latch.features.stats.StatsViewModel
 
+import androidx.compose.material.icons.automirrored.rounded.ArrowForwardIos
+import androidx.compose.material.icons.rounded.DateRange
+import androidx.compose.material3.Surface
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.ui.draw.clip
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Row
+
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 fun StatsList(
@@ -63,6 +71,7 @@ fun StatsList(
   onToggleShowAll: () -> Unit,
   addSpacer: Boolean = false,
   contentPadding: PaddingValues = PaddingValues(0.dp),
+  onNavigateToHistory: () -> Unit = {},
   statsViewModel: StatsViewModel
 ) {
   val overviewMetrics by statsViewModel.overviewMetrics.collectAsStateWithLifecycle()
@@ -122,25 +131,96 @@ fun StatsList(
       Spacer(modifier = Modifier.height(15.dp))
     }
 
-    if (todaySessions.isNotEmpty()) {
-      item {
-        Text(
-          text = "Today's Sessions",
-          style = MaterialTheme.typography.titleMedium,
-          fontWeight = FontWeight.Bold,
-          color = MaterialTheme.colorScheme.onBackground,
-          textAlign = TextAlign.Left,
-          modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 8.dp)
-        )
-      }
+    item {
+      Text(
+        text = "Today's Sessions",
+        style = MaterialTheme.typography.titleMedium,
+        fontWeight = FontWeight.Bold,
+        color = MaterialTheme.colorScheme.onBackground,
+        textAlign = TextAlign.Left,
+        modifier = Modifier
+          .fillMaxWidth()
+          .padding(horizontal = 16.dp, vertical = 8.dp)
+      )
+    }
 
+    if (todaySessions.isNotEmpty()) {
       itemsIndexed(todaySessions, key = { index, session -> "today_${session.loginTime}_$index" }) { index, session ->
         TodaySessionListItem(
           session = session,
           shape = groupedItemShape(index, todaySessions.size)
         )
+      }
+    } else {
+      item {
+        Surface(
+          modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp),
+          shape = RoundedCornerShape(16.dp),
+          color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+        ) {
+          Text(
+            text = "No active portal sessions recorded today.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(16.dp)
+          )
+        }
+      }
+    }
+
+    item {
+      Spacer(modifier = Modifier.height(14.dp))
+      Surface(
+        onClick = onNavigateToHistory,
+        modifier = Modifier
+          .fillMaxWidth()
+          .padding(horizontal = 16.dp),
+        shape = RoundedCornerShape(16.dp),
+        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f)
+      ) {
+        Row(
+          modifier = Modifier
+            .fillMaxWidth()
+            .padding(16.dp),
+          verticalAlignment = Alignment.CenterVertically
+        ) {
+          Box(
+            modifier = Modifier
+              .size(42.dp)
+              .clip(CircleShape)
+              .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)),
+            contentAlignment = Alignment.Center
+          ) {
+            Icon(
+              imageVector = Icons.Rounded.DateRange,
+              contentDescription = null,
+              tint = MaterialTheme.colorScheme.primary,
+              modifier = Modifier.size(22.dp)
+            )
+          }
+          Spacer(modifier = Modifier.width(14.dp))
+          Column(modifier = Modifier.weight(1f)) {
+            Text(
+              text = "Full Session History",
+              style = MaterialTheme.typography.titleMedium,
+              fontWeight = FontWeight.Bold,
+              color = MaterialTheme.colorScheme.onSurface
+            )
+            Text(
+              text = "Browse day-wise data usage and past session logs",
+              style = MaterialTheme.typography.bodySmall,
+              color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+          }
+          Icon(
+            imageVector = Icons.AutoMirrored.Rounded.ArrowForwardIos,
+            contentDescription = "Open session history",
+            modifier = Modifier.size(16.dp),
+            tint = MaterialTheme.colorScheme.onSurfaceVariant
+          )
+        }
       }
     }
   }

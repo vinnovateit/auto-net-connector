@@ -10,6 +10,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.BarChart
 import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.rounded.History
 import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -42,6 +43,7 @@ private fun StatsTopBar(
   onBackPressed: () -> Unit,
   onSaveReport: () -> Unit,
   onResyncHistory: () -> Unit = {},
+  onNavigateToHistory: () -> Unit = {},
 ) {
   val surfaceColor = MaterialTheme.colorScheme.surface
   val haptic = LocalHapticFeedback.current
@@ -109,6 +111,21 @@ private fun StatsTopBar(
           onDismissRequest = { menuExpanded = false }
         ) {
           DropdownMenuItem(
+            text = { Text("Session History") },
+            onClick = {
+              menuExpanded = false
+              haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+              onNavigateToHistory()
+            },
+            leadingIcon = {
+              Icon(
+                imageVector = Icons.Rounded.History,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary
+              )
+            }
+          )
+          DropdownMenuItem(
             text = { Text("Export Full Report") },
             onClick = {
               menuExpanded = false
@@ -150,6 +167,7 @@ fun StatsScreen(
   modifier: Modifier = Modifier,
   onSaveReport: () -> Unit,
   onBackPressed: () -> Unit = {},
+  onNavigateToHistory: () -> Unit = {},
   statsViewModel: StatsViewModel = viewModel()
 ) {
   val sessionToShow by statsViewModel.sessionToShow.collectAsStateWithLifecycle()
@@ -215,6 +233,7 @@ fun StatsScreen(
             onBackPressed = onBackPressed,
             onSaveReport = onSaveReport,
             onResyncHistory = { statsViewModel.refreshHistory() },
+            onNavigateToHistory = onNavigateToHistory,
           )
         }
       ) { innerPadding ->
@@ -238,6 +257,7 @@ fun StatsScreen(
               onBackPressed = onBackPressed,
               onSaveReport = onSaveReport,
               onResyncHistory = { statsViewModel.refreshHistory() },
+              onNavigateToHistory = onNavigateToHistory,
             )
             Box(
               modifier = Modifier.padding(horizontal = 24.dp, vertical = 16.dp).fillMaxSize(),
@@ -260,6 +280,7 @@ fun StatsScreen(
             onToggleShowAll = { showAllSessions = !showAllSessions },
             addSpacer = true,
             contentPadding = PaddingValues(top = 16.dp),
+            onNavigateToHistory = onNavigateToHistory,
             statsViewModel = statsViewModel
           )
         }
@@ -282,6 +303,7 @@ fun StatsScreen(
             showAllSessions = showAllSessions,
             onToggleShowAll = { showAllSessions = !showAllSessions },
             contentPadding = PaddingValues(top = maxTopBarHeight),
+            onNavigateToHistory = onNavigateToHistory,
             statsViewModel = statsViewModel
           )
 
@@ -291,6 +313,7 @@ fun StatsScreen(
             onBackPressed = onBackPressed,
             onSaveReport = onSaveReport,
             onResyncHistory = { statsViewModel.refreshHistory() },
+            onNavigateToHistory = onNavigateToHistory,
           )
         }
       }

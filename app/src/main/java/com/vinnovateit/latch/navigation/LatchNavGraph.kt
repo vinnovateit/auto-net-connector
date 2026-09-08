@@ -57,6 +57,7 @@ object LatchRoutes {
     const val HOME = "home"
     const val SETTINGS = "settings"
     const val STATS = "stats"
+    const val SESSION_HISTORY = "session_history"
     const val MEET_THE_TEAM = "meet_the_team"
 
     fun credentials(editMode: Boolean = false) = "credentials/$editMode"
@@ -220,6 +221,21 @@ fun LatchNavGraph(
                         val fileName = "latch_report_${appVersion}_${epoch}.html"
                         createDocumentLauncher.launch(fileName)
                     },
+                    onBackPressed = triggerBack,
+                    onNavigateToHistory = { navController.navigate(LatchRoutes.SESSION_HISTORY) },
+                    statsViewModel = statsViewModel
+                )
+            }
+        }
+
+        // Session History
+        composable(LatchRoutes.SESSION_HISTORY) {
+            val statsViewModel: StatsViewModel = viewModel()
+            PredictiveSlideBackContainer(
+                onBackPressed = { navController.popBackStack() },
+                backgroundContent = homeContent
+            ) { triggerBack ->
+                com.vinnovateit.latch.features.stats.SessionHistoryScreen(
                     onBackPressed = triggerBack,
                     statsViewModel = statsViewModel
                 )

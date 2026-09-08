@@ -46,12 +46,35 @@ class StatsViewModelPortalTest {
             usage = DataUsage(100L, 200L),
             label = "08",
             timestamp = 1700000000000L,
-            formattedDate = "08 Sep"
+            formattedDate = "08 Sep",
+            sessionCount = 3,
+            durationMillis = 3600000L,
+            durationFormatted = "1h 0m"
         )
         assertEquals(100L, item.usage.rxBytes)
         assertEquals(200L, item.usage.txBytes)
         assertEquals("08", item.label)
         assertEquals("08 Sep", item.formattedDate)
+        assertEquals(3, item.sessionCount)
+        assertEquals(3600000L, item.durationMillis)
+        assertEquals("1h 0m", item.durationFormatted)
+    }
+
+    @Test
+    fun testFormatDisplayDateOmitsWeekdayAndCurrentYear() {
+        val cal = Calendar.getInstance().apply {
+            set(2026, Calendar.MARCH, 8, 12, 0, 0)
+        }
+        val fixedNow = cal.timeInMillis
+
+        // Same year (2026) -> "08 Mar"
+        val formattedSameYear = com.vinnovateit.latch.common.util.formatDisplayDate(fixedNow, fixedNow)
+        assertEquals("08 Mar", formattedSameYear)
+
+        // Previous year (2025) -> "08 Mar 2025"
+        cal.set(2025, Calendar.MARCH, 8, 12, 0, 0)
+        val formattedOlderYear = com.vinnovateit.latch.common.util.formatDisplayDate(cal.timeInMillis, fixedNow)
+        assertEquals("08 Mar 2025", formattedOlderYear)
     }
 
     @Test
