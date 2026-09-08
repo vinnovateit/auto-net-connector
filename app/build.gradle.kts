@@ -57,7 +57,6 @@ kotlin {
 
 dependencies {
     implementation(project(":core"))
-    implementation(libs.androidx.compose.material.core)
 
     // Core & Lifecycle
     implementation(libs.androidx.core.ktx)
@@ -78,10 +77,6 @@ dependencies {
     implementation(libs.material.kolor)
     implementation(libs.androidx.navigation.compose)
 
-    // Onboarding Permissions
-    implementation(libs.accompanist.permissions)
-    implementation(libs.kotlinx.collections.immutable)
-
     // Widget
     implementation(libs.androidx.glance.appwidget)
     implementation(libs.androidx.glance.material3)
@@ -90,12 +85,9 @@ dependencies {
 
     // Data & Storage
     implementation(libs.androidx.datastore.preferences)
-    implementation(libs.androidx.security.crypto)
-    implementation(libs.androidx.appcompat.v161)
 
     // In-App Updates
     implementation(libs.app.update)
-    implementation(libs.app.update.ktx)
 
     // Tooling & Preview
     debugImplementation(libs.androidx.compose.ui.ui.tooling3)

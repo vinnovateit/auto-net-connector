@@ -1,7 +1,10 @@
 package com.vinnovateit.latch.features.onboarding.pages
 
 import android.Manifest
+import android.content.pm.PackageManager
 import android.os.Build
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -13,33 +16,41 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.google.accompanist.permissions.ExperimentalPermissionsApi
-import com.google.accompanist.permissions.isGranted
-import com.google.accompanist.permissions.rememberPermissionState
+import androidx.core.content.ContextCompat
 import com.vinnovateit.latch.features.onboarding.components.SlideContent
 import com.vinnovateit.latch.ui.theme.SatoshiFontFamily
 
-@OptIn(ExperimentalPermissionsApi::class)
 @Composable
 fun NotificationPermissionPage(
     slide: SlideContent,
     onPermissionGranted: () -> Unit
 ) {
-    val permission = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-        Manifest.permission.POST_NOTIFICATIONS
-    } else ""
+    val context = LocalContext.current
+    var isGranted by remember {
+        mutableStateOf(
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
+            } else true
+        )
+    }
 
-    val notificationPermissionState = rememberPermissionState(
-        permission = permission
-    ) { granted -> if (granted) onPermissionGranted() }
-
-    val isGranted = notificationPermissionState.status.isGranted || Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU
+    val launcher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        isGranted = granted
+        if (granted) onPermissionGranted()
+    }
 
     LaunchedEffect(isGranted) {
         if (isGranted) onPermissionGranted()
@@ -87,8 +98,8 @@ fun NotificationPermissionPage(
 
                 Button(
                     onClick = {
-                        if (!isGranted) {
-                            notificationPermissionState.launchPermissionRequest()
+                        if (!isGranted && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                            launcher.launch(Manifest.permission.POST_NOTIFICATIONS)
                         }
                     },
                     enabled = !isGranted,
@@ -111,16 +122,22 @@ fun NotificationPermissionPage(
 }
 
 
-@OptIn(ExperimentalPermissionsApi::class)
 @Composable
 fun NotificationPermissionPageLandscape(slide: SlideContent, onPermissionGranted: () -> Unit) {
-    val permission = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-        Manifest.permission.POST_NOTIFICATIONS
-    } else ""
-    val notificationPermissionState = rememberPermissionState(
-        permission = permission
-    ) { granted -> if (granted) onPermissionGranted() }
-    val isGranted = notificationPermissionState.status.isGranted || Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU
+    val context = LocalContext.current
+    var isGranted by remember {
+        mutableStateOf(
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
+            } else true
+        )
+    }
+    val launcher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        isGranted = granted
+        if (granted) onPermissionGranted()
+    }
     LaunchedEffect(isGranted) {
         if (isGranted) onPermissionGranted()
     }
@@ -128,7 +145,11 @@ fun NotificationPermissionPageLandscape(slide: SlideContent, onPermissionGranted
     PageScaffoldLandscape(slide) {
         Spacer(modifier = Modifier.height(24.dp))
         Button(
-            onClick = { if (!isGranted) notificationPermissionState.launchPermissionRequest() },
+            onClick = {
+                if (!isGranted && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                    launcher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                }
+            },
             enabled = !isGranted,
             contentPadding = PaddingValues(horizontal = 28.dp, vertical = 14.dp)
         ) {

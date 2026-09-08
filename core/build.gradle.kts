@@ -1,5 +1,4 @@
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
-import org.gradle.language.jvm.tasks.ProcessResources
 
 val latchVersion = providers.gradleProperty("latchVersion").get()
 
@@ -45,7 +44,6 @@ kotlin {
         androidMain.dependencies {
             implementation(libs.androidx.core.ktx)
             implementation(libs.androidx.security.crypto)
-            implementation(libs.androidx.preference.ktx)
         }
 
         val desktopMain by getting

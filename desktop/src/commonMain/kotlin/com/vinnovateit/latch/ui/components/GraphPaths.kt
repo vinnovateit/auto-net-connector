@@ -34,7 +34,7 @@ internal fun buildGraphPaths(
     fun xAt(i: Int) = i * stepX
     fun yAt(point: LiveDataPoint): Float {
         val rate = point.usage.rxBps + point.usage.txBps
-        return height - (rate.toFloat() / maxRate.toFloat()) * graphH
+        return height - (rate.toFloat() / maxRate) * graphH
     }
 
     var prevX = xAt(0)

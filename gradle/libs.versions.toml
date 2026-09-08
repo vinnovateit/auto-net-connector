@@ -1,10 +1,7 @@
 [versions]
-accompanistPermissions = "0.37.3"
 agp = "9.4.0"
 androidxMaterial3 = "1.5.0-alpha27"
-appcompatVersion = "1.8.0"
 appUpdate = "2.1.0"
-appUpdateKtx = "2.1.0"
 coreSplashscreen = "1.2.0"
 glanceAppwidget = "1.2.0"
 glanceMaterial3 = "1.2.0"
@@ -13,13 +10,11 @@ coreKtx = "1.19.0"
 junit = "4.13.2"
 junitExt = "1.3.0"
 espressoCore = "3.7.0"
-kotlinxCollectionsImmutable = "0.5.2"
 kotlinxSerializationJson = "1.11.0"
 lifecycleRuntimeKtx = "2.11.0"
 activityCompose = "1.13.0"
 composeBom = "2026.08.00"
 materialKolor = "5.0.1"
-preferenceKtx = "1.2.1"
 securityCrypto = "1.1.0"
 workRuntimeKtx = "2.11.2"
 datastorePreferences = "1.2.1"
@@ -43,7 +38,6 @@ sqliteBundled = "2.7.0"
 oshi = "7.6.1"
 jna = "5.19.1"
 slf4jSimple = "2.0.18"
-composeMaterialCore = "1.6.2"
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
@@ -59,8 +53,6 @@ ksp = { id = "com.google.devtools.ksp", version.ref = "ksp" }
 
 [libraries]
 # Core
-accompanist-permissions = { module = "com.google.accompanist:accompanist-permissions", version.ref = "accompanistPermissions" }
-androidx-appcompat-v161 = { module = "androidx.appcompat:appcompat", version.ref = "appcompatVersion" }
 androidx-compose-material-material-icons-extended = { module = "androidx.compose.material:material-icons-extended", version = "1.7.8" }
 androidx-compose-ui-ui-graphics = { module = "androidx.compose.ui:ui-graphics" }
 androidx-compose-ui-ui-test-junit42 = { module = "androidx.compose.ui:ui-test-junit4" }
@@ -85,7 +77,6 @@ androidx-activity-compose = { group = "androidx.activity", name = "activity-comp
 # Compose BOM and UI
 androidx-compose-bom = { group = "androidx.compose", name = "compose-bom", version.ref = "composeBom" }
 androidx-material3-v150alpha01 = { module = "androidx.compose.material3:material3", version.ref = "androidxMaterial3" }
-androidx-preference-ktx = { module = "androidx.preference:preference-ktx", version.ref = "preferenceKtx" }
 androidx-security-crypto = { module = "androidx.security:security-crypto", version.ref = "securityCrypto" }
 
 # Navigation
@@ -97,7 +88,6 @@ androidx-datastore-preferences = { group = "androidx.datastore", name = "datasto
 # Firebase
 animation = { module = "androidx.compose.animation:animation" }
 app-update = { module = "com.google.android.play:app-update", version.ref = "appUpdate" }
-app-update-ktx = { module = "com.google.android.play:app-update-ktx", version.ref = "appUpdateKtx" }
 # WorkManager
 androidx-work-runtime-ktx = { group = "androidx.work", name = "work-runtime-ktx", version.ref = "workRuntimeKtx" }
 
@@ -105,7 +95,6 @@ androidx-work-runtime-ktx = { group = "androidx.work", name = "work-runtime-ktx"
 junit = { group = "junit", name = "junit", version.ref = "junit" }
 androidx-junit = { group = "androidx.test.ext", name = "junit", version.ref = "junitExt" }
 androidx-espresso-core = { group = "androidx.test.espresso", name = "espresso-core", version.ref = "espressoCore" }
-kotlinx-collections-immutable = { module = "org.jetbrains.kotlinx:kotlinx-collections-immutable", version.ref = "kotlinxCollectionsImmutable" }
 kotlinx-serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serialization-json", version.ref = "kotlinxSerializationJson" }
 material-kolor = { module = "com.materialkolor:material-kolor", version.ref = "materialKolor" }
 
@@ -129,4 +118,3 @@ oshi-core = { module = "com.github.oshi:oshi-core", version.ref = "oshi" }
 jna = { module = "net.java.dev.jna:jna", version.ref = "jna" }
 jna-platform = { module = "net.java.dev.jna:jna-platform", version.ref = "jna" }
 slf4j-simple = { module = "org.slf4j:slf4j-simple", version.ref = "slf4jSimple" }
-androidx-compose-material-core = { group = "androidx.wear.compose", name = "compose-material-core", version.ref = "composeMaterialCore" }
