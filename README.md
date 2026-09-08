@@ -23,7 +23,7 @@ Latch is a Kotlin application developed by VinnovateIT that automates the login 
 - Automatic detection of VIT hostel WiFi networks
 - Auto-login with securely stored credentials
 - Logging and display of network usage statistics
-- Standalone CLI for Linux terminals and Windows PowerShell (unreleased, build from source)
+- Standalone CLI for Linux terminals and Windows PowerShell
 
 ## Prerequisites
 
@@ -58,35 +58,66 @@ Before you start, make sure you have:
 
 ### Command-line app
 
-**`latch-cli` is not released yet.** Releases carry the desktop app only, so
-there is nothing to install with `apt`, `dnf`, winget, or the AUR at this point.
-Build it from a checkout instead:
+`latch-cli` bundles its own trimmed Java runtime, so Java does not need to be
+installed separately.
+
+Package-manager installs become available as each channel is published; until
+then, download the package for your system from the
+[latest release](https://github.com/vinnovateit/latch/releases/latest).
+
+**Arch Linux**, from the AUR:
 
 ```sh
-./gradlew :cli:packageCliTarGz   # portable tarball
-./gradlew :cli:packageCliDeb     # .deb
-./gradlew :cli:packageCliRpm     # .rpm
+yay -S latch-cli-bin        # or: paru -S latch-cli-bin
 ```
 
-On Windows:
+`sudo pacman -S latch-cli` will not find it. The AUR is not a pacman repository,
+so it needs an AUR helper, or a manual build:
+
+```sh
+git clone https://aur.archlinux.org/latch-cli-bin.git
+cd latch-cli-bin && makepkg -si
+```
+
+**Windows**, with winget or Chocolatey:
 
 ```powershell
-.\gradlew.bat :cli:packageCliZip
+winget install VinnovateIT.LatchCLI
+choco install latch-cli
 ```
 
-Packages land in `cli/build/distributions/`, and the runnable image is at
-`cli/build/cli-package/image/latch-cli/`. Each bundle carries its own trimmed
-Java runtime, so Java does not need to be installed separately. On Windows the
-executable works directly from PowerShell:
+**Debian and Ubuntu.** Unlike the above, apt needs the repository added once
+before the install works, because Latch is not in the Debian or Ubuntu
+archives:
+
+```sh
+curl -fsSL https://vinnovateit.github.io/latch/latch.gpg \
+  | sudo tee /usr/share/keyrings/latch.gpg > /dev/null
+echo "deb [signed-by=/usr/share/keyrings/latch.gpg] \
+  https://vinnovateit.github.io/latch/apt stable main" \
+  | sudo tee /etc/apt/sources.list.d/latch.list
+sudo apt update
+sudo apt install latch-cli
+```
+
+**Fedora and RPM-based distributions**, likewise adding the repository first:
+
+```sh
+sudo dnf config-manager --add-repo https://vinnovateit.github.io/latch/latch.repo
+sudo dnf install latch-cli
+```
+
+**Direct download.** The [latest release](https://github.com/vinnovateit/latch/releases/latest)
+carries a `.deb`, an `.rpm`, a portable Linux tarball and a Windows ZIP, with
+`SHA256SUMS` alongside them. On Windows the executable runs straight from the
+extracted folder:
 
 ```powershell
 .\latch-cli.exe --status
 ```
 
-Packaging targets, a hosted APT repository, and the winget and AUR submissions
-are all deferred until the CLI is actually published. Flatpak is intentionally
-out of scope because its sandbox and desktop-first distribution model do not fit
-a host-network command-line daemon.
+Flatpak is intentionally out of scope: its sandbox and desktop-first
+distribution model do not fit a host-network command-line daemon.
 
 Run `latch-cli` with no arguments the first time. It prompts for your VIT credentials, starts the auto-login daemon in the background, and enables per-user startup at login. On later runs, `latch-cli` prints its help menu.
 
@@ -114,7 +145,11 @@ Desktop and CLI installations can coexist. They coordinate through an authentica
 
 ### Android
 
-No pre-built APK is currently published for the Android app. To use it today, build it from source. See [Dev setup](#dev-setup) below.
+Latch is on Google Play:
+
+[**Get Latch on Google Play**](https://play.google.com/store/apps/details?id=com.vinnovateit.latch)
+
+To build it from source instead, see [Dev setup](#dev-setup) below.
 
 ## Dev setup
 
@@ -188,3 +223,7 @@ Optionally, it records network statistics for monitoring purposes.
 See the [open issues](https://github.com/vinnovateit/latch/issues) for a full list of proposed features and known issues.
 
 Made with love by [VinnovateIT](https://vinnovateit.com).
+
+## License
+
+Latch is released under the [MIT License](LICENSE).
