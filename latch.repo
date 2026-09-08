@@ -1,0 +1,7 @@
+[latch]
+name=Latch
+baseurl=https://vinnovateit.github.io/latch/rpm
+enabled=1
+gpgcheck=1
+repo_gpgcheck=1
+gpgkey=https://vinnovateit.github.io/latch/latch.gpg.asc

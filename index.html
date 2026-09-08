@@ -7,11 +7,16 @@ pre{background:#f4f4f5;padding:1rem;overflow-x:auto;border-radius:6px}
 code{font:14px/1.5 ui-monospace,monospace}
 </style>
 <h1>Latch package repositories</h1>
-<p>
-  APT and DNF repositories for
-  <a href="https://github.com/vinnovateit/latch">Latch CLI</a>.
-</p>
-<p>
-  <strong>Not published yet.</strong> This page is replaced with the signing key
-  and install instructions by the first tagged release.
-</p>
+<p>APT and DNF repositories for <a href="https://github.com/vinnovateit/latch">Latch CLI</a>.</p>
+
+<h2>Debian and Ubuntu</h2>
+<pre><code>curl -fsSL https://vinnovateit.github.io/latch/latch.gpg | sudo tee /usr/share/keyrings/latch.gpg > /dev/null
+echo "deb [signed-by=/usr/share/keyrings/latch.gpg] https://vinnovateit.github.io/latch/apt stable main" | sudo tee /etc/apt/sources.list.d/latch.list
+sudo apt update
+sudo apt install latch-cli</code></pre>
+
+<h2>Fedora and RPM-based</h2>
+<pre><code>sudo dnf config-manager --add-repo https://vinnovateit.github.io/latch/latch.repo
+sudo dnf install latch-cli</code></pre>
+
+<p>Signing key fingerprint: <code>B9E3CFDF761F832925EFEA136FB182AE5AE0A0C8</code></p>
