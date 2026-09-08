@@ -3,6 +3,8 @@ package com.vinnovateit.latch.platform
 import android.content.Context
 import com.vinnovateit.latch.core.domain.SessionRepository
 import com.vinnovateit.latch.core.engine.LatchEngine
+import com.vinnovateit.latch.core.platform.CompositeLogger
+import com.vinnovateit.latch.core.platform.LatchFileLogger
 import com.vinnovateit.latch.core.platform.Platform
 import com.vinnovateit.latch.core.platform.android.AndroidPlatformServices
 import com.vinnovateit.latch.core.platform.android.buildDatabase
@@ -36,6 +38,9 @@ object LatchAppGraph {
     private var _sessions: SessionRepository? = null
     val sessions: SessionRepository get() = checkNotNull(_sessions) { "LatchAppGraph.initialize() has not run yet" }
 
+    var fileLogger: LatchFileLogger? = null
+        private set
+
     lateinit var foregroundController: ForegroundControllerHolder
         private set
 
@@ -50,13 +55,18 @@ object LatchAppGraph {
         Platform.install(platform)
         SettingsManager.initialize(platform.settingsStore)
 
+        val log = LatchFileLogger(java.io.File(appContext.filesDir, "latch_verbose.log"))
+        fileLogger = log
+        val compositeLogger = CompositeLogger(listOf(platform.logger, log))
+
         val database = buildDatabase(appContext)
         val throughput = ThroughputMonitor(platform.counters)
-        val portalClient = PortalHistoryClient(platform.httpTransport)
+        val portalClient = PortalHistoryClient(platform.httpTransport, logger = compositeLogger)
         val sessions = SessionRepository(
             statsDao = database.statsDao(),
             throughput = throughput,
-            portalClient = portalClient
+            portalClient = portalClient,
+            logger = compositeLogger,
         )
         sessions.initialize()
         _sessions = sessions

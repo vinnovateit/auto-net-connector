@@ -7,6 +7,9 @@ import com.vinnovateit.latch.core.model.LiveConnectionStatus
 import com.vinnovateit.latch.core.model.LiveDataPoint
 import com.vinnovateit.latch.core.model.PortalSessionRecord
 import com.vinnovateit.latch.core.model.SessionSummary
+import com.vinnovateit.latch.core.platform.Logger
+import com.vinnovateit.latch.core.platform.Platform
+import com.vinnovateit.latch.core.platform.logger
 import com.vinnovateit.latch.core.portal.PortalHistoryClient
 import com.vinnovateit.latch.core.stats.ThroughputMonitor
 import kotlinx.coroutines.CoroutineScope
@@ -19,6 +22,8 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
+
+private const val TAG = "SessionRepository"
 
 // Chart renders 150 points max; keep 200 so stopSession() aggregations are
 // accurate while memory stays bounded regardless of session length.
@@ -39,6 +44,7 @@ class SessionRepository(
     private val throughput: ThroughputMonitor,
     private val portalClient: PortalHistoryClient? = null,
     private val scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.IO),
+    private val logger: Logger = Platform.logger,
 ) {
     private var sessionUpdateJob: Job? = null
 
@@ -163,6 +169,7 @@ class SessionRepository(
         if (!force && (now - lastSyncTimeMillis < 30_000L) && _portalHistory.value.isNotEmpty()) {
             return Result.success(Unit)
         }
+        logger.d(TAG, "syncPortalHistory starting...")
         _isSyncing.value = true
         return try {
             val result = client.fetchHistory(userId, password, host = host)
@@ -171,6 +178,7 @@ class SessionRepository(
                 val incoming = result.getOrThrow().filter {
                     it.loginTime > 0 && (it.uploadBytes > 0L || it.downloadBytes > 0L)
                 }
+                logger.d(TAG, "incoming records: ${incoming.size}")
                 val todayKey = com.vinnovateit.latch.core.stats.formatDate(now, "yyyy-MM-dd")
                 val existing = _portalHistory.value
 
@@ -179,6 +187,7 @@ class SessionRepository(
                     .filter { it.loginTime > 0 && com.vinnovateit.latch.core.stats.formatDate(it.loginTime, "yyyy-MM-dd") != todayKey && (it.uploadBytes > 0L || it.downloadBytes > 0L) }
                     .map { com.vinnovateit.latch.core.stats.formatDate(it.loginTime, "yyyy-MM-dd") }
                     .toSet()
+                logger.d(TAG, "locked past dates: ${validatedPastDates.size}")
 
                 val existingLockedRecords = existing.filter {
                     val date = com.vinnovateit.latch.core.stats.formatDate(it.loginTime, "yyyy-MM-dd")
@@ -191,6 +200,7 @@ class SessionRepository(
                 val merged = (existingLockedRecords + newAcceptedRecords)
                     .distinctBy { "${it.loginTime}_${it.macAddress}_${it.uploadBytes}_${it.downloadBytes}" }
                     .sortedByDescending { it.loginTime }
+                logger.d(TAG, "merged records: ${merged.size}")
 
                 val entities = merged.map {
                     PortalSessionEntity(
@@ -207,11 +217,17 @@ class SessionRepository(
                 }
                 statsDao.clearAllPortalSessions()
                 statsDao.insertAllPortalSessions(entities)
+                logger.d(TAG, "Persisted ${entities.size} portal session records to database")
                 _portalHistory.value = merged
                 Result.success(Unit)
             } else {
-                Result.failure(result.exceptionOrNull() ?: Exception("Unknown portal sync error"))
+                val ex = result.exceptionOrNull() ?: Exception("Unknown portal sync error")
+                logger.e(TAG, "syncPortalHistory failed: ${ex.message}", ex)
+                Result.failure(ex)
             }
+        } catch (e: Throwable) {
+            logger.e(TAG, "syncPortalHistory error: ${e.message}", e)
+            Result.failure(e)
         } finally {
             _isSyncing.value = false
         }

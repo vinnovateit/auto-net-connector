@@ -2,15 +2,20 @@ package com.vinnovateit.latch.core.portal
 
 import com.vinnovateit.latch.core.model.PortalSessionRecord
 import com.vinnovateit.latch.core.platform.HttpTransport
+import com.vinnovateit.latch.core.platform.Logger
 import com.vinnovateit.latch.core.platform.NetworkHandle
+import com.vinnovateit.latch.core.platform.Platform
+import com.vinnovateit.latch.core.platform.logger
 import java.net.URL
 import java.net.URLEncoder
 import java.util.regex.Pattern
 
 class PortalHistoryClient(
-    private val transport: HttpTransport
+    private val transport: HttpTransport,
+    private val logger: Logger = Platform.logger,
 ) {
     companion object {
+        private const val TAG = "PortalHistoryClient"
         const val DEFAULT_PORTAL_HOST = "136.233.9.110"
         private const val CONNECT_TIMEOUT_MS = 6000
         private const val READ_TIMEOUT_MS = 8000
@@ -60,6 +65,7 @@ class PortalHistoryClient(
     ): Result<List<PortalSessionRecord>> {
         return try {
             val mainUrl = URL("http://$host/registration/Main.jsp?wispId=1")
+            logger.d(TAG, "Requesting portal history URL: $mainUrl")
             val conn1 = transport.open(mainUrl, handle)
             conn1.connectTimeout = CONNECT_TIMEOUT_MS
             conn1.readTimeout = READ_TIMEOUT_MS
@@ -67,6 +73,7 @@ class PortalHistoryClient(
             conn1.setRequestProperty("User-Agent", "Mozilla/5.0 (Android)")
 
             val mainHtml = conn1.inputStream.bufferedReader().use { it.readText() }
+            logger.d(TAG, "Response code: ${conn1.responseCode}")
             val setCookieHeader = conn1.getHeaderField("Set-Cookie")
             var cookie = setCookieHeader?.substringBefore(";") ?: ""
 
@@ -117,6 +124,7 @@ class PortalHistoryClient(
             }
 
             val filterUrl = URL("http://$host/registration/customerSessionHistory.do")
+            logger.d(TAG, "Requesting portal history URL: $filterUrl")
             val conn3 = transport.open(filterUrl, handle)
             conn3.requestMethod = "POST"
             conn3.doOutput = true
@@ -131,11 +139,14 @@ class PortalHistoryClient(
 
             conn3.outputStream.bufferedWriter().use { it.write(filterPostData) }
             var historyHtml = conn3.inputStream.bufferedReader().use { it.readText() }
+            logger.d(TAG, "Response code: ${conn3.responseCode}")
             var records = PortalHistoryParser.parse(historyHtml)
+            logger.d(TAG, "Parsed ${records.size} records")
 
             // Fallback to default GET if filtered request returns no records
             if (records.isEmpty()) {
                 val fallbackUrl = URL("http://$host/registration/main.do?content_key=%2FCustomerSessionHistory.jsp")
+                logger.d(TAG, "Requesting portal history URL: $fallbackUrl")
                 val connFallback = transport.open(fallbackUrl, handle)
                 connFallback.requestMethod = "GET"
                 connFallback.instanceFollowRedirects = true
@@ -146,11 +157,14 @@ class PortalHistoryClient(
                     connFallback.setRequestProperty("Cookie", cookie)
                 }
                 historyHtml = connFallback.inputStream.bufferedReader().use { it.readText() }
+                logger.d(TAG, "Response code: ${connFallback.responseCode}")
                 records = PortalHistoryParser.parse(historyHtml)
+                logger.d(TAG, "Parsed ${records.size} records")
             }
 
             Result.success(records)
         } catch (e: Exception) {
+            logger.e(TAG, "Error fetching portal history: ${e.message}", e)
             Result.failure(e)
         }
     }
