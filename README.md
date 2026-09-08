@@ -65,30 +65,14 @@ Package-manager installs become available as each channel is published; until
 then, download the package for your system from the
 [latest release](https://github.com/vinnovateit/latch/releases/latest).
 
-**Arch Linux**, from the AUR:
-
-```sh
-yay -S latch-cli-bin        # or: paru -S latch-cli-bin
-```
-
-`sudo pacman -S latch-cli` will not find it. The AUR is not a pacman repository,
-so it needs an AUR helper, or a manual build:
-
-```sh
-git clone https://aur.archlinux.org/latch-cli-bin.git
-cd latch-cli-bin && makepkg -si
-```
-
-**Windows**, with winget or Chocolatey:
+**Windows**, with winget:
 
 ```powershell
 winget install VinnovateIT.LatchCLI
-choco install latch-cli
 ```
 
-**Debian and Ubuntu.** Unlike the above, apt needs the repository added once
-before the install works, because Latch is not in the Debian or Ubuntu
-archives:
+**Debian and Ubuntu.** Unlike winget, apt needs the repository added once before
+the install works, because Latch is not in the Debian or Ubuntu archives:
 
 ```sh
 curl -fsSL https://vinnovateit.github.io/latch/latch.gpg \
