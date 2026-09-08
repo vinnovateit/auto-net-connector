@@ -29,3 +29,10 @@ The Gradle project still configures the Android module when building desktop tar
 ## Pull requests
 
 Include the CI-equivalent Gradle result, identify every affected platform, and attach screenshots for visible UI changes. Document any portal-flow assumption that may require campus-network verification.
+
+## Releases
+
+`CHANGELOG.md` holds the release notes. The release workflow publishes the
+`## <version>` section matching `latchVersion` as the GitHub release body and
+fails before building if that section is missing, so bump the version and add
+its changelog entry in the same commit.

@@ -1,0 +1,63 @@
+# Changelog
+
+Release notes for GitHub Releases are maintained here. The release workflow reads
+the `## <version>` section matching `latchVersion` and publishes it verbatim as
+that release's body, so a release is only as good as its entry in this file. Add
+the section in the same commit that bumps the version; the release job fails
+before it builds anything if the section is missing.
+
+## 1.3.9
+
+### What's new
+
+- Latch now has a command line app, `latch-cli`, for Linux and Windows. Connect, disconnect, check status, or leave it running in the background.
+- Available as a `.deb`, an `.rpm`, a portable tarball, and a Windows ZIP, with AUR and winget metadata included in the assets.
+- Desktop and CLI share a single connection, so keeping both open no longer means two of them competing over the portal.
+- Credentials screen: fields focus themselves, and Enter moves to the next one.
+
+### What's fixed
+
+- Connection status no longer relies on the scraped Wi-Fi name, which could show you as disconnected while you were online
+- Session stats now stop and finalize on every disconnect and failure path
+- Linux: home top bar menu froze on first setup after login
+- Desktop settings could be read while they were still being written
+- Updated bundled dependencies for six security advisories
+
+Download the compatible version for your machine from the assets below.
+
+## 1.3.8
+
+### What's fixed
+
+- App falsely claimed "update available" on every check, once a day
+- Linux one-line installer should now work fine!
+- App icon missing from the Linux application menu
+
+Download the compatible version for your machine from the assets below.
+
+## 1.3.7
+
+btw, available for Linux now.
+
+What's New
+
+- Interface updates for a more immersive experience
+- Fixed: Wi-Fi doesn't connect sometimes
+- New: Speed is now max 20Mbps ;)
+
+Download the compatible version for your machine from the assets below.
+
+## 1.3.6
+
+Auto-login for VIT Hostel Wi-Fi, now on Windows
+
+What's New
+
+Desktop interface built with Compose Multiplatform, matching the Android app
+Home: Live connection status, one-click connect/disconnect, and start at login option
+Statistics: Real-time throughput graphs, session history with peak upload/download rates and data usage visualization.
+Settings: Manage credentials, customize accent colors, switch themes including Monochrome and AMOLED, and choose your update channel
+System Tray: Live network speed in the tooltip, quick connect/disconnect actions, and startup integration
+Compatible with Windows 10 and Windows 11.
+
+Download the MSI installer below.
