@@ -5,8 +5,13 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.vinnovateit.latch.common.util.formatDate
 import com.vinnovateit.latch.core.model.DataUsage
+import com.vinnovateit.latch.core.model.PortalSessionRecord
 import com.vinnovateit.latch.core.model.SessionSummary
+import com.vinnovateit.latch.features.stats.components.DailyUsageTrend
 import com.vinnovateit.latch.features.stats.components.HistoryChartItem
+import com.vinnovateit.latch.features.stats.components.StatsOverviewMetrics
+import com.vinnovateit.latch.features.stats.components.aggregateDailyUsage
+import com.vinnovateit.latch.features.stats.components.computeMetrics
 import com.vinnovateit.latch.platform.LatchAppGraph
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.SharingStarted
@@ -15,6 +20,7 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch
 import java.util.Calendar
 
 class StatsViewModel(application: Application) : AndroidViewModel(application) {
@@ -23,6 +29,34 @@ class StatsViewModel(application: Application) : AndroidViewModel(application) {
   val liveStatus = LatchAppGraph.sessions.liveStatus
   val lastSession = LatchAppGraph.sessions.lastSession
   private val sessionHistory = LatchAppGraph.sessions.sessionSummaries
+
+  val portalHistory: StateFlow<List<PortalSessionRecord>> = LatchAppGraph.sessions.portalHistory
+  val isSyncing: StateFlow<Boolean> = LatchAppGraph.sessions.isSyncing
+
+  val overviewMetrics: StateFlow<StatsOverviewMetrics> =
+    portalHistory.map { sessions ->
+      computeMetrics(sessions)
+    }.flowOn(Dispatchers.Default)
+      .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), computeMetrics(emptyList()))
+
+  val usageTrends: StateFlow<List<DailyUsageTrend>> =
+    portalHistory.map { sessions ->
+      aggregateDailyUsage(sessions)
+    }.flowOn(Dispatchers.Default)
+      .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+  fun refreshHistory() {
+    val platform = LatchAppGraph.platform
+    if (platform.credentials.exists()) {
+      val userId = platform.credentials.userId()
+      val password = platform.credentials.password()
+      if (!userId.isNullOrBlank() && !password.isNullOrBlank()) {
+        viewModelScope.launch(Dispatchers.IO) {
+          LatchAppGraph.sessions.syncPortalHistory(userId, password)
+        }
+      }
+    }
+  }
 
   // This flow combines live and last sessions to decide what to show in the UI.
   val sessionToShow: StateFlow<SessionSummary?> =

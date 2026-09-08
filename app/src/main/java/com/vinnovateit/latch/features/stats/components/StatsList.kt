@@ -13,18 +13,18 @@ import androidx.compose.foundation.layout.calculateStartPadding
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Icon
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.KeyboardArrowDown
-import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.size
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -43,6 +43,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.vinnovateit.latch.R
 import com.vinnovateit.latch.core.model.LiveConnectionStatus
+import com.vinnovateit.latch.core.model.PortalSessionRecord
 import com.vinnovateit.latch.core.model.SessionSummary
 import com.vinnovateit.latch.features.stats.StatsViewModel
 
@@ -53,8 +54,9 @@ fun StatsList(
   isLive: Boolean,
   showSessionCard: Boolean = true,
   sessionToShow: SessionSummary?,
-  historyToShow: List<SessionSummary>,
-  liveStatus: LiveConnectionStatus?,
+  portalHistory: List<PortalSessionRecord> = emptyList(),
+  historyToShow: List<SessionSummary> = emptyList(),
+  liveStatus: LiveConnectionStatus? = null,
   speedUnits: String,
   showAllSessions: Boolean,
   onToggleShowAll: () -> Unit,
@@ -62,7 +64,9 @@ fun StatsList(
   contentPadding: PaddingValues = PaddingValues(0.dp),
   statsViewModel: StatsViewModel
 ) {
-  val itemsToDisplay = if (showAllSessions) historyToShow else historyToShow.take(5)
+  val overviewMetrics by statsViewModel.overviewMetrics.collectAsStateWithLifecycle()
+  val usageTrends by statsViewModel.usageTrends.collectAsStateWithLifecycle()
+  val itemsToDisplay = if (showAllSessions) portalHistory else portalHistory.take(5)
   val layoutDirection = LocalLayoutDirection.current
 
   LazyColumn(
@@ -76,34 +80,32 @@ fun StatsList(
     verticalArrangement = Arrangement.spacedBy(2.dp),
     horizontalAlignment = Alignment.CenterHorizontally
   ) {
-    if(addSpacer){
+    if (addSpacer) {
       item {
         Spacer(modifier = Modifier.height(20.dp))
       }
     }
-    if (isLive && sessionToShow != null) {
-      if (showSessionCard) {
-        item {
-          Box(Modifier.height(250.dp)) {
-            SessionCard(
-              session = sessionToShow,
-              speedUnit = speedUnits
-            )
-          }
-          Spacer(modifier = Modifier.height(15.dp))
-        }
-      }
 
+    if (isLive && sessionToShow != null && showSessionCard) {
       item {
-        val chartItems by statsViewModel.chartItems.collectAsStateWithLifecycle()
-        HistoryBarChart(history = chartItems)
+        Box(Modifier.height(250.dp)) {
+          SessionCard(
+            session = sessionToShow,
+            speedUnit = speedUnits
+          )
+        }
         Spacer(modifier = Modifier.height(15.dp))
       }
-    } else {
+    }
 
+    item {
+      StatsMetricsSummary(metrics = overviewMetrics)
+      Spacer(modifier = Modifier.height(15.dp))
+    }
+
+    if (usageTrends.isNotEmpty()) {
       item {
-        val chartItems by statsViewModel.chartItems.collectAsStateWithLifecycle()
-        HistoryBarChart(history = chartItems)
+        PortalUsageTrends(trends = usageTrends)
         Spacer(modifier = Modifier.height(15.dp))
       }
     }
@@ -123,7 +125,7 @@ fun StatsList(
           )
         }
       }
-      itemsIndexed(itemsToDisplay, key = { _, session -> session.startTimestamp }) { index, session ->
+      itemsIndexed(itemsToDisplay, key = { index, session -> "${session.loginTime}_${session.macAddress}_$index" }) { index, session ->
         val cornerRadius = 24.dp
         val listSize = itemsToDisplay.size
         val shape = when {
@@ -153,7 +155,8 @@ fun StatsList(
           StatsItemCard(session = session, shape = shape)
         }
       }
-      if (historyToShow.size > 5 && !showAllSessions) {
+
+      if (portalHistory.size > 5 && !showAllSessions) {
         item {
           Button(
             onClick = onToggleShowAll,

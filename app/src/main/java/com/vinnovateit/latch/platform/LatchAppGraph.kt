@@ -6,8 +6,12 @@ import com.vinnovateit.latch.core.engine.LatchEngine
 import com.vinnovateit.latch.core.platform.Platform
 import com.vinnovateit.latch.core.platform.android.AndroidPlatformServices
 import com.vinnovateit.latch.core.platform.android.buildDatabase
+import com.vinnovateit.latch.core.portal.PortalHistoryClient
 import com.vinnovateit.latch.core.settings.SettingsManager
 import com.vinnovateit.latch.core.stats.ThroughputMonitor
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 
 /**
  * Composition root, Android equivalent of desktop's LatchApp.create().
@@ -48,10 +52,27 @@ object LatchAppGraph {
 
         val database = buildDatabase(appContext)
         val throughput = ThroughputMonitor(platform.counters)
-        val sessions = SessionRepository(database.statsDao(), throughput)
+        val portalClient = PortalHistoryClient(platform.httpTransport)
+        val sessions = SessionRepository(
+            statsDao = database.statsDao(),
+            throughput = throughput,
+            portalClient = portalClient
+        )
         sessions.initialize()
         _sessions = sessions
 
         _engine = LatchEngine(platform, sessions)
+
+        if (platform.credentials.exists()) {
+            val userId = platform.credentials.userId()
+            val password = platform.credentials.password()
+            if (!userId.isNullOrBlank() && !password.isNullOrBlank()) {
+                CoroutineScope(Dispatchers.IO).launch {
+                    try {
+                        sessions.syncPortalHistory(userId, password)
+                    } catch (_: Exception) { }
+                }
+            }
+        }
     }
 }

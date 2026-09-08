@@ -36,6 +36,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.vinnovateit.latch.common.util.generateHtmlReport
+import com.vinnovateit.latch.common.util.generatePortalHtmlReport
 import com.vinnovateit.latch.features.about.MeetTheTeamPage
 import com.vinnovateit.latch.features.home.HomeScreen
 import com.vinnovateit.latch.features.onboarding.CredentialsScreen
@@ -44,6 +45,7 @@ import com.vinnovateit.latch.features.settings.SettingsScreen
 import com.vinnovateit.latch.features.settings.manager.SettingsManager
 import com.vinnovateit.latch.features.stats.StatsScreen
 import com.vinnovateit.latch.features.stats.StatsViewModel
+import com.vinnovateit.latch.platform.LatchAppGraph
 import com.vinnovateit.latch.features.wifi.manager.WiFiStatusViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -193,11 +195,13 @@ fun LatchNavGraph(
                 uri?.let {
                     coroutineScope.launch(Dispatchers.IO) {
                         try {
+                            val userId = LatchAppGraph.platform.credentials.userId() ?: ""
                             context.contentResolver.openOutputStream(it)?.use { outputStream ->
-                                generateHtmlReport(
-                                    sessions = statsViewModel.historyToShow.value,
+                                generatePortalHtmlReport(
+                                    sessions = statsViewModel.portalHistory.value,
                                     outputStream = outputStream,
-                                    appVersion = com.vinnovateit.latch.BuildConfig.VERSION_NAME
+                                    appVersion = com.vinnovateit.latch.BuildConfig.VERSION_NAME,
+                                    userId = userId
                                 )
                             }
                         } catch (_: Exception) { }
