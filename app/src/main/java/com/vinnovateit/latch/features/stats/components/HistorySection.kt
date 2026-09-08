@@ -352,7 +352,7 @@ private fun HistoryBarChartContent(chartItems: List<HistoryChartItem>) {
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
         BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
             val barWidth = 14.dp
-            val rowHeight = 172.dp
+            val rowHeight = 160.dp
             val barAreaHeight = 160.dp
             val centerPadding = ((maxWidth - barWidth) / 2).coerceAtLeast(16.dp)
 
@@ -379,6 +379,7 @@ private fun HistoryBarChartContent(chartItems: List<HistoryChartItem>) {
                                 usage = item.usage,
                                 maxUsage = visibleMaxUsage,
                                 isSelected = (idx == selectedIndex),
+                                hasSelection = (selectedIndex != -1),
                                 isAmoled = isAmoled,
                                 barWidth = barWidth,
                                 barAreaHeight = barAreaHeight,
@@ -450,6 +451,7 @@ private fun Bar(
     usage: DataUsage,
     maxUsage: Long,
     isSelected: Boolean,
+    hasSelection: Boolean = false,
     isAmoled: Boolean = false,
     barWidth: Dp,
     barAreaHeight: Dp,
@@ -500,10 +502,7 @@ private fun Bar(
     Column(
         modifier = modifier
             .graphicsLayer {
-                val s = if (isSelected) 1.08f else 1f
-                scaleX = s
-                scaleY = s
-                transformOrigin = androidx.compose.ui.graphics.TransformOrigin(0.5f, 1f)
+                alpha = if (isSelected) 1f else if (hasSelection) 0.45f else 1f
             }
             .clickable(
                 interactionSource = remember { MutableInteractionSource() },
@@ -588,17 +587,6 @@ private fun Bar(
                 }
             }
         }
-
-        Spacer(Modifier.height(4.dp))
-
-        Box(
-            modifier = Modifier
-                .size(4.dp)
-                .background(
-                    color = if (isSelected) MaterialTheme.colorScheme.primary else Color.Transparent,
-                    shape = CircleShape
-                )
-        )
     }
 }
 
