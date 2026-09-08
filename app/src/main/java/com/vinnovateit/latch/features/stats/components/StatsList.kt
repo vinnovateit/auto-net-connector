@@ -169,59 +169,5 @@ fun StatsList(
         }
       }
     }
-
-    item {
-      Spacer(modifier = Modifier.height(14.dp))
-      Surface(
-        onClick = onNavigateToHistory,
-        modifier = Modifier
-          .fillMaxWidth()
-          .padding(horizontal = 16.dp),
-        shape = RoundedCornerShape(16.dp),
-        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f)
-      ) {
-        Row(
-          modifier = Modifier
-            .fillMaxWidth()
-            .padding(16.dp),
-          verticalAlignment = Alignment.CenterVertically
-        ) {
-          Box(
-            modifier = Modifier
-              .size(42.dp)
-              .clip(CircleShape)
-              .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)),
-            contentAlignment = Alignment.Center
-          ) {
-            Icon(
-              imageVector = Icons.Rounded.DateRange,
-              contentDescription = null,
-              tint = MaterialTheme.colorScheme.primary,
-              modifier = Modifier.size(22.dp)
-            )
-          }
-          Spacer(modifier = Modifier.width(14.dp))
-          Column(modifier = Modifier.weight(1f)) {
-            Text(
-              text = "Full Session History",
-              style = MaterialTheme.typography.titleMedium,
-              fontWeight = FontWeight.Bold,
-              color = MaterialTheme.colorScheme.onSurface
-            )
-            Text(
-              text = "Browse day-wise data usage and past session logs",
-              style = MaterialTheme.typography.bodySmall,
-              color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-          }
-          Icon(
-            imageVector = Icons.AutoMirrored.Rounded.ArrowForwardIos,
-            contentDescription = "Open session history",
-            modifier = Modifier.size(16.dp),
-            tint = MaterialTheme.colorScheme.onSurfaceVariant
-          )
-        }
-      }
-    }
   }
 }
