@@ -45,6 +45,7 @@ fun LatchTheme(
     val themeSetting by SettingsManager.theme.collectAsStateWithLifecycle()
     val useMonochrome by SettingsManager.useMonochrome.collectAsStateWithLifecycle()
     val accentColor by SettingsManager.accentColor.collectAsStateWithLifecycle()
+    val paletteStyle by SettingsManager.paletteStyle.collectAsStateWithLifecycle()
     val usePureBlack by SettingsManager.usePureBlack.collectAsStateWithLifecycle()
     val systemIsDark = isSystemInDarkTheme()
 
@@ -55,6 +56,7 @@ fun LatchTheme(
     }
 
     val seedColor = AccentSeeds.forName(accentColor)
+    val currentStyle = runCatching { PaletteStyle.valueOf(paletteStyle) }.getOrDefault(PaletteStyle.TonalSpot)
 
     val baseColorScheme = when {
         // Monochrome takes highest priority if enabled.
@@ -68,6 +70,7 @@ fun LatchTheme(
         else -> dynamicColorScheme(
             seedColor = seedColor,
             isDark = darkTheme,
+            style = currentStyle,
         )
     }
 
