@@ -239,10 +239,6 @@ fun StatsScreen(
     val currentTopBarHeightDp = with(density) { topBarHeightPx.toDp() }
     val collapseFraction = 1f - ((topBarHeightPx - minTopBarHeightPx) / (maxTopBarHeightPx - minTopBarHeightPx)).coerceIn(0f, 1f)
 
-    LaunchedEffect(Unit) {
-      statsViewModel.refreshHistory()
-    }
-
     if (!isLive && portalHistory.isEmpty() && historyToShow.isEmpty()) {
       Scaffold(
         topBar = {
