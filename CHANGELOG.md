@@ -10,9 +10,6 @@ before it builds anything if the section is missing.
 
 ### What's new
 
-- Latch now has a command line app, `latch-cli`, for Linux and Windows. Connect, disconnect, check status, or leave it running in the background.
-- Available as a `.deb`, an `.rpm`, a portable tarball, and a Windows ZIP, with AUR and winget metadata included in the assets.
-- Desktop and CLI share a single connection, so keeping both open no longer means two of them competing over the portal.
 - Credentials screen: fields focus themselves, and Enter moves to the next one.
 
 ### What's fixed
@@ -24,6 +21,8 @@ before it builds anything if the section is missing.
 - Updated bundled dependencies for six security advisories
 
 Download the compatible version for your machine from the assets below.
+
+The command line app is still unreleased and is not part of these downloads.
 
 ## 1.3.8
 
