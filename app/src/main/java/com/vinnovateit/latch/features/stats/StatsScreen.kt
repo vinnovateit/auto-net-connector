@@ -11,6 +11,7 @@ import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.BarChart
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.rounded.History
+import androidx.compose.material.icons.rounded.OpenInBrowser
 import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -22,6 +23,7 @@ import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontWeight
@@ -44,6 +46,7 @@ private fun StatsTopBar(
   onSaveReport: () -> Unit,
   onResyncHistory: () -> Unit = {},
   onNavigateToHistory: () -> Unit = {},
+  onOpenManageAccount: () -> Unit = {},
 ) {
   val surfaceColor = MaterialTheme.colorScheme.surface
   val haptic = LocalHapticFeedback.current
@@ -155,6 +158,21 @@ private fun StatsTopBar(
               )
             }
           )
+          DropdownMenuItem(
+            text = { Text("Manage Account") },
+            onClick = {
+              menuExpanded = false
+              haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+              onOpenManageAccount()
+            },
+            leadingIcon = {
+              Icon(
+                imageVector = Icons.Rounded.OpenInBrowser,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary
+              )
+            }
+          )
         }
       }
     }
@@ -178,6 +196,12 @@ fun StatsScreen(
   val isLive = remember(liveStatus) { liveStatus != null }
   val speedUnits by SettingsManager.speedUnits.collectAsStateWithLifecycle()
   var showAllSessions by remember { mutableStateOf(false) }
+
+  val context = LocalContext.current
+  val scope = rememberCoroutineScope()
+  val onOpenManageAccount = remember(context, scope) {
+    { PortalBrowserLauncher.launchManageAccount(context, scope) }
+  }
 
   val density = LocalDensity.current
 
@@ -234,6 +258,7 @@ fun StatsScreen(
             onSaveReport = onSaveReport,
             onResyncHistory = { statsViewModel.refreshHistory() },
             onNavigateToHistory = onNavigateToHistory,
+            onOpenManageAccount = onOpenManageAccount,
           )
         }
       ) { innerPadding ->
@@ -258,6 +283,7 @@ fun StatsScreen(
               onSaveReport = onSaveReport,
               onResyncHistory = { statsViewModel.refreshHistory() },
               onNavigateToHistory = onNavigateToHistory,
+              onOpenManageAccount = onOpenManageAccount,
             )
             Box(
               modifier = Modifier.padding(horizontal = 24.dp, vertical = 16.dp).fillMaxSize(),
@@ -314,6 +340,7 @@ fun StatsScreen(
             onSaveReport = onSaveReport,
             onResyncHistory = { statsViewModel.refreshHistory() },
             onNavigateToHistory = onNavigateToHistory,
+            onOpenManageAccount = onOpenManageAccount,
           )
         }
       }
