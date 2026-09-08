@@ -125,14 +125,15 @@ class StatsViewModel(application: Application) : AndroidViewModel(application) {
     refreshHistory()
   }
 
-  fun refreshHistory() {
+  fun refreshHistory(force: Boolean = false) {
     val platform = LatchAppGraph.platform
+    if (!platform.wifi.isConnectedToWifi()) return
     if (platform.credentials.exists()) {
       val userId = platform.credentials.userId()
       val password = platform.credentials.password()
       if (!userId.isNullOrBlank() && !password.isNullOrBlank()) {
         viewModelScope.launch(Dispatchers.IO) {
-          LatchAppGraph.sessions.syncPortalHistory(userId, password)
+          LatchAppGraph.sessions.syncPortalHistory(userId, password, force = force)
         }
       }
     }

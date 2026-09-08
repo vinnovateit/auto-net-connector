@@ -169,18 +169,23 @@ class SessionRepository(
         if (!force && (now - lastSyncTimeMillis < 30_000L) && _portalHistory.value.isNotEmpty()) {
             return Result.success(Unit)
         }
+        lastSyncTimeMillis = now
         logger.d(TAG, "syncPortalHistory starting...")
         _isSyncing.value = true
         return try {
             val result = client.fetchHistory(userId, password, host = host)
             if (result.isSuccess) {
-                lastSyncTimeMillis = System.currentTimeMillis()
                 val incoming = result.getOrThrow().filter {
                     it.loginTime > 0 && (it.uploadBytes > 0L || it.downloadBytes > 0L)
                 }
                 logger.d(TAG, "incoming records: ${incoming.size}")
                 val todayKey = com.vinnovateit.latch.core.stats.formatDate(now, "yyyy-MM-dd")
                 val existing = _portalHistory.value
+
+                if (incoming.isEmpty() && existing.isNotEmpty()) {
+                    logger.d(TAG, "incoming empty but existing data present; preserving existing records")
+                    return Result.success(Unit)
+                }
 
                 // Lock already-validated past dates: do not overwrite them
                 val validatedPastDates = existing
