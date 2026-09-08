@@ -7,10 +7,14 @@ import com.vinnovateit.latch.core.engine.LatchCommand
 import com.vinnovateit.latch.core.engine.LatchEngine
 import com.vinnovateit.latch.core.platform.Platform
 import com.vinnovateit.latch.core.platform.UserNotifier
+import com.vinnovateit.latch.core.portal.PortalHistoryClient
 import com.vinnovateit.latch.core.settings.SettingsManager
 import com.vinnovateit.latch.core.stats.ThroughputMonitor
 import com.vinnovateit.latch.desktop.platform.DesktopPlatformServices
 import java.util.concurrent.atomic.AtomicBoolean
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 
 private const val ENGINE_SHUTDOWN_TIMEOUT_MS = 5_000L
 
@@ -48,8 +52,16 @@ class DesktopEngineRuntime private constructor(
             Platform.install(platform)
             SettingsManager.initialize(platform.settingsStore)
             val database = buildDatabase()
-            val sessions = SessionRepository(database.statsDao(), ThroughputMonitor(platform.counters))
+            val portalClient = PortalHistoryClient(platform.httpTransport)
+            val sessions = SessionRepository(database.statsDao(), ThroughputMonitor(platform.counters), portalClient = portalClient)
             sessions.initialize()
+            val userId = platform.credentials.userId()
+            val password = platform.credentials.password()
+            if (!userId.isNullOrBlank() && !password.isNullOrBlank()) {
+                CoroutineScope(Dispatchers.IO).launch {
+                    sessions.syncPortalHistory(userId, password)
+                }
+            }
             return DesktopEngineRuntime(
                 platform = platform,
                 database = database,

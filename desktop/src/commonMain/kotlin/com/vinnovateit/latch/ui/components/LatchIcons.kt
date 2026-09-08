@@ -180,6 +180,8 @@ internal object LatchIcons {
 
     val Refresh: ImageVector get() = Autorenew
 
+    val WifiOutlined: ImageVector get() = Wifi
+
     val ArrowOutward: ImageVector by lazy {
         icon("ArrowOutward", "M6 6v2h8.59L5 17.59 6.41 19 16 9.41V18h2V6z")
     }

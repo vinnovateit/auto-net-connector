@@ -250,6 +250,7 @@ fun LatchRoot(
 
                                             LatchDestination.Stats -> StatsScreen(
                                                 sessions = sessions,
+                                                platform = platform,
                                                 onBack = back,
                                                 onClearHistory = { sessions.clearHistory() },
                                             )
