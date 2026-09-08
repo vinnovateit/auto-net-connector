@@ -143,15 +143,10 @@ fun HistoryBarChart(
         modifier = Modifier.fillMaxWidth(),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        var showPaletteSheet by remember { mutableStateOf(false) }
-        val chartPalette by SettingsManager.chartPalette.collectAsStateWithLifecycle()
-        val (currentDlColor, currentUlColor) = StatsColorPalettes.resolveColors(chartPalette)
-
         Row(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 16.dp, vertical = 8.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
@@ -159,44 +154,6 @@ fun HistoryBarChart(
                 style = MaterialTheme.typography.headlineSmall,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.onBackground
-            )
-
-            Surface(
-                onClick = { showPaletteSheet = true },
-                shape = CircleShape,
-                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f),
-                modifier = Modifier.size(36.dp)
-            ) {
-                Box(contentAlignment = Alignment.Center) {
-                    Row(
-                        horizontalArrangement = Arrangement.spacedBy(3.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .size(11.dp)
-                                .clip(CircleShape)
-                                .background(currentDlColor)
-                        )
-                        Box(
-                            modifier = Modifier
-                                .size(11.dp)
-                                .clip(CircleShape)
-                                .background(currentUlColor)
-                        )
-                    }
-                }
-            }
-        }
-
-        if (showPaletteSheet) {
-            ChartPaletteBottomSheet(
-                selectedPalette = chartPalette,
-                onSelectPalette = {
-                    SettingsManager.setChartPalette(it)
-                    showPaletteSheet = false
-                },
-                onDismiss = { showPaletteSheet = false }
             )
         }
 

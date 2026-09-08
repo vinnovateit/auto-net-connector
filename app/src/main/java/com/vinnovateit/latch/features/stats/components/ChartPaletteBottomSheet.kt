@@ -60,14 +60,14 @@ fun ChartPaletteBottomSheet(
         ) {
             Text(
                 text = "Chart Bar Colors",
-                style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
-                modifier = Modifier.padding(horizontal = 24.dp)
+                style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold),
+                modifier = Modifier.padding(horizontal = 16.dp)
             )
             Text(
                 text = "Customize download and upload bar colors",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(horizontal = 24.dp, vertical = 4.dp)
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
             )
 
             Spacer(Modifier.height(16.dp))
