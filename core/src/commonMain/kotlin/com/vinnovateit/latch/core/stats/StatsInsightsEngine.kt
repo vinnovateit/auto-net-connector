@@ -18,6 +18,14 @@ data class StatsInsights(
     val mostActiveSessionBytes: Long,
     val mostActiveSessionFormatted: Pair<String, String>,
     val activeDaysCount: Int,
+    val currentStreakDays: Int = 0,
+    val longestStreakDays: Int = 0,
+    val nightOwlBytes: Long = 0L,
+    val nightOwlPercentage: Int = 0,
+    val nightOwlFormatted: Pair<String, String> = Pair("0", "B"),
+    val downloadUploadRatioFormatted: String = "N/A",
+    val primaryBadge: String = "Network Rookie",
+    val badgeDescription: String = "Getting started on campus Wi-Fi"
 )
 
 fun formatInsightDate(timestamp: Long, nowMillis: Long = System.currentTimeMillis()): String {
@@ -28,6 +36,17 @@ fun formatInsightDate(timestamp: Long, nowMillis: Long = System.currentTimeMilli
 
     val pattern = if (recordYear == currentYear) "dd MMM" else "dd MMM yyyy"
     return SimpleDateFormat(pattern, Locale.US).format(cal.time)
+}
+
+private fun getCalendarDayEpoch(timestamp: Long): Long {
+    val cal = Calendar.getInstance().apply {
+        timeInMillis = timestamp
+        set(Calendar.HOUR_OF_DAY, 0)
+        set(Calendar.MINUTE, 0)
+        set(Calendar.SECOND, 0)
+        set(Calendar.MILLISECOND, 0)
+    }
+    return cal.timeInMillis / 86400000L
 }
 
 fun computeStatsInsights(
@@ -50,18 +69,30 @@ fun computeStatsInsights(
             mostActiveSessionBytes = 0L,
             mostActiveSessionFormatted = zeroPair,
             activeDaysCount = 0,
+            currentStreakDays = 0,
+            longestStreakDays = 0,
+            nightOwlBytes = 0L,
+            nightOwlPercentage = 0,
+            nightOwlFormatted = zeroPair,
+            downloadUploadRatioFormatted = "N/A",
+            primaryBadge = "Network Rookie",
+            badgeDescription = "Connect to Wi-Fi to start earning stats"
         )
     }
 
     // 1. Peak usage 3-hour window
     val windowBytes = LongArray(8)
     val windowCal = Calendar.getInstance()
+    var nightOwlBytes = 0L
     for (s in nonZero) {
         windowCal.timeInMillis = s.loginTime
         val hour = windowCal.get(Calendar.HOUR_OF_DAY)
         val windowIdx = (hour / 3).coerceIn(0, 7)
         val bytes = s.totalBytes.coerceAtLeast(s.downloadBytes + s.uploadBytes)
         windowBytes[windowIdx] += bytes
+        if (hour in 0..5) {
+            nightOwlBytes += bytes
+        }
     }
     var bestWindowIdx = 0
     var maxWindowBytes = -1L
@@ -108,6 +139,75 @@ fun computeStatsInsights(
         ?: nonZero.first()
     val topSessionBytes = topSession.totalBytes.coerceAtLeast(topSession.downloadBytes + topSession.uploadBytes)
 
+    // 5. Streaks (Active Days)
+    val activeDaysEpoch = nonZero.map { getCalendarDayEpoch(it.loginTime) }.distinct().sorted()
+    var longestStreak = 0
+    var currentRun = 0
+    var prevDay: Long? = null
+    for (day in activeDaysEpoch) {
+        if (prevDay == null || day == prevDay + 1) {
+            currentRun++
+        } else if (day != prevDay) {
+            currentRun = 1
+        }
+        if (currentRun > longestStreak) {
+            longestStreak = currentRun
+        }
+        prevDay = day
+    }
+
+    val todayEpoch = getCalendarDayEpoch(nowMillis)
+    val lastActiveDay = activeDaysEpoch.lastOrNull()
+    var currentStreak = 0
+    if (lastActiveDay != null && (lastActiveDay == todayEpoch || lastActiveDay == todayEpoch - 1)) {
+        var expected = lastActiveDay
+        for (i in activeDaysEpoch.indices.reversed()) {
+            val d = activeDaysEpoch[i]
+            if (d == expected) {
+                currentStreak++
+                expected--
+            } else if (d < expected) {
+                break
+            }
+        }
+    }
+
+    // 6. Night Owl Traffic
+    val nightOwlPercentage = if (totalBytesAll > 0) ((nightOwlBytes * 100L) / totalBytesAll).toInt() else 0
+    val nightOwlFormatted = formatBytes(nightOwlBytes)
+
+    // 7. Download / Upload Ratio
+    val totalDownload = nonZero.sumOf { it.downloadBytes }
+    val totalUpload = nonZero.sumOf { it.uploadBytes }
+    val downloadUploadRatioFormatted = when {
+        totalUpload == 0L && totalDownload > 0L -> "∞ : 1"
+        totalUpload == 0L -> "1 : 1"
+        else -> {
+            val r = totalDownload.toDouble() / totalUpload.toDouble()
+            String.format(Locale.US, "%.1f : 1", r)
+        }
+    }
+
+    // 8. Gamer Badge & Title
+    val (primaryBadge, badgeDescription) = when {
+        nightOwlPercentage >= 40 && nightOwlBytes >= 1_000_000_000L ->
+            "Night Owl" to "$nightOwlPercentage% of traffic between 12 AM - 6 AM"
+        longestStreak >= 14 || currentStreak >= 7 ->
+            "Streak Master" to "$longestStreak consecutive active days"
+        totalBytesAll >= 100_000_000_000L ->
+            "Data Titan" to "Over 100 GB network traffic"
+        totalBytesAll >= 50_000_000_000L ->
+            "Bandwidth Beast" to "Over 50 GB network traffic"
+        totalUpload > 0 && (totalDownload.toDouble() / totalUpload.toDouble()) >= 15.0 ->
+            "Stream Demon" to "Download-heavy power user"
+        totalUpload > 0 && (totalDownload.toDouble() / totalUpload.toDouble()) <= 2.0 && totalUpload >= 2_000_000_000L ->
+            "Seeder Elite" to "High upload contributor"
+        activeDays >= 7 ->
+            "Campus Regular" to "$activeDays days on network"
+        else ->
+            "Network Rookie" to "Getting started on campus Wi-Fi"
+    }
+
     return StatsInsights(
         peakUsageTimeWindow = peakUsageTimeWindow,
         highestUsageDayFormatted = "${highestUsageFormatted.first} ${highestUsageFormatted.second}",
@@ -121,5 +221,13 @@ fun computeStatsInsights(
         mostActiveSessionBytes = topSessionBytes,
         mostActiveSessionFormatted = formatBytes(topSessionBytes),
         activeDaysCount = activeDays,
+        currentStreakDays = currentStreak,
+        longestStreakDays = longestStreak,
+        nightOwlBytes = nightOwlBytes,
+        nightOwlPercentage = nightOwlPercentage,
+        nightOwlFormatted = nightOwlFormatted,
+        downloadUploadRatioFormatted = downloadUploadRatioFormatted,
+        primaryBadge = primaryBadge,
+        badgeDescription = badgeDescription,
     )
 }

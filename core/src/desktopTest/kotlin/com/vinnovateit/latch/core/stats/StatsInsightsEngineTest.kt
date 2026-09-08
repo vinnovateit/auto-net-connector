@@ -94,5 +94,67 @@ class StatsInsightsEngineTest {
         assertEquals(0L, insights.mostActiveSessionBytes)
         assertEquals("0" to "B", insights.mostActiveSessionFormatted)
         assertEquals(0, insights.activeDaysCount)
+        assertEquals(0, insights.currentStreakDays)
+        assertEquals(0, insights.longestStreakDays)
+        assertEquals(0, insights.nightOwlPercentage)
+        assertEquals("N/A", insights.downloadUploadRatioFormatted)
+        assertEquals("Network Rookie", insights.primaryBadge)
+    }
+
+    @Test
+    fun testStreakNightOwlAndGamerBadge() {
+        // Session 1: 2026-03-01 02:30 (Night owl: 2 AM), 3 GB DL, 1 GB UL
+        val cal = Calendar.getInstance().apply { set(2026, Calendar.MARCH, 1, 2, 30, 0) }
+        val session1 = PortalSessionRecord(
+            location = "Hostel",
+            macAddress = "AA:BB",
+            loginTime = cal.timeInMillis,
+            logoutTime = cal.timeInMillis + 3600_000L,
+            durationFormatted = "01:00:00",
+            durationMillis = 3600_000L,
+            uploadBytes = 1_000_000_000L,
+            downloadBytes = 3_000_000_000L,
+            totalBytes = 4_000_000_000L,
+        )
+
+        // Session 2: 2026-03-02 14:00 (Day), 6 GB DL, 1 GB UL
+        cal.set(2026, Calendar.MARCH, 2, 14, 0, 0)
+        val session2 = PortalSessionRecord(
+            location = "Hostel",
+            macAddress = "AA:BB",
+            loginTime = cal.timeInMillis,
+            logoutTime = cal.timeInMillis + 3600_000L,
+            durationFormatted = "01:00:00",
+            durationMillis = 3600_000L,
+            uploadBytes = 1_000_000_000L,
+            downloadBytes = 6_000_000_000L,
+            totalBytes = 7_000_000_000L,
+        )
+
+        // Session 3: 2026-03-03 01:30 (Night owl: 1 AM), 10 GB DL, 2 GB UL
+        cal.set(2026, Calendar.MARCH, 3, 1, 30, 0)
+        val session3 = PortalSessionRecord(
+            location = "Hostel",
+            macAddress = "AA:BB",
+            loginTime = cal.timeInMillis,
+            logoutTime = cal.timeInMillis + 3600_000L,
+            durationFormatted = "01:00:00",
+            durationMillis = 3600_000L,
+            uploadBytes = 2_000_000_000L,
+            downloadBytes = 10_000_000_000L,
+            totalBytes = 12_000_000_000L,
+        )
+
+        // Test with now = 2026-03-03 12:00:00
+        cal.set(2026, Calendar.MARCH, 3, 12, 0, 0)
+        val insights = computeStatsInsights(listOf(session1, session2, session3), cal.timeInMillis)
+
+        assertEquals(3, insights.activeDaysCount)
+        assertEquals(3, insights.currentStreakDays)
+        assertEquals(3, insights.longestStreakDays)
+        assertEquals(16_000_000_000L, insights.nightOwlBytes) // 4GB + 12GB
+        assertEquals(69, insights.nightOwlPercentage) // 16GB / 23GB = 69%
+        assertEquals("4.8 : 1", insights.downloadUploadRatioFormatted) // 19GB / 4GB
+        assertEquals("Night Owl", insights.primaryBadge)
     }
 }
