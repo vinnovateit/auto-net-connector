@@ -31,8 +31,8 @@ class CliRunner(
     private val terminal: TerminalIO,
     private val backendFactory: suspend () -> CliBackend,
     private val version: String = LatchCore.VERSION,
-    private val splash: suspend (TerminalIO) -> Unit = { output ->
-        showSplash(output, detectSplashCapabilities(output))
+    private val intro: suspend (TerminalIO) -> Unit = { output ->
+        showIntro(output, detectTerminalCapabilities(output), IntroState(version = version))
     },
     private val lifecycle: CliLifecycle = UnavailableCliLifecycle,
 ) {
@@ -94,7 +94,7 @@ class CliRunner(
     }
 
     private suspend fun bootstrap(): Int {
-        splash(terminal)
+        intro(terminal)
         val backend = try {
             backendFactory()
         } catch (error: CancellationException) {
