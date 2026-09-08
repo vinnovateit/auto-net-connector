@@ -23,7 +23,7 @@ jobs:
       tag: ${{ steps.release.outputs.tag }}
     steps:
       - name: Checkout repo
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Match the tag to the project version
         id: release
@@ -168,7 +168,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repo
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Download all artifacts
         uses: actions/download-artifact@v8
@@ -233,7 +233,7 @@ jobs:
       contents: write
     steps:
       - name: Checkout repo
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       # The published site is a branch, not a directory in main. Cloning it
       # rather than rebuilding from scratch is what keeps older releases
@@ -297,7 +297,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repo
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Fetch the generated manifests
         env:
