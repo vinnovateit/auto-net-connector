@@ -126,23 +126,30 @@ class StatsViewModel(application: Application) : AndroidViewModel(application) {
 
 
   val chartItems: StateFlow<List<HistoryChartItem>> =
-    historyToShow.map { sessions ->
-      if (sessions.isEmpty()) return@map emptyList()
+    combine(portalHistory, liveStatus) { records, live ->
+      val groupedByDay = records
+        .filter { it.loginTime > 0 }
+        .groupBy { formatDate(it.loginTime, "yyyy-MM-dd") }
+        .mapValues { (_, list) ->
+          DataUsage(
+            rxBytes = list.sumOf { it.downloadBytes },
+            txBytes = list.sumOf { it.uploadBytes }
+          )
+        }
+        .toMutableMap()
 
-      val groupedByDay = sessions.groupBy {
-        formatDate(it.startTimestamp, "yyyy-MM-dd")
-      }.mapValues { (_, list) ->
-        DataUsage(
-          rxBytes = list.sumOf { it.totalData.rxBytes },
-          txBytes = list.sumOf { it.totalData.txBytes }
+      live?.let {
+        val todayKey = formatDate(System.currentTimeMillis(), "yyyy-MM-dd")
+        val current = groupedByDay[todayKey] ?: DataUsage(0L, 0L)
+        groupedByDay[todayKey] = DataUsage(
+          rxBytes = current.rxBytes + it.totalRxBytes,
+          txBytes = current.txBytes + it.totalTxBytes
         )
       }
 
-      val today = Calendar.getInstance()
-      val daysToShow = 7 // Always show the last 7 days
-
       val items = mutableListOf<HistoryChartItem>()
       var lastMonth = -1
+      val daysToShow = 7 // Always show the last 7 days
 
       for (i in (daysToShow - 1) downTo 0) {
         val currentCal = Calendar.getInstance()
@@ -160,8 +167,8 @@ class StatsViewModel(application: Application) : AndroidViewModel(application) {
         val label = formatDate(dayTimestamp, "E").first().toString()
         items.add(HistoryChartItem.BarData(usage, label, dayTimestamp))
       }
-      items.distinct() // Ensure no duplicate separators if the week crosses a month boundary
-    }.flowOn(Dispatchers.Default) // Perform mapping on a background thread
+      items.distinct()
+    }.flowOn(Dispatchers.Default)
       .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
 

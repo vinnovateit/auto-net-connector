@@ -59,11 +59,12 @@ class MainActivity : ComponentActivity() {
 
         val prefs = getSharedPreferences("app_prefs", android.content.Context.MODE_PRIVATE)
         val hasSeenOnboarding = prefs.getBoolean("hasSeenOnboarding", false)
+        val hasCredentials = com.vinnovateit.latch.core.platform.android.StoredCredentials.credentialsExist(this)
 
-        val startDest = when {
-            !hasSeenOnboarding -> com.vinnovateit.latch.navigation.LatchRoutes.ONBOARDING
-            com.vinnovateit.latch.core.platform.android.StoredCredentials.credentialsExist(this) -> com.vinnovateit.latch.navigation.LatchRoutes.HOME
-            else -> com.vinnovateit.latch.navigation.LatchRoutes.credentials(editMode = false)
+        val startDest = if (hasCredentials && hasSeenOnboarding) {
+            com.vinnovateit.latch.navigation.LatchRoutes.HOME
+        } else {
+            com.vinnovateit.latch.navigation.LatchRoutes.ONBOARDING
         }
 
         setContent {

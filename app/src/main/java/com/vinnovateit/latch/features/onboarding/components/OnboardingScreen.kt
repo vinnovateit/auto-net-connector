@@ -53,10 +53,11 @@ fun OnboardingScreen(
     val configuration = LocalConfiguration.current
     val isLandscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
 
-    LaunchedEffect(Unit) {
+    androidx.lifecycle.compose.LifecycleResumeEffect(Unit) {
         if (StoredCredentials.credentialsExist(context)) {
             credentialsHandled = true
         }
+        onPauseOrDispose { }
     }
 
     val slides = remember {

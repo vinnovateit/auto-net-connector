@@ -66,6 +66,7 @@ fun StatsList(
 ) {
   val overviewMetrics by statsViewModel.overviewMetrics.collectAsStateWithLifecycle()
   val usageTrends by statsViewModel.usageTrends.collectAsStateWithLifecycle()
+  val chartItems by statsViewModel.chartItems.collectAsStateWithLifecycle()
   val itemsToDisplay = if (showAllSessions) portalHistory else portalHistory.take(5)
   val layoutDirection = LocalLayoutDirection.current
 
@@ -103,9 +104,9 @@ fun StatsList(
       Spacer(modifier = Modifier.height(15.dp))
     }
 
-    if (usageTrends.isNotEmpty()) {
+    if (chartItems.isNotEmpty()) {
       item {
-        PortalUsageTrends(trends = usageTrends)
+        HistoryBarChart(history = chartItems)
         Spacer(modifier = Modifier.height(15.dp))
       }
     }
