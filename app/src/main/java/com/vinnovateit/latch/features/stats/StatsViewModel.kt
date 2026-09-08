@@ -196,32 +196,18 @@ class StatsViewModel(application: Application) : AndroidViewModel(application) {
   }
 
 
-  val chartItems: StateFlow<List<HistoryChartItem>> =
-    combine(nonZeroPortalHistory, liveStatus) { records, live ->
+  private val baseChartItems: StateFlow<List<HistoryChartItem>> =
+    nonZeroPortalHistory.map { records ->
       val recordsByDay = records
         .filter { it.loginTime > 0 }
         .groupBy { formatDate(it.loginTime, "yyyy-MM-dd") }
 
-      val groupedByDay = recordsByDay
-        .mapValues { (_, list) ->
-          val dl = list.sumOf { it.downloadBytes }
-          val ul = list.sumOf { it.uploadBytes }
-          val tot = list.sumOf { it.totalBytes }
-          val effectiveDl = if (dl == 0L && ul == 0L && tot > 0L) tot else dl
-          DataUsage(
-            rxBytes = effectiveDl,
-            txBytes = ul
-          )
-        }
-        .toMutableMap()
-
-      val todayKey = formatDate(System.currentTimeMillis(), "yyyy-MM-dd")
-      live?.let {
-        val current = groupedByDay[todayKey] ?: DataUsage(0L, 0L)
-        groupedByDay[todayKey] = DataUsage(
-          rxBytes = current.rxBytes + it.totalRxBytes,
-          txBytes = current.txBytes + it.totalTxBytes
-        )
+      val groupedByDay = recordsByDay.mapValues { (_, list) ->
+        val dl = list.sumOf { it.downloadBytes }
+        val ul = list.sumOf { it.uploadBytes }
+        val tot = list.sumOf { it.totalBytes }
+        val effectiveDl = if (dl == 0L && ul == 0L && tot > 0L) tot else dl
+        DataUsage(rxBytes = effectiveDl, txBytes = ul)
       }
 
       val now = Calendar.getInstance()
@@ -239,51 +225,101 @@ class StatsViewModel(application: Application) : AndroidViewModel(application) {
         set(Calendar.MILLISECOND, 999)
       }
 
-      // Always ALL_TIME data mode
       val validRecords = records.filter { it.loginTime > 0 }
       val earliest = validRecords.minOfOrNull { it.loginTime } ?: (System.currentTimeMillis() - 30L * 86400000L)
       val minAllowed = Calendar.getInstance().apply { set(2020, Calendar.JANUARY, 1) }.timeInMillis
       startCal.timeInMillis = maxOf(earliest, minAllowed)
       startCal.set(Calendar.DAY_OF_MONTH, 1)
 
+      val monthKeyFormat = java.text.SimpleDateFormat("yyyy-MM", java.util.Locale.US)
+      val dayKeyFormat = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US)
+      val monthNameFormat = java.text.SimpleDateFormat("MMM", java.util.Locale.US)
+      val monthYearNameFormat = java.text.SimpleDateFormat("MMM yyyy", java.util.Locale.US)
+
+      val monthsWithData = mutableSetOf<String>()
+      groupedByDay.forEach { (dayKey, usage) ->
+        if (usage.rxBytes + usage.txBytes > 0L && dayKey.length >= 7) {
+          monthsWithData.add(dayKey.substring(0, 7))
+        }
+      }
+      val todayKey = dayKeyFormat.format(java.util.Date(now.timeInMillis))
+      if (todayKey.length >= 7) {
+        monthsWithData.add(todayKey.substring(0, 7))
+      }
+
       val currentYear = now.get(Calendar.YEAR)
       val items = mutableListOf<HistoryChartItem>()
-      var lastMonth = -1
-
       val maxEnd = if (endCal.after(now)) now else endCal
       val cursor = startCal.clone() as Calendar
-      while (!cursor.after(maxEnd)) {
-        val dayTimestamp = cursor.timeInMillis
-        val currentMonth = cursor.get(Calendar.MONTH)
-        val itemYear = cursor.get(Calendar.YEAR)
-        if (lastMonth != -1 && currentMonth != lastMonth) {
-          val monthPattern = if (itemYear == currentYear) "MMM" else "MMM yyyy"
-          items.add(HistoryChartItem.MonthSeparator(formatDate(dayTimestamp, monthPattern)))
-        }
-        lastMonth = currentMonth
 
-        val key = formatDate(dayTimestamp, "yyyy-MM-dd")
-        val usage = groupedByDay[key] ?: DataUsage(0, 0)
-        val label = formatDate(dayTimestamp, "dd")
-        val formattedDate = com.vinnovateit.latch.common.util.formatDisplayDate(dayTimestamp)
-        val dayRecords = recordsByDay[key] ?: emptyList()
-        val sessionCount = dayRecords.size + (if (live != null && key == todayKey) 1 else 0)
-        val durationMillis = dayRecords.sumOf { it.durationMillis }
-        val durationFormatted = com.vinnovateit.latch.common.util.formatDurationDynamic(durationMillis)
-        items.add(
-          HistoryChartItem.BarData(
-            usage = usage,
-            label = label,
-            timestamp = dayTimestamp,
-            formattedDate = formattedDate,
-            sessionCount = sessionCount,
-            durationMillis = durationMillis,
-            durationFormatted = durationFormatted
+      while (!cursor.after(maxEnd)) {
+        val cursorDate = java.util.Date(cursor.timeInMillis)
+        val monthKey = monthKeyFormat.format(cursorDate)
+        val itemYear = cursor.get(Calendar.YEAR)
+        val monthName = if (itemYear == currentYear) monthNameFormat.format(cursorDate) else monthYearNameFormat.format(cursorDate)
+
+        if (!monthsWithData.contains(monthKey)) {
+          items.add(HistoryChartItem.CollapsedMonth(monthName, cursor.timeInMillis))
+          cursor.add(Calendar.MONTH, 1)
+          cursor.set(Calendar.DAY_OF_MONTH, 1)
+          continue
+        }
+
+        items.add(HistoryChartItem.MonthSeparator(monthName))
+        val currentMonthInt = cursor.get(Calendar.MONTH)
+        while (!cursor.after(maxEnd) && cursor.get(Calendar.MONTH) == currentMonthInt) {
+          val dayTimestamp = cursor.timeInMillis
+          val dayDate = java.util.Date(dayTimestamp)
+          val key = dayKeyFormat.format(dayDate)
+          val usage = groupedByDay[key] ?: DataUsage(0, 0)
+          val label = cursor.get(Calendar.DAY_OF_MONTH).toString().padStart(2, '0')
+          val dayRecords = recordsByDay[key] ?: emptyList()
+          val sessionCount = dayRecords.size
+          val durationMillis = dayRecords.sumOf { it.durationMillis }
+          val durationFormatted = com.vinnovateit.latch.common.util.formatDurationDynamic(durationMillis)
+
+          items.add(
+            HistoryChartItem.BarData(
+              usage = usage,
+              label = label,
+              timestamp = dayTimestamp,
+              formattedDate = "",
+              sessionCount = sessionCount,
+              durationMillis = durationMillis,
+              durationFormatted = durationFormatted
+            )
           )
-        )
-        cursor.add(Calendar.DAY_OF_YEAR, 1)
+          cursor.add(Calendar.DAY_OF_YEAR, 1)
+        }
       }
-      items.distinct()
+      items
+    }.flowOn(Dispatchers.Default)
+      .stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
+
+  val chartItems: StateFlow<List<HistoryChartItem>> =
+    combine(baseChartItems, liveStatus) { baseItems, live ->
+      if (live == null || (live.totalRxBytes == 0L && live.totalTxBytes == 0L) || baseItems.isEmpty()) {
+        baseItems
+      } else {
+        val todayKey = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US).format(java.util.Date())
+        val dayKeyFormat = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US)
+        val lastBarIndex = baseItems.indexOfLast {
+          it is HistoryChartItem.BarData && dayKeyFormat.format(java.util.Date(it.timestamp)) == todayKey
+        }
+        if (lastBarIndex != -1) {
+          val todayBar = baseItems[lastBarIndex] as HistoryChartItem.BarData
+          val updatedTodayBar = todayBar.copy(
+            usage = DataUsage(
+              rxBytes = todayBar.usage.rxBytes + live.totalRxBytes,
+              txBytes = todayBar.usage.txBytes + live.totalTxBytes
+            ),
+            sessionCount = todayBar.sessionCount + 1
+          )
+          baseItems.toMutableList().apply { set(lastBarIndex, updatedTodayBar) }
+        } else {
+          baseItems
+        }
+      }
     }.flowOn(Dispatchers.Default)
       .stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
 

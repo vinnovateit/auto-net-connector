@@ -88,13 +88,13 @@ private fun DigitRoller(
 
     LaunchedEffect(digit) {
         if (currentDigit == digit) return@LaunchedEffect
-        delay(colIndex * 25L)
+        delay(120L + colIndex * 25L)
         val diff = kotlin.math.abs(digit - currentDigit)
         if (diff == 0) return@LaunchedEffect
-        val stepSize = if (diff > 4) kotlin.math.ceil(diff / 4.0).toInt() else 1
+        val stepSize = if (diff > 5) kotlin.math.ceil(diff / 5.0).toInt() else 1
         val direction = if (digit > currentDigit) 1 else -1
         val totalSteps = (diff + stepSize - 1) / stepSize
-        val stepDelay = (220L / totalSteps.coerceAtLeast(1)).coerceIn(50L, 75L)
+        val stepDelay = (460L / totalSteps.coerceAtLeast(1)).coerceIn(80L, 110L)
         var d = currentDigit
         while (d != digit) {
             delay(stepDelay)
@@ -111,12 +111,12 @@ private fun DigitRoller(
         targetState = currentDigit,
         transitionSpec = {
             val isFinal = targetState == digit
-            val duration = if (isFinal) 130 else 60
+            val duration = if (isFinal) 180 else 90
             (slideInVertically(
-                animationSpec = tween(durationMillis = duration, easing = if (isFinal) LinearOutSlowInEasing else androidx.compose.animation.core.LinearEasing)
+                animationSpec = tween(durationMillis = duration, easing = if (isFinal) androidx.compose.animation.core.FastOutSlowInEasing else androidx.compose.animation.core.LinearEasing)
             ) { height -> height } + fadeIn(tween(duration))).togetherWith(
                 slideOutVertically(
-                    animationSpec = tween(durationMillis = duration, easing = if (isFinal) FastOutLinearInEasing else androidx.compose.animation.core.LinearEasing)
+                    animationSpec = tween(durationMillis = duration, easing = if (isFinal) androidx.compose.animation.core.FastOutSlowInEasing else androidx.compose.animation.core.LinearEasing)
                 ) { height -> -height } + fadeOut(tween(duration))
             ).using(androidx.compose.animation.SizeTransform(clip = false))
         },

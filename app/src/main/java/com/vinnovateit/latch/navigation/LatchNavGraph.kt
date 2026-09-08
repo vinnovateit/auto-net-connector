@@ -77,8 +77,8 @@ fun LatchNavGraph(
     wifiStatusViewModel: WiFiStatusViewModel,
     startDestination: String
 ) {
+    val statsViewModel: StatsViewModel = viewModel()
     val homeContent: @Composable () -> Unit = {
-        val statsViewModel: StatsViewModel = viewModel()
         val isConnected by wifiStatusViewModel.isConnected.collectAsStateWithLifecycle()
         val liveStatus by statsViewModel.liveStatus.collectAsStateWithLifecycle()
         val connectionStatus by wifiStatusViewModel.connectionStatus.collectAsStateWithLifecycle()
@@ -102,7 +102,6 @@ fun LatchNavGraph(
     }
 
     val statsContent: @Composable () -> Unit = {
-        val statsViewModel: StatsViewModel = viewModel()
         StatsScreen(
             onSaveReport = {},
             onBackPressed = {},
@@ -208,7 +207,6 @@ fun LatchNavGraph(
 
         // Stats
         composable(LatchRoutes.STATS) {
-            val statsViewModel: StatsViewModel = viewModel()
             val coroutineScope = rememberCoroutineScope()
             val context = LocalContext.current
 
@@ -253,7 +251,6 @@ fun LatchNavGraph(
 
         // Session History
         composable(LatchRoutes.SESSION_HISTORY) {
-            val statsViewModel: StatsViewModel = viewModel()
             PredictiveSlideBackContainer(
                 onBackPressed = { navController.popBackStack() },
                 backgroundContent = statsContent

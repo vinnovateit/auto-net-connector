@@ -82,6 +82,7 @@ class StatsViewModelPortalTest {
         val items = listOf(
             HistoryChartItem.BarData(DataUsage(100, 200), "01", 1000L, "01 Sep"),
             HistoryChartItem.MonthSeparator("Sep"),
+            HistoryChartItem.CollapsedMonth("Aug", 500L),
             HistoryChartItem.BarData(DataUsage(300, 400), "02", 2000L, "02 Sep"),
             HistoryChartItem.BarData(DataUsage(500, 600), "03", 2000L, "03 Sep") // same timestamp edge case
         )
@@ -89,6 +90,7 @@ class StatsViewModelPortalTest {
             when (item) {
                 is HistoryChartItem.BarData -> "bar_${item.timestamp}_$index"
                 is HistoryChartItem.MonthSeparator -> "month_${item.monthName}_$index"
+                is HistoryChartItem.CollapsedMonth -> "collapsed_${item.monthName}_$index"
             }
         }
         assertEquals(items.size, keys.distinct().size)

@@ -88,6 +88,7 @@ sealed class HistoryChartItem {
         val durationFormatted: String = ""
     ) : HistoryChartItem()
     data class MonthSeparator(val monthName: String) : HistoryChartItem()
+    data class CollapsedMonth(val monthName: String, val timestamp: Long) : HistoryChartItem()
 }
 
 @Immutable
@@ -134,25 +135,29 @@ private fun HistoryBarChartContent(chartItems: List<HistoryChartItem>) {
     val coroutineScope = rememberCoroutineScope()
     val haptic = LocalHapticFeedback.current
 
-    val totalUsageData = remember(chartItems) {
-        val totalRx = chartItems.filterIsInstance<HistoryChartItem.BarData>().sumOf { it.usage.rxBytes }
-        val totalTx = chartItems.filterIsInstance<HistoryChartItem.BarData>().sumOf { it.usage.txBytes }
-        DataUsage(totalRx, totalTx)
-    }
-    val totalSessions = remember(chartItems) {
-        chartItems.filterIsInstance<HistoryChartItem.BarData>().sumOf { it.sessionCount }
-    }
-    val totalDurationFormatted = remember(chartItems) {
-        val ms = chartItems.filterIsInstance<HistoryChartItem.BarData>().sumOf { it.durationMillis }
-        com.vinnovateit.latch.common.util.formatDurationDynamic(ms)
-    }
-    val totalUsageDetail = remember(totalUsageData, totalSessions, totalDurationFormatted) {
-        ChartDetailState(
-            usage = totalUsageData,
+    val (totalUsageDetail, overallMaxUsage) = remember(chartItems) {
+        var rx = 0L
+        var tx = 0L
+        var sessions = 0
+        var durationMs = 0L
+        var maxVal = 1L
+        for (item in chartItems) {
+            if (item is HistoryChartItem.BarData) {
+                val tot = item.usage.rxBytes + item.usage.txBytes
+                rx += item.usage.rxBytes
+                tx += item.usage.txBytes
+                sessions += item.sessionCount
+                durationMs += item.durationMillis
+                if (tot > maxVal) maxVal = tot
+            }
+        }
+        val detail = ChartDetailState(
+            usage = DataUsage(rx, tx),
             label = "Total Data Usage",
-            sessionCount = totalSessions,
-            durationFormatted = totalDurationFormatted
+            sessionCount = sessions,
+            durationFormatted = com.vinnovateit.latch.common.util.formatDurationDynamic(durationMs)
         )
+        Pair(detail, maxVal)
     }
 
     val initialBarItem = remember(chartItems, todayIdx) {
@@ -178,20 +183,21 @@ private fun HistoryBarChartContent(chartItems: List<HistoryChartItem>) {
         )
     }
 
-    val visibleMaxUsage by remember(chartItems) {
+    val visibleMaxUsage by remember(chartItems, overallMaxUsage) {
         derivedStateOf {
             val visibleInfo = lazyListState.layoutInfo.visibleItemsInfo
             if (visibleInfo.isEmpty()) {
-                chartItems.filterIsInstance<HistoryChartItem.BarData>()
-                    .maxOfOrNull { it.usage.rxBytes + it.usage.txBytes }
-                    ?.coerceAtLeast(1L) ?: 1L
+                overallMaxUsage
             } else {
-                val maxVisible = visibleInfo.mapNotNull { itemInfo ->
-                    (chartItems.getOrNull(itemInfo.index) as? HistoryChartItem.BarData)?.let {
-                        it.usage.rxBytes + it.usage.txBytes
+                var maxVal = 1L
+                for (itemInfo in visibleInfo) {
+                    val item = chartItems.getOrNull(itemInfo.index)
+                    if (item is HistoryChartItem.BarData) {
+                        val tot = item.usage.rxBytes + item.usage.txBytes
+                        if (tot > maxVal) maxVal = tot
                     }
-                }.maxOrNull()?.coerceAtLeast(1L)
-                maxVisible ?: 1L
+                }
+                maxVal
             }
         }
     }
@@ -279,12 +285,14 @@ private fun HistoryBarChartContent(chartItems: List<HistoryChartItem>) {
                         when (item) {
                             is HistoryChartItem.BarData -> "bar_${item.timestamp}_$index"
                             is HistoryChartItem.MonthSeparator -> "month_${item.monthName}_$index"
+                            is HistoryChartItem.CollapsedMonth -> "collapsed_${item.monthName}_$index"
                         }
                     },
                     contentType = { _, item ->
                         when (item) {
                             is HistoryChartItem.BarData -> "bar"
                             is HistoryChartItem.MonthSeparator -> "month"
+                            is HistoryChartItem.CollapsedMonth -> "collapsed"
                         }
                     }
                 ) { idx, item ->
@@ -295,7 +303,7 @@ private fun HistoryBarChartContent(chartItems: List<HistoryChartItem>) {
                                     .width(barWidth)
                                     .fillMaxHeight(),
                                 usage = item.usage,
-                                maxUsage = visibleMaxUsage,
+                                maxUsage = { visibleMaxUsage },
                                 isSelected = (idx == selectedIndex),
                                 hasSelection = (selectedIndex != -1),
                                 isAmoled = isAmoled,
@@ -313,6 +321,24 @@ private fun HistoryBarChartContent(chartItems: List<HistoryChartItem>) {
                         }
                         is HistoryChartItem.MonthSeparator -> {
                             MonthSeparator(monthName = item.monthName)
+                        }
+                        is HistoryChartItem.CollapsedMonth -> {
+                            CollapsedMonthItem(
+                                monthName = item.monthName,
+                                onTap = {
+                                    haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                    selectedIndex = idx
+                                    displayedData = ChartDetailState(
+                                        usage = DataUsage(0, 0),
+                                        label = "${item.monthName} (No usage recorded)",
+                                        sessionCount = 0,
+                                        durationFormatted = "0m"
+                                    )
+                                    coroutineScope.launch {
+                                        lazyListState.scrollToItem(idx)
+                                    }
+                                }
+                            )
                         }
                     }
                 }
@@ -363,10 +389,60 @@ private fun MonthSeparator(monthName: String) {
 }
 
 @Composable
+private fun CollapsedMonthItem(
+    monthName: String,
+    onTap: () -> Unit
+) {
+    Box(
+        modifier = Modifier
+            .fillMaxHeight()
+            .padding(horizontal = 4.dp)
+            .clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = null,
+                onClick = onTap
+            ),
+        contentAlignment = Alignment.Center
+    ) {
+        Surface(
+            shape = RoundedCornerShape(10.dp),
+            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f),
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.25f)),
+            modifier = Modifier
+                .width(26.dp)
+                .height(96.dp)
+        ) {
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center,
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(vertical = 6.dp)
+            ) {
+                Text(
+                    text = monthName,
+                    style = MaterialTheme.typography.labelSmall,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                    modifier = Modifier.rotate(-90f),
+                    maxLines = 1
+                )
+                Spacer(Modifier.height(4.dp))
+                Box(
+                    modifier = Modifier
+                        .size(3.dp)
+                        .background(MaterialTheme.colorScheme.outlineVariant, CircleShape)
+                )
+            }
+        }
+    }
+}
+
+@Composable
 private fun Bar(
     modifier: Modifier = Modifier,
     usage: DataUsage,
-    maxUsage: Long,
+    maxUsage: () -> Long,
     isSelected: Boolean,
     hasSelection: Boolean = false,
     isAmoled: Boolean = false,
@@ -377,15 +453,14 @@ private fun Bar(
     onTap: () -> Unit
 ) {
     val total = usage.rxBytes + usage.txBytes
-    val currentFrac = if (maxUsage > 0L && total > 0L) {
-        (total.toFloat() / maxUsage.toFloat()).coerceIn(0.04f, 0.96f)
-    } else 0.04f
-
     val uploadFrac = if (total > 0) usage.txBytes.toFloat() / total.toFloat() else 0f
     val downloadFrac = 1f - uploadFrac
+    val emptyColor = if (isAmoled) Color(0xFF262626) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f)
 
-    Column(
+    Canvas(
         modifier = modifier
+            .width(barWidth)
+            .height(barAreaHeight)
             .graphicsLayer {
                 alpha = if (isSelected) 1f else if (hasSelection) 0.45f else 1f
             }
@@ -393,89 +468,79 @@ private fun Bar(
                 interactionSource = remember { MutableInteractionSource() },
                 indication = null,
                 onClick = onTap
-            ),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Bottom
+            )
     ) {
-        Box(
-            modifier = Modifier
-                .width(barWidth)
-                .height(barAreaHeight),
-            contentAlignment = Alignment.BottomCenter
-        ) {
-            val emptyColor = if (isAmoled) Color(0xFF262626) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f)
-            Canvas(
-                modifier = Modifier.fillMaxSize()
-            ) {
-                val cornerRadius = androidx.compose.ui.geometry.CornerRadius(4.dp.toPx(), 4.dp.toPx())
-                val strokeWidth = 1.5.dp.toPx()
-                val inset = if (isAmoled) strokeWidth / 2 else 0f
-                val drawWidth = (size.width - inset * 2).coerceAtLeast(0f)
+        val maxVal = maxUsage()
+        val currentFrac = if (maxVal > 0L && total > 0L) {
+            (total.toFloat() / maxVal.toFloat()).coerceIn(0.04f, 0.96f)
+        } else 0.04f
+        val cornerRadius = androidx.compose.ui.geometry.CornerRadius(4.dp.toPx(), 4.dp.toPx())
+        val strokeWidth = 1.5.dp.toPx()
+        val inset = if (isAmoled) strokeWidth / 2 else 0f
+        val drawWidth = (size.width - inset * 2).coerceAtLeast(0f)
 
-                if (total > 0) {
-                    val rawBarHeight = (size.height * currentFrac).coerceAtLeast(6.dp.toPx())
-                    val drawHeight = (rawBarHeight - inset * 2).coerceAtLeast(0f)
-                    val startY = size.height - rawBarHeight + inset
-                    val topLeftOffset = Offset(inset, startY)
+        if (total > 0) {
+            val rawBarHeight = (size.height * currentFrac).coerceAtLeast(6.dp.toPx())
+            val drawHeight = (rawBarHeight - inset * 2).coerceAtLeast(0f)
+            val startY = size.height - rawBarHeight + inset
+            val topLeftOffset = Offset(inset, startY)
 
-                    val gapPx = if (downloadFrac > 0.05f && uploadFrac > 0.05f) 2.dp.toPx() else 0f
-                    val availableHeight = (drawHeight - gapPx).coerceAtLeast(0f)
-                    val ulH = if (uploadFrac > 0f) (availableHeight * uploadFrac).coerceAtLeast(2.dp.toPx()) else 0f
-                    val dlH = (availableHeight - ulH).coerceAtLeast(0f)
+            val gapPx = if (downloadFrac > 0.05f && uploadFrac > 0.05f) 2.dp.toPx() else 0f
+            val availableHeight = (drawHeight - gapPx).coerceAtLeast(0f)
+            val ulH = if (uploadFrac > 0f) (availableHeight * uploadFrac).coerceAtLeast(2.dp.toPx()) else 0f
+            val dlH = (availableHeight - ulH).coerceAtLeast(0f)
 
-                    // Upload on top
-                    if (ulH > 0f) {
-                        if (isAmoled) {
-                            drawRoundRect(
-                                color = ulColor,
-                                topLeft = topLeftOffset,
-                                size = Size(drawWidth, ulH),
-                                cornerRadius = cornerRadius,
-                                style = androidx.compose.ui.graphics.drawscope.Stroke(width = strokeWidth)
-                            )
-                        } else {
-                            drawRoundRect(
-                                color = ulColor,
-                                topLeft = topLeftOffset,
-                                size = Size(drawWidth, ulH),
-                                cornerRadius = cornerRadius
-                            )
-                        }
-                    }
-
-                    // Download below upload
-                    if (dlH > 0f) {
-                        val dlTopY = topLeftOffset.y + if (ulH > 0f) ulH + gapPx else 0f
-                        if (isAmoled) {
-                            drawRoundRect(
-                                color = dlColor,
-                                topLeft = Offset(topLeftOffset.x, dlTopY),
-                                size = Size(drawWidth, dlH),
-                                cornerRadius = cornerRadius,
-                                style = androidx.compose.ui.graphics.drawscope.Stroke(width = strokeWidth)
-                            )
-                        } else {
-                            drawRoundRect(
-                                color = dlColor,
-                                topLeft = Offset(topLeftOffset.x, dlTopY),
-                                size = Size(drawWidth, dlH),
-                                cornerRadius = cornerRadius
-                            )
-                        }
-                    }
-                } else {
-                    val rawBarHeight = 4.dp.toPx()
-                    val drawHeight = (rawBarHeight - inset * 2).coerceAtLeast(0f)
-                    val startY = size.height - rawBarHeight + inset
-                    val topLeftOffset = Offset(inset, startY)
+            // Upload on top
+            if (ulH > 0f) {
+                if (isAmoled) {
                     drawRoundRect(
-                        color = emptyColor,
+                        color = ulColor,
                         topLeft = topLeftOffset,
-                        size = Size(drawWidth, drawHeight),
-                        cornerRadius = androidx.compose.ui.geometry.CornerRadius(2.dp.toPx(), 2.dp.toPx())
+                        size = Size(drawWidth, ulH),
+                        cornerRadius = cornerRadius,
+                        style = androidx.compose.ui.graphics.drawscope.Stroke(width = strokeWidth)
+                    )
+                } else {
+                    drawRoundRect(
+                        color = ulColor,
+                        topLeft = topLeftOffset,
+                        size = Size(drawWidth, ulH),
+                        cornerRadius = cornerRadius
                     )
                 }
             }
+
+            // Download below upload
+            if (dlH > 0f) {
+                val dlTopY = topLeftOffset.y + if (ulH > 0f) ulH + gapPx else 0f
+                if (isAmoled) {
+                    drawRoundRect(
+                        color = dlColor,
+                        topLeft = Offset(topLeftOffset.x, dlTopY),
+                        size = Size(drawWidth, dlH),
+                        cornerRadius = cornerRadius,
+                        style = androidx.compose.ui.graphics.drawscope.Stroke(width = strokeWidth)
+                    )
+                } else {
+                    drawRoundRect(
+                        color = dlColor,
+                        topLeft = Offset(topLeftOffset.x, dlTopY),
+                        size = Size(drawWidth, dlH),
+                        cornerRadius = cornerRadius
+                    )
+                }
+            }
+        } else {
+            val rawBarHeight = 4.dp.toPx()
+            val drawHeight = (rawBarHeight - inset * 2).coerceAtLeast(0f)
+            val startY = size.height - rawBarHeight + inset
+            val topLeftOffset = Offset(inset, startY)
+            drawRoundRect(
+                color = emptyColor,
+                topLeft = topLeftOffset,
+                size = Size(drawWidth, drawHeight),
+                cornerRadius = androidx.compose.ui.geometry.CornerRadius(2.dp.toPx(), 2.dp.toPx())
+            )
         }
     }
 }
