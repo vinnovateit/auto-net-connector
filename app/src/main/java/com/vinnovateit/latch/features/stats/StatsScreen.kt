@@ -198,9 +198,8 @@ fun StatsScreen(
   var showAllSessions by remember { mutableStateOf(false) }
 
   val context = LocalContext.current
-  val scope = rememberCoroutineScope()
-  val onOpenManageAccount = remember(context, scope) {
-    { PortalBrowserLauncher.launchManageAccount(context, scope) }
+  val onOpenManageAccount = remember(context) {
+    { PortalBrowserLauncher.launchManageAccount(context) }
   }
 
   val density = LocalDensity.current
