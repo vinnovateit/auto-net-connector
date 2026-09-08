@@ -330,7 +330,7 @@ fun SessionHistoryScreen(
                                 val monthTotalBytes = monthRecords.sumOf { it.totalBytes }
                                 val (monthVal, monthUnit) = formatBytes(monthTotalBytes)
                                 Text(
-                                    text = "$monthVal $monthUnit · ${monthRecords.size} ${if (monthRecords.size == 1) "day" else "days"}",
+                                    text = "$monthVal $monthUnit (${monthRecords.size} ${if (monthRecords.size == 1) "day" else "days"})",
                                     style = MaterialTheme.typography.labelMedium,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )

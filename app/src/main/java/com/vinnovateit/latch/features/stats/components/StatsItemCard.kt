@@ -159,7 +159,7 @@ fun DayAggregateListItem(
             color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.6f)
           ) {
             Text(
-              text = if (record.sessionCount == 1) "1 sess" else "${record.sessionCount} sess",
+              text = if (record.sessionCount == 1) "1 session" else "${record.sessionCount} sessions",
               style = MaterialTheme.typography.labelSmall,
               color = MaterialTheme.colorScheme.onSecondaryContainer,
               modifier = Modifier.padding(horizontal = 5.dp, vertical = 1.dp)

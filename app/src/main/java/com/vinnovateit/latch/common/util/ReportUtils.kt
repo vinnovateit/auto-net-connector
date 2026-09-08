@@ -138,15 +138,16 @@ fun generatePortalHtmlReport(
                 appendLine("""            <div class="month-group">""")
                 appendLine("""                <div class="month-header">""")
                 appendLine("""                    <span class="month-title">${escapeHtml(monthTitle)}</span>""")
-                appendLine("""                    <span class="month-meta">$monthTotal · $dayCount $dayUnit</span>""")
+                appendLine("""                    <span class="month-meta">$monthTotal ($dayCount $dayUnit)</span>""")
                 appendLine("""                </div>""")
                 appendLine("""                <div class="day-list">""")
                 days.forEach { day ->
+                    val sessionUnit = if (day.sessionCount == 1) "session" else "sessions"
                     appendLine("""                    <div class="day-card">""")
                     appendLine("""                        <div class="day-info">""")
                     appendLine("""                            <div class="day-title-row">""")
                     appendLine("""                                <span class="day-date">${escapeHtml(day.dateFormatted)}</span>""")
-                    appendLine("""                                <span class="sess-pill">${day.sessionCount} sess</span>""")
+                    appendLine("""                                <span class="sess-pill">${day.sessionCount} $sessionUnit</span>""")
                     appendLine("""                            </div>""")
                     appendLine("""                            <div class="day-sub-row">""")
                     appendLine("""                                <span class="dl">↓ ${formatBytes(day.downloadBytes)}</span>""")

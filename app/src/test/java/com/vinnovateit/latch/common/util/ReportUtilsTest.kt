@@ -41,6 +41,9 @@ class ReportUtilsTest {
         assertTrue(html.contains("16 min 40 sec"))
         assertTrue(html.contains("card"))
         assertTrue(html.contains("@media print"))
+        assertTrue(html.contains("1 session"))
+        assertFalse(html.contains(" sess<"))
+        assertFalse(html.contains(" · "))
     }
 
     @Test
