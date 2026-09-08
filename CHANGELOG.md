@@ -6,6 +6,22 @@ that release's body, so a release is only as good as its entry in this file. Add
 the section in the same commit that bumps the version; the release job fails
 before it builds anything if the section is missing.
 
+## 1.4.0
+
+The CLI's first public release. Install it from the package manager for your
+system, or download the binary from the assets below.
+
+### What's new
+
+- **CLI**: animated ASCII intro banner on launch
+- **CLI**: published to apt, dnf, and winget for the first time
+- **Linux**: signed apt and dnf repositories hosted on GitHub Pages
+- **Windows**: automated winget submissions on every release
+- **Packaging**: AUR, Chocolatey, and winget manifest generation on every release
+- Added MIT license file
+
+Download the compatible version for your machine from the assets below.
+
 ## 1.3.9
 
 ### What's new
