@@ -289,7 +289,12 @@ private fun HistoryBarChartContent(chartItems: List<HistoryChartItem>) {
         )
     }
     var displayedData by remember { mutableStateOf(totalUsageDetail) }
-    var revertJob by remember { mutableStateOf<Job?>(null) }
+
+    val globalMax = remember(chartItems) {
+        chartItems.filterIsInstance<HistoryChartItem.BarData>()
+            .maxOfOrNull { it.usage.rxBytes + it.usage.txBytes }
+            ?.coerceAtLeast(1L) ?: 1L
+    }
 
     val visibleMaxDailyUsage by remember(chartItems) {
         derivedStateOf {
@@ -304,20 +309,15 @@ private fun HistoryBarChartContent(chartItems: List<HistoryChartItem>) {
                     }
                 }
             }
-            if (maxBytes > 0L) {
-                maxBytes
-            } else {
-                chartItems.filterIsInstance<HistoryChartItem.BarData>()
-                    .maxOfOrNull { it.usage.rxBytes + it.usage.txBytes }
-                    ?.coerceAtLeast(1L) ?: 1L
-            }
+            val floor = (globalMax / 10L).coerceAtLeast(100_000_000L)
+            maxOf(maxBytes, floor)
         }
     }
 
     val animatedMaxUsage by animateFloatAsState(
-        targetValue = visibleMaxDailyUsage.toFloat(),
+        targetValue = visibleMaxDailyUsage.toFloat() * 1.25f,
         animationSpec = spring(
-            dampingRatio = 0.8f,
+            dampingRatio = Spring.DampingRatioNoBouncy,
             stiffness = Spring.StiffnessMediumLow
         ),
         label = "BarChartMaxUsageSpring"
@@ -326,7 +326,6 @@ private fun HistoryBarChartContent(chartItems: List<HistoryChartItem>) {
     // Reset selection and scroll position safely when chartItems change
     LaunchedEffect(chartItems) {
         selectedIndex = -1
-        revertJob?.cancel()
         displayedData = totalUsageDetail
         if (todayIdx in chartItems.indices) {
             lazyListState.scrollToItem(todayIdx)
@@ -376,7 +375,6 @@ private fun HistoryBarChartContent(chartItems: List<HistoryChartItem>) {
                                     haptic.performHapticFeedback(HapticFeedbackType.KeyboardTap)
                                     if (selectedIndex == idx) {
                                         selectedIndex = -1
-                                        revertJob?.cancel()
                                         displayedData = totalUsageDetail
                                     } else {
                                         selectedIndex = idx
@@ -389,12 +387,6 @@ private fun HistoryBarChartContent(chartItems: List<HistoryChartItem>) {
                                             sessionCount = clickedItem.sessionCount,
                                             durationFormatted = clickedItem.durationFormatted
                                         )
-                                        revertJob?.cancel()
-                                        revertJob = coroutineScope.launch {
-                                            delay(7000)
-                                            selectedIndex = -1
-                                            displayedData = totalUsageDetail
-                                        }
                                         coroutineScope.launch {
                                             lazyListState.animateScrollToItem(idx)
                                         }
@@ -468,8 +460,8 @@ private fun Bar(
     onTap: () -> Unit
 ) {
     val total = usage.rxBytes + usage.txBytes
-    val safeMax = if (maxUsage > 0f) maxUsage else 1f
-    val totalFrac = (total.toFloat() / safeMax).coerceIn(0.04f, 1f)
+    val effectiveMax = maxOf(maxUsage, total.toFloat() * 1.25f)
+    val totalFrac = (total.toFloat() / effectiveMax).coerceIn(0.04f, 0.82f)
 
     val uploadFrac = if (total > 0) usage.txBytes.toFloat() / total.toFloat() else 0f
     val downloadFrac = 1f - uploadFrac
