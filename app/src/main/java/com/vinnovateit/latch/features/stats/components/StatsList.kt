@@ -112,7 +112,12 @@ fun StatsList(
 
     item {
       StatsMetricsSummary(metrics = overviewMetrics)
-      Spacer(modifier = Modifier.height(15.dp))
+      Spacer(modifier = Modifier.height(12.dp))
+    }
+
+    item {
+      UsageInsightsCards(insights = statsInsights)
+      Spacer(modifier = Modifier.height(16.dp))
     }
 
     if (chartItems.isNotEmpty()) {
@@ -217,11 +222,6 @@ fun StatsList(
           )
         }
       }
-    }
-
-    item {
-      Spacer(modifier = Modifier.height(14.dp))
-      UsageInsightsCards(insights = statsInsights)
     }
   }
 }

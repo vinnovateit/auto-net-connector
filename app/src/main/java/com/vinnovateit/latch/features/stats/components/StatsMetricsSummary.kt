@@ -71,132 +71,88 @@ fun StatsMetricsSummary(
     val chartPalette by SettingsManager.chartPalette.collectAsStateWithLifecycle()
     val (dlColor, ulColor) = StatsColorPalettes.resolveColors(chartPalette)
 
-    Row(
+    Column(
         modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = 20.dp, vertical = 6.dp),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.Top
+            .padding(horizontal = 20.dp, vertical = 8.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        // Left Hero: Total Data Usage
-        Column(modifier = Modifier.weight(1.2f)) {
-            Text(
-                text = "TOTAL DATA USAGE",
-                style = MaterialTheme.typography.labelSmall,
-                letterSpacing = 1.2.sp,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            Spacer(modifier = Modifier.height(2.dp))
-            Row(
-                verticalAlignment = Alignment.Bottom
-            ) {
-                Text(
-                    text = totalFmt.first,
-                    style = MaterialTheme.typography.displaySmall,
-                    fontSize = 38.sp,
-                    fontWeight = FontWeight.Black,
-                    color = MaterialTheme.colorScheme.onSurface
-                )
-                Spacer(modifier = Modifier.width(6.dp))
-                Text(
-                    text = totalFmt.second,
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.ExtraBold,
-                    color = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.padding(bottom = 6.dp)
-                )
-            }
-            Spacer(modifier = Modifier.height(4.dp))
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(
-                        imageVector = Icons.Rounded.ArrowDownward,
-                        contentDescription = "Download",
-                        tint = dlColor,
-                        modifier = Modifier.size(15.dp)
-                    )
-                    Spacer(modifier = Modifier.width(3.dp))
-                    Text(
-                        text = "${dlFmt.first} ${dlFmt.second}",
-                        style = MaterialTheme.typography.bodySmall,
-                        fontWeight = FontWeight.SemiBold,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-                }
-
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(
-                        imageVector = Icons.Rounded.ArrowUpward,
-                        contentDescription = "Upload",
-                        tint = ulColor,
-                        modifier = Modifier.size(15.dp)
-                    )
-                    Spacer(modifier = Modifier.width(3.dp))
-                    Text(
-                        text = "${ulFmt.first} ${ulFmt.second}",
-                        style = MaterialTheme.typography.bodySmall,
-                        fontWeight = FontWeight.SemiBold,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-                }
-            }
-        }
-
-        Spacer(modifier = Modifier.width(16.dp))
-
-        // Right Hero: Sessions Count & Average Duration
-        Column(
-            modifier = Modifier.weight(0.9f),
-            horizontalAlignment = Alignment.Start
+        Text(
+            text = "TOTAL DATA USAGE",
+            style = MaterialTheme.typography.labelMedium,
+            letterSpacing = 1.5.sp,
+            fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Spacer(modifier = Modifier.height(2.dp))
+        Row(
+            verticalAlignment = Alignment.Bottom,
+            horizontalArrangement = Arrangement.Center
         ) {
             Text(
-                text = "PORTAL SESSIONS",
-                style = MaterialTheme.typography.labelSmall,
-                letterSpacing = 1.2.sp,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                text = totalFmt.first,
+                style = MaterialTheme.typography.displayMedium,
+                fontSize = 48.sp,
+                fontWeight = FontWeight.Black,
+                color = MaterialTheme.colorScheme.onSurface
             )
-            Spacer(modifier = Modifier.height(2.dp))
-            Row(
-                verticalAlignment = Alignment.Bottom
-            ) {
+            Spacer(modifier = Modifier.width(6.dp))
+            Text(
+                text = totalFmt.second,
+                style = MaterialTheme.typography.headlineMedium,
+                fontWeight = FontWeight.ExtraBold,
+                color = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.padding(bottom = 6.dp)
+            )
+        }
+        Spacer(modifier = Modifier.height(6.dp))
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(
+                    imageVector = Icons.Rounded.ArrowDownward,
+                    contentDescription = "Download",
+                    tint = dlColor,
+                    modifier = Modifier.size(15.dp)
+                )
+                Spacer(modifier = Modifier.width(3.dp))
                 Text(
-                    text = "${metrics.totalSessions}",
-                    style = MaterialTheme.typography.displaySmall,
-                    fontSize = 38.sp,
-                    fontWeight = FontWeight.Black,
+                    text = "${dlFmt.first} ${dlFmt.second}",
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.SemiBold,
                     color = MaterialTheme.colorScheme.onSurface
                 )
-                Spacer(modifier = Modifier.width(6.dp))
-                Text(
-                    text = "logins",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.tertiary,
-                    modifier = Modifier.padding(bottom = 6.dp)
-                )
             }
-            Spacer(modifier = Modifier.height(4.dp))
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(4.dp)
-            ) {
+
+            Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(
-                    imageVector = Icons.Rounded.Schedule,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.size(14.dp)
+                    imageVector = Icons.Rounded.ArrowUpward,
+                    contentDescription = "Upload",
+                    tint = ulColor,
+                    modifier = Modifier.size(15.dp)
                 )
+                Spacer(modifier = Modifier.width(3.dp))
                 Text(
-                    text = "Avg ${formatDurationDynamic(metrics.averageDurationMs)}",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    text = "${ulFmt.first} ${ulFmt.second}",
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.onSurface
                 )
             }
+
+            Text(
+                text = "•",
+                color = MaterialTheme.colorScheme.outline
+            )
+
+            Text(
+                text = "${metrics.totalSessions} sessions",
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
         }
     }
 }
