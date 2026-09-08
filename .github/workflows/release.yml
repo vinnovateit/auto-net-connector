@@ -100,12 +100,16 @@ jobs:
       # release-assets/latch-cli-*.tar.gz. Staging into one directory first
       # makes the uploaded layout flat and independent of where Gradle wrote
       # each file.
-      # The CLI is built and smoke-tested above but deliberately not staged:
-      # it is unreleased, so releases carry the desktop app only.
+      # upload-artifact roots an artifact at the least common ancestor of its
+      # path patterns, so staging everything in one flat directory keeps the
+      # release assets flat regardless of where Gradle wrote each file.
       - name: Stage Linux artifacts
         run: |
           mkdir -p staging
           cp desktop/build/distributions/*.tar.gz staging/
+          cp cli/build/distributions/*.tar.gz staging/
+          cp cli/build/distributions/*.deb staging/
+          cp cli/build/distributions/*.rpm staging/
           ls -l staging
 
       - name: Upload Linux artifacts
@@ -142,13 +146,13 @@ jobs:
             throw "Unexpected CLI version output: $actual"
           }
 
-      # Flattened for the same reason as the Linux job above, and likewise
-      # desktop-only while the CLI is unreleased.
+      # Flattened for the same reason as the Linux job above.
       - name: Stage Windows artifacts
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Force -Path staging | Out-Null
           Copy-Item desktop\build\compose\binaries\main-release\msi\*.msi staging\
+          Copy-Item cli\build\distributions\*.zip staging\
           Get-ChildItem staging
 
       - name: Upload Windows artifacts
@@ -177,6 +181,20 @@ jobs:
       # layout ever drifts again.
       - name: List downloaded artifacts
         run: ls -lR release-assets
+
+      # AUR, winget and chocolatey all fetch the CLI from these release assets,
+      # so their manifests are generated here against the exact files and
+      # checksums that ship.
+      - name: Generate package-manager manifests
+        env:
+          VERSION: ${{ needs.prepare.outputs.version }}
+        run: |
+          packaging/generate-cli-package-metadata.sh \
+            "$VERSION" \
+            "release-assets/latch-cli-$VERSION-linux-x64.tar.gz" \
+            "release-assets/latch-cli-$VERSION-windows-x64.zip" \
+            package-metadata
+          (cd package-metadata && zip -qr "../release-assets/latch-cli-$VERSION-package-metadata.zip" .)
 
       - name: Generate checksums
         working-directory: release-assets
