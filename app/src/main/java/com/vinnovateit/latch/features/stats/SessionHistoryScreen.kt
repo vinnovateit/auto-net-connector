@@ -44,6 +44,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -82,6 +84,7 @@ fun SessionHistoryScreen(
     val usePureBlack by SettingsManager.usePureBlack.collectAsStateWithLifecycle()
     val isAmoled = usePureBlack && LocalIsDarkTheme.current
     val backgroundColor = if (isAmoled) Color.Black else MaterialTheme.colorScheme.background
+    val haptic = LocalHapticFeedback.current
 
     var selectedFilter by remember { mutableStateOf(HistoryFilterOption.ALL_TIME) }
     var selectedSort by remember { mutableStateOf(HistorySortOption.NEWEST) }
@@ -227,7 +230,10 @@ fun SessionHistoryScreen(
                         toggleableItem(
                             checked = (filter == selectedFilter),
                             label = filter.label,
-                            onCheckedChange = { selectedFilter = filter }
+                            onCheckedChange = {
+                                haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                selectedFilter = filter
+                            }
                         )
                     }
                 }

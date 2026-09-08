@@ -1,14 +1,5 @@
 package com.vinnovateit.latch.features.stats.components
 
-import androidx.compose.animation.AnimatedContent
-import androidx.compose.animation.core.Spring
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.spring
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.slideInVertically
-import androidx.compose.animation.slideOutVertically
-import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -83,6 +74,7 @@ import com.vinnovateit.latch.common.util.formatDate
 import com.vinnovateit.latch.core.model.DataUsage
 import com.vinnovateit.latch.ui.theme.ColorGraphDownload
 import com.vinnovateit.latch.ui.theme.ColorGraphUpload
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -163,6 +155,7 @@ fun HistoryBarChart(
         if (onFilterSelected != null) {
             val quickFilterScrollState = rememberScrollState()
             val isAdvancedSelected = selectedFilter !in quickFilters
+            val haptic = LocalHapticFeedback.current
 
             Row(
                 modifier = Modifier
@@ -180,11 +173,17 @@ fun HistoryBarChart(
                         toggleableItem(
                             checked = (filter == selectedFilter),
                             label = filter.label,
-                            onCheckedChange = { onFilterSelected(filter) }
+                            onCheckedChange = {
+                                haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                onFilterSelected(filter)
+                            }
                         )
                     }
                     clickableItem(
-                        onClick = { showAdvancedSheet = true },
+                        onClick = {
+                            haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                            showAdvancedSheet = true
+                        },
                         label = if (isAdvancedSelected) selectedFilter.label else "Advanced...",
                         icon = {
                             Icon(
@@ -263,37 +262,11 @@ private fun HistoryBarChartContent(chartItems: List<HistoryChartItem>) {
     }
     var displayedData by remember { mutableStateOf(totalUsageDetail) }
 
-    val globalMax = remember(chartItems) {
+    val maxUsage = remember(chartItems) {
         chartItems.filterIsInstance<HistoryChartItem.BarData>()
             .maxOfOrNull { it.usage.rxBytes + it.usage.txBytes }
             ?.coerceAtLeast(1L) ?: 1L
     }
-
-    val visibleMaxDailyUsage by remember(chartItems) {
-        derivedStateOf {
-            val visible = lazyListState.layoutInfo.visibleItemsInfo
-            var maxBytes = 0L
-            for (itemInfo in visible) {
-                val item = chartItems.getOrNull(itemInfo.index)
-                if (item is HistoryChartItem.BarData) {
-                    val sum = item.usage.rxBytes + item.usage.txBytes
-                    if (sum > maxBytes) {
-                        maxBytes = sum
-                    }
-                }
-            }
-            if (maxBytes > 0L) maxBytes else globalMax
-        }
-    }
-
-    val animatedMaxUsage by animateFloatAsState(
-        targetValue = (visibleMaxDailyUsage.toFloat() * 1.15f).coerceAtLeast(1f),
-        animationSpec = spring(
-            dampingRatio = Spring.DampingRatioNoBouncy,
-            stiffness = Spring.StiffnessMediumLow
-        ),
-        label = "BarChartMaxUsageSpring"
-    )
 
     // Center today's bar and select it initially when chartItems change
     LaunchedEffect(chartItems) {
@@ -331,10 +304,10 @@ private fun HistoryBarChartContent(chartItems: List<HistoryChartItem>) {
                 val itemCenter = item.offset + item.size / 2
                 kotlin.math.abs(itemCenter - viewportCenter)
             }?.index ?: -1
-        }.collect { centerIdx ->
+        }.distinctUntilChanged().collect { centerIdx ->
             if (centerIdx != -1 && centerIdx != lastCenteredIndex) {
                 if (lazyListState.isScrollInProgress) {
-                    haptic.performHapticFeedback(HapticFeedbackType.KeyboardTap)
+                    haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                 }
                 lastCenteredIndex = centerIdx
                 val item = chartItems.getOrNull(centerIdx)
@@ -359,7 +332,7 @@ private fun HistoryBarChartContent(chartItems: List<HistoryChartItem>) {
 
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
         BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
-            val barWidth = 16.dp
+            val barWidth = 14.dp
             val rowHeight = 172.dp
             val barAreaHeight = 160.dp
             val centerPadding = ((maxWidth - barWidth) / 2).coerceAtLeast(16.dp)
@@ -369,7 +342,7 @@ private fun HistoryBarChartContent(chartItems: List<HistoryChartItem>) {
                 modifier = Modifier.height(rowHeight),
                 contentPadding = PaddingValues(horizontal = centerPadding),
                 flingBehavior = rememberSnapFlingBehavior(lazyListState = lazyListState),
-                horizontalArrangement = Arrangement.spacedBy(0.dp),
+                horizontalArrangement = Arrangement.spacedBy(0.2.dp),
                 verticalAlignment = Alignment.Bottom
             ) {
                 itemsIndexed(chartItems, key = { index, item ->
@@ -385,7 +358,7 @@ private fun HistoryBarChartContent(chartItems: List<HistoryChartItem>) {
                                     .width(barWidth)
                                     .fillMaxHeight(),
                                 usage = item.usage,
-                                maxUsage = animatedMaxUsage,
+                                maxUsage = maxUsage,
                                 isSelected = (idx == selectedIndex),
                                 isAmoled = isAmoled,
                                 barWidth = barWidth,
@@ -393,7 +366,7 @@ private fun HistoryBarChartContent(chartItems: List<HistoryChartItem>) {
                                 dlColor = dlColor,
                                 ulColor = ulColor,
                                 onTap = {
-                                    haptic.performHapticFeedback(HapticFeedbackType.KeyboardTap)
+                                    haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                                     coroutineScope.launch {
                                         lazyListState.animateScrollToItem(idx)
                                     }
@@ -455,7 +428,7 @@ private fun MonthSeparator(monthName: String) {
 private fun Bar(
     modifier: Modifier = Modifier,
     usage: DataUsage,
-    maxUsage: Float,
+    maxUsage: Long,
     isSelected: Boolean,
     isAmoled: Boolean = false,
     barWidth: Dp,
@@ -465,8 +438,9 @@ private fun Bar(
     onTap: () -> Unit
 ) {
     val total = usage.rxBytes + usage.txBytes
-    val effectiveMax = maxOf(maxUsage, total.toFloat() * 1.15f)
-    val totalFrac = (total.toFloat() / effectiveMax).coerceIn(0.04f, 0.88f)
+    val totalFrac = if (maxUsage > 0L && total > 0L) {
+        (total.toFloat() / maxUsage.toFloat()).coerceIn(0.04f, 0.96f)
+    } else 0.04f
 
     val uploadFrac = if (total > 0) usage.txBytes.toFloat() / total.toFloat() else 0f
     val downloadFrac = 1f - uploadFrac
@@ -475,20 +449,12 @@ private fun Bar(
         if (total > 0) (barAreaHeight.toPx() * totalFrac).toDp().coerceAtLeast(6.dp) else 4.dp
     }
 
-    val scale by animateFloatAsState(
-        targetValue = if (isSelected) 1.08f else 1f,
-        animationSpec = spring(
-            dampingRatio = Spring.DampingRatioNoBouncy,
-            stiffness = Spring.StiffnessMediumLow
-        ),
-        label = "BarScale"
-    )
-
     Column(
         modifier = modifier
             .graphicsLayer {
-                scaleX = scale
-                scaleY = scale
+                val s = if (isSelected) 1.08f else 1f
+                scaleX = s
+                scaleY = s
                 transformOrigin = androidx.compose.ui.graphics.TransformOrigin(0.5f, 1f)
             }
             .clickable(
@@ -607,21 +573,12 @@ private fun StatDetailRow(
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        AnimatedContent(
-            targetState = totalFmt,
-            transitionSpec = {
-                (slideInVertically { it } + fadeIn()) togetherWith
-                        (slideOutVertically { -it } + fadeOut())
-            },
-            label = "TotalUsageSwitch"
-        ) { (v, u) ->
-            Text(
-                "$v $u",
-                style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onSurface
-            )
-        }
+        Text(
+            "${totalFmt.first} ${totalFmt.second}",
+            style = MaterialTheme.typography.titleLarge,
+            fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.onSurface
+        )
         Text(
             label,
             style = MaterialTheme.typography.labelMedium,
@@ -632,25 +589,23 @@ private fun StatDetailRow(
             horizontalArrangement = Arrangement.spacedBy(16.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            AnimatedContent(dlFmt, label = "DLStat", transitionSpec = { fadeIn() togetherWith fadeOut() }) { (value, unit) ->
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Rounded.ArrowDownward, null, tint = dlColor, modifier = Modifier.size(16.dp))
-                    Spacer(Modifier.width(4.dp))
-                    Text("$value $unit",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Rounded.ArrowDownward, null, tint = dlColor, modifier = Modifier.size(16.dp))
+                Spacer(Modifier.width(4.dp))
+                Text(
+                    "${dlFmt.first} ${dlFmt.second}",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
             }
-            AnimatedContent(ulFmt, label = "ULStat", transitionSpec = { fadeIn() togetherWith fadeOut() }) { (value, unit) ->
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Rounded.ArrowUpward, null, tint = ulColor, modifier = Modifier.size(16.dp))
-                    Spacer(Modifier.width(4.dp))
-                    Text("$value $unit",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Rounded.ArrowUpward, null, tint = ulColor, modifier = Modifier.size(16.dp))
+                Spacer(Modifier.width(4.dp))
+                Text(
+                    "${ulFmt.first} ${ulFmt.second}",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
             }
         }
         if (sessionCount > 0 || (durationFormatted.isNotBlank() && durationFormatted != "0s")) {

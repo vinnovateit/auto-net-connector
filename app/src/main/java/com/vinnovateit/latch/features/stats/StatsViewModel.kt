@@ -220,9 +220,13 @@ class StatsViewModel(application: Application) : AndroidViewModel(application) {
 
       val groupedByDay = recordsByDay
         .mapValues { (_, list) ->
+          val dl = list.sumOf { it.downloadBytes }
+          val ul = list.sumOf { it.uploadBytes }
+          val tot = list.sumOf { it.totalBytes }
+          val effectiveDl = if (dl == 0L && ul == 0L && tot > 0L) tot else dl
           DataUsage(
-            rxBytes = list.sumOf { it.downloadBytes },
-            txBytes = list.sumOf { it.uploadBytes }
+            rxBytes = effectiveDl,
+            txBytes = ul
           )
         }
         .toMutableMap()
