@@ -119,30 +119,24 @@ fun SessionHistoryScreen(
                 verticalArrangement = Arrangement.spacedBy(2.dp)
             ) {
                 item {
-                    Row(
+                    Column(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(horizontal = 16.dp, vertical = 8.dp),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            .padding(vertical = 4.dp)
                     ) {
-                        SummaryMiniTile(
-                            icon = Icons.Rounded.DataUsage,
-                            title = "Total Data",
+                        com.vinnovateit.latch.features.stats.components.GameStatRow(
+                            label = "Total data",
                             value = totalFormatted.first,
-                            unit = totalFormatted.second,
-                            modifier = Modifier.weight(1f)
+                            unit = totalFormatted.second
                         )
-                        SummaryMiniTile(
-                            icon = Icons.Rounded.History,
-                            title = "Sessions",
-                            value = "$totalSessions",
-                            modifier = Modifier.weight(1f)
+                        com.vinnovateit.latch.features.stats.components.GameStatRow(
+                            label = "Portal sessions",
+                            value = "$totalSessions"
                         )
-                        SummaryMiniTile(
-                            icon = Icons.Rounded.CalendarMonth,
-                            title = "Active Days",
+                        com.vinnovateit.latch.features.stats.components.GameStatRow(
+                            label = "Active days",
                             value = "${olderDayRecords.size}",
-                            modifier = Modifier.weight(1f)
+                            unit = "days"
                         )
                     }
                     Spacer(Modifier.height(8.dp))
@@ -155,60 +149,6 @@ fun SessionHistoryScreen(
                     DayAggregateListItem(
                         record = record,
                         shape = groupedItemShape(index, olderDayRecords.size)
-                    )
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun SummaryMiniTile(
-    icon: ImageVector,
-    title: String,
-    value: String,
-    unit: String = "",
-    modifier: Modifier = Modifier
-) {
-    Surface(
-        modifier = modifier,
-        shape = RoundedCornerShape(14.dp),
-        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
-    ) {
-        Column(modifier = Modifier.padding(10.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(
-                    imageVector = icon,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(14.dp)
-                )
-                Spacer(Modifier.padding(horizontal = 2.dp))
-                Text(
-                    text = title.uppercase(),
-                    style = MaterialTheme.typography.labelSmall,
-                    fontSize = 10.sp,
-                    letterSpacing = 0.6.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-            Spacer(Modifier.height(4.dp))
-            Row(verticalAlignment = Alignment.Bottom) {
-                Text(
-                    text = value,
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Black,
-                    color = MaterialTheme.colorScheme.onSurface
-                )
-                if (unit.isNotEmpty()) {
-                    Spacer(Modifier.width(3.dp))
-                    Text(
-                        text = unit,
-                        style = MaterialTheme.typography.labelMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.padding(bottom = 2.dp)
                     )
                 }
             }
