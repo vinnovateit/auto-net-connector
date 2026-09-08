@@ -534,15 +534,3 @@ private fun DataUsageValueBlock(
         )
     }
 }
-
-@Composable
-fun RollingNumberText(
-  value: String,
-  textStyle: androidx.compose.ui.text.TextStyle
-) {
-  Text(
-    text = value,
-    style = textStyle,
-    textAlign = androidx.compose.ui.text.style.TextAlign.Center
-  )
-}

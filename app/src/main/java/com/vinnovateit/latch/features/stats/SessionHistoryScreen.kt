@@ -39,6 +39,7 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
+import com.vinnovateit.latch.features.stats.components.SessionHistorySkeletonLoader
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -84,6 +85,7 @@ fun SessionHistoryScreen(
     statsViewModel: StatsViewModel
 ) {
     val allDayRecords by statsViewModel.allDayRecords.collectAsStateWithLifecycle()
+    val isSyncing by statsViewModel.isSyncing.collectAsStateWithLifecycle()
     val usePureBlack by SettingsManager.usePureBlack.collectAsStateWithLifecycle()
     val isAmoled = usePureBlack && LocalIsDarkTheme.current
     val backgroundColor = if (isAmoled) Color.Black else MaterialTheme.colorScheme.background
@@ -250,13 +252,19 @@ fun SessionHistoryScreen(
             Spacer(Modifier.height(4.dp))
 
             if (filteredSortedRecords.isEmpty()) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(16.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    NoDataCard("No session history for the selected filter.")
+                if (isSyncing) {
+                    SessionHistorySkeletonLoader(
+                        modifier = Modifier.fillMaxSize()
+                    )
+                } else {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(16.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        NoDataCard("No session history for the selected filter.")
+                    }
                 }
             } else {
                 LazyColumn(

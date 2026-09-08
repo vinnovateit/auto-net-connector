@@ -80,12 +80,13 @@ fun StatsMetricsSummary(
             verticalAlignment = Alignment.Bottom,
             horizontalArrangement = Arrangement.Center
         ) {
-            Text(
-                text = totalFmt.first,
-                style = MaterialTheme.typography.displayMedium,
-                fontSize = 48.sp,
-                fontWeight = FontWeight.Black,
-                color = MaterialTheme.colorScheme.onSurface
+            RollingNumberText(
+                value = totalFmt.first,
+                textStyle = MaterialTheme.typography.displayMedium.copy(
+                    fontSize = 48.sp,
+                    fontWeight = FontWeight.Black,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
             )
             Spacer(modifier = Modifier.width(6.dp))
             Text(
@@ -96,10 +97,49 @@ fun StatsMetricsSummary(
                 modifier = Modifier.padding(bottom = 6.dp)
             )
         }
-        Spacer(modifier = Modifier.height(8.dp))
 
-        GameStatRow(label = "Downloaded", value = dlFmt.first, unit = dlFmt.second, valueColor = dlColor)
-        GameStatRow(label = "Uploaded", value = ulFmt.first, unit = ulFmt.second, valueColor = ulColor)
+        // Downloaded and uploaded in 1 line right below big number with up/down arrows
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.Center,
+            modifier = Modifier.padding(top = 4.dp, bottom = 4.dp)
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(
+                    imageVector = Icons.Rounded.ArrowDownward,
+                    contentDescription = "Downloaded",
+                    tint = dlColor,
+                    modifier = Modifier.size(16.dp)
+                )
+                Spacer(modifier = Modifier.width(4.dp))
+                Text(
+                    text = "${dlFmt.first} ${dlFmt.second}",
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+            }
+
+            Spacer(modifier = Modifier.width(20.dp))
+
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(
+                    imageVector = Icons.Rounded.ArrowUpward,
+                    contentDescription = "Uploaded",
+                    tint = ulColor,
+                    modifier = Modifier.size(16.dp)
+                )
+                Spacer(modifier = Modifier.width(4.dp))
+                Text(
+                    text = "${ulFmt.first} ${ulFmt.second}",
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(4.dp))
         GameStatRow(label = "Portal logins", value = "${metrics.totalSessions}")
     }
 }

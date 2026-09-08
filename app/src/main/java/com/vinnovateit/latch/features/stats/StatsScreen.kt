@@ -37,6 +37,7 @@ import com.vinnovateit.latch.common.util.TooltipHint
 import com.vinnovateit.latch.features.settings.manager.SettingsManager
 import com.vinnovateit.latch.features.stats.components.SessionCard
 import com.vinnovateit.latch.features.stats.components.StatsList
+import com.vinnovateit.latch.features.stats.components.StatsSkeletonLoader
 
 @Composable
 private fun StatsTopBar(
@@ -253,10 +254,19 @@ fun StatsScreen(
           )
         }
       ) { innerPadding ->
-        EmptyStatsView(
-          isSyncing = isSyncing,
-          modifier = Modifier.padding(innerPadding).fillMaxSize()
-        )
+        if (isSyncing) {
+          StatsSkeletonLoader(
+            modifier = Modifier
+              .padding(innerPadding)
+              .fillMaxSize()
+          )
+        } else {
+          EmptyStatsView(
+            modifier = Modifier
+              .padding(innerPadding)
+              .fillMaxSize()
+          )
+        }
       }
     } else {
       if (!isPortrait && isLive && sessionToShow != null) {
@@ -341,7 +351,6 @@ fun StatsScreen(
 
 @Composable
 private fun EmptyStatsView(
-  isSyncing: Boolean,
   modifier: Modifier = Modifier
 ) {
   Box(modifier = modifier, contentAlignment = Alignment.Center) {
@@ -365,19 +374,11 @@ private fun EmptyStatsView(
       )
       Spacer(modifier = Modifier.height(8.dp))
       Text(
-        text = if (isSyncing) "Fetching session history from captive portal…" else "Connect to Wi-Fi to start tracking your data usage.",
+        text = "Connect to Wi-Fi to start tracking your data usage.",
         style = MaterialTheme.typography.bodyMedium,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
         textAlign = TextAlign.Center
       )
-      if (isSyncing) {
-        Spacer(modifier = Modifier.height(20.dp))
-        CircularProgressIndicator(
-          modifier = Modifier.size(24.dp),
-          strokeWidth = 2.5.dp,
-          color = MaterialTheme.colorScheme.primary
-        )
-      }
     }
   }
 }
