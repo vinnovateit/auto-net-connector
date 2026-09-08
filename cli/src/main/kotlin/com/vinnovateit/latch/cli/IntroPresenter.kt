@@ -7,19 +7,51 @@ internal const val INTRO_MIN_WIDTH = 46
 
 // Short on purpose: the hooks only move a little, and more frames spend the
 // budget on movement too small to see.
+/** Widest the panel is allowed to get, and the narrowest it is worth drawing. */
+private const val PANEL_MAX_WIDTH = 44
+private const val PANEL_MIN_WIDTH = 32
+
+internal fun panelWidthFor(width: Int): Int =
+    (width - 2).coerceIn(PANEL_MIN_WIDTH, PANEL_MAX_WIDTH)
+
 private const val MARK_FRAMES = 7
 private const val PANEL_FRAMES = 4
 
 /**
  * Terminal width in columns.
  *
- * A plain JVM process has no portable way to ask without a terminal library, so
- * this reads COLUMNS and otherwise assumes the conventional 80. Being wrong is
- * bounded: too narrow and the banner drops to its one-line form, which is never
- * worse than a wrapped banner smearing as it redraws.
+ * COLUMNS is checked first but is rarely any use: most shells keep it as a
+ * shell variable rather than exporting it, so a child JVM never sees it. The
+ * real answer comes from asking the controlling terminal directly, and only if
+ * that fails do we assume the conventional 80. Getting this wrong is what makes
+ * the banner wrap and smear as it redraws.
  */
-internal fun terminalWidth(environment: Map<String, String> = System.getenv()): Int =
-    environment["COLUMNS"]?.toIntOrNull()?.takeIf { it > 0 } ?: 80
+internal fun terminalWidth(
+    environment: Map<String, String> = System.getenv(),
+    probe: () -> Int? = ::probeTerminalWidth,
+): Int = environment["COLUMNS"]?.toIntOrNull()?.takeIf { it > 0 }
+    ?: probe()?.takeIf { it > 0 }
+    ?: 80
+
+/**
+ * Asks the controlling terminal for its size.
+ *
+ * Reads /dev/tty rather than stdin so the answer is still right when output is
+ * being piped, and gives up quickly: a banner is never worth hanging the CLI
+ * for. Windows has no stty, so it falls through to the default.
+ */
+private fun probeTerminalWidth(): Int? = runCatching {
+    val process = ProcessBuilder("sh", "-c", "stty size < /dev/tty")
+        .redirectErrorStream(true)
+        .start()
+    if (!process.waitFor(500, java.util.concurrent.TimeUnit.MILLISECONDS)) {
+        process.destroyForcibly()
+        return null
+    }
+    if (process.exitValue() != 0) return null
+    // "rows cols"
+    process.inputStream.bufferedReader().readText().trim().split(" ").getOrNull(1)?.toIntOrNull()
+}.getOrNull()
 
 /**
  * The one-line form, for terminals too narrow to hold the banner.
@@ -46,8 +78,11 @@ suspend fun showIntro(
     terminal: TerminalIO,
     capabilities: TerminalCapabilities,
     state: IntroState,
-    renderer: IntroRenderer = IntroRenderer(),
     width: Int = terminalWidth(),
+    // The panel follows the terminal rather than sitting at a fixed width, so a
+    // window between the banner minimum and the panel's natural size gets a
+    // narrower box instead of a wrapped one.
+    renderer: IntroRenderer = IntroRenderer(panelWidth = panelWidthFor(width)),
     frameDelayMillis: Long = 45,
 ) {
     if (!capabilities.interactive) return
@@ -107,6 +142,20 @@ suspend fun showIntro(
             delay(frameDelayMillis)
         }
         paint(settled)
+
+        // The mark is padded top and bottom so the hooks have somewhere to
+        // travel, which leaves a blank row above and below once they have
+        // landed. The animation needed a fixed height; the banner left on
+        // screen does not, so collapse onto the trimmed version and wipe what
+        // the taller frames left behind.
+        val trimmed = renderer.lines(state, trimMark = true)
+        if (trimmed.size < height) {
+            terminal.print(Ansi.cursorUp(height))
+            terminal.print(
+                trimmed.joinToString("\n", postfix = "\n") { it.render(capabilities) + Ansi.CLEAR_LINE },
+            )
+            terminal.print(Ansi.CLEAR_BELOW)
+        }
     } finally {
         terminal.print(Ansi.RESET + Ansi.SHOW_CURSOR)
         runCatching { Runtime.getRuntime().removeShutdownHook(restore) }

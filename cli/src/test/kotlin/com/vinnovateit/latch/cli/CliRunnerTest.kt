@@ -272,18 +272,18 @@ class CliRunnerTest {
     }
 
     @Test
-    fun `splash runs for interactive bootstrap but not background daemon`() = runBlocking {
-        var splashCount = 0
-        val splash: suspend (TerminalIO) -> Unit = { splashCount++ }
+    fun `intro runs for interactive bootstrap but not background daemon`() = runBlocking {
+        var introCount = 0
+        val intro: suspend (TerminalIO) -> Unit = { introCount++ }
 
-        CliRunner(RecordingTerminal(), { FakeBackend() }, splash = splash).run(CliCommand.Status)
-        assertEquals(0, splashCount)
+        CliRunner(RecordingTerminal(), { FakeBackend() }, intro = intro).run(CliCommand.Status)
+        assertEquals(0, introCount)
 
-        CliRunner(RecordingTerminal(), { FakeBackend() }, splash = splash).run(CliCommand.Bootstrap)
-        assertEquals(1, splashCount)
+        CliRunner(RecordingTerminal(), { FakeBackend() }, intro = intro).run(CliCommand.Bootstrap)
+        assertEquals(1, introCount)
 
-        CliRunner(RecordingTerminal(), { FakeBackend() }, splash = splash).run(CliCommand.DaemonProcess)
-        assertEquals(1, splashCount)
+        CliRunner(RecordingTerminal(), { FakeBackend() }, intro = intro).run(CliCommand.DaemonProcess)
+        assertEquals(1, introCount)
     }
 }
 

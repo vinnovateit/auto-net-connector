@@ -20,7 +20,9 @@ internal enum class IntroStyle { BRAND, SHADOW, TITLE, MUTED, PLAIN }
 internal data class IntroSpan(val text: String, val style: IntroStyle = IntroStyle.PLAIN)
 
 private const val WORDMARK = "L A T C H"
-private const val MARK_GAP = 4
+// Two columns, not four: at four the wordmark pushes the banner past the
+// width of a default terminal window and the whole thing wraps.
+private const val MARK_GAP = 2
 private const val SPINNER = "|/-\\"
 
 // How far each hook sits from its resting place at the start, in logo source

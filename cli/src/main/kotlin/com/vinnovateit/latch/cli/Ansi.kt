@@ -18,6 +18,7 @@ internal object Ansi {
     const val HIDE_CURSOR = "\u001b[?25l"
     const val SHOW_CURSOR = "\u001b[?25h"
     const val CLEAR_LINE = "\u001b[K"
+    const val CLEAR_BELOW = "\u001b[J"
 
     fun cursorUp(lines: Int) = "\u001b[${lines}A"
 

@@ -356,12 +356,42 @@ class IntroTest {
         assertTrue(widest <= INTRO_MIN_WIDTH, "banner is $widest columns but claims $INTRO_MIN_WIDTH")
     }
 
+    // Most shells keep COLUMNS as a shell variable and never export it, so a
+    // child JVM does not see it. Trusting it alone meant always assuming 80,
+    // and the banner wrapped and smeared on anything narrower.
     @Test
-    fun `terminal width falls back to eighty without COLUMNS`() {
-        assertEquals(80, terminalWidth(emptyMap()))
-        assertEquals(100, terminalWidth(mapOf("COLUMNS" to "100")))
-        assertEquals(80, terminalWidth(mapOf("COLUMNS" to "not-a-number")))
-        assertEquals(80, terminalWidth(mapOf("COLUMNS" to "0")))
+    fun `terminal width asks the terminal when COLUMNS is missing`() {
+        assertEquals(64, terminalWidth(emptyMap(), probe = { 64 }))
+        assertEquals(80, terminalWidth(emptyMap(), probe = { null }), "no answer means the conventional 80")
+        assertEquals(80, terminalWidth(emptyMap(), probe = { 0 }), "a nonsense answer is ignored")
+    }
+
+    @Test
+    fun `COLUMNS wins when it is actually set`() {
+        assertEquals(100, terminalWidth(mapOf("COLUMNS" to "100"), probe = { 64 }))
+        assertEquals(64, terminalWidth(mapOf("COLUMNS" to "not-a-number"), probe = { 64 }))
+        assertEquals(64, terminalWidth(mapOf("COLUMNS" to "0"), probe = { 64 }))
+    }
+
+    @Test
+    fun `the panel follows the terminal instead of a fixed width`() {
+        assertEquals(44, panelWidthFor(80), "a roomy terminal gets the full panel")
+        assertEquals(44, panelWidthFor(46))
+        assertEquals(42, panelWidthFor(44), "a snug terminal gets a narrower panel, not a wrapped one")
+        assertEquals(32, panelWidthFor(20), "never narrower than it is worth drawing")
+    }
+
+    // The mark is padded so the hooks have room to travel, which leaves a blank
+    // row above and below once they land.
+    @Test
+    fun `the settled banner has no padding rows left around the mark`() = runBlocking {
+        val terminal = IntroTerminal()
+
+        showIntro(terminal, capabilities(), state, frameDelayMillis = 0)
+
+        val visible = terminal.output.substringAfterLast(Ansi.cursorUp(IntroRenderer().lines(state).size))
+        val rows = visible.replace(Regex("\u001b\\[[0-9;?]*[a-zA-Z]"), "").trimEnd('\n').lines()
+        assertTrue(rows.first().isNotBlank(), "the banner should start at the mark, not a blank row")
     }
 }
 
