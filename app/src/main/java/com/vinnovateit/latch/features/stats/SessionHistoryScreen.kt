@@ -87,6 +87,8 @@ fun SessionHistoryScreen(
     val usePureBlack by SettingsManager.usePureBlack.collectAsStateWithLifecycle()
     val isAmoled = usePureBlack && LocalIsDarkTheme.current
     val backgroundColor = if (isAmoled) Color.Black else MaterialTheme.colorScheme.background
+    val chartPalette by SettingsManager.chartPalette.collectAsStateWithLifecycle()
+    val (dlColor, ulColor) = com.vinnovateit.latch.common.util.StatsColorPalettes.resolveColors(chartPalette)
     val haptic = LocalHapticFeedback.current
 
     var selectedFilter by remember { mutableStateOf(HistoryFilterOption.ALL_TIME) }
@@ -318,7 +320,10 @@ fun SessionHistoryScreen(
                         ) { index, record ->
                             DayAggregateListItem(
                                 record = record,
-                                shape = groupedItemShape(index, yearRecords.size)
+                                shape = groupedItemShape(index, yearRecords.size),
+                                isAmoled = isAmoled,
+                                dlColor = dlColor,
+                                ulColor = ulColor
                             )
                         }
                     }

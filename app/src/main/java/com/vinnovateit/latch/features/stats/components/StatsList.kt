@@ -45,7 +45,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.vinnovateit.latch.R
 import com.vinnovateit.latch.core.model.LiveConnectionStatus
 import com.vinnovateit.latch.core.model.PortalSessionRecord
-import com.vinnovateit.latch.core.model.SessionSummary
+import com.vinnovateit.latch.features.settings.manager.SettingsManager
 import com.vinnovateit.latch.features.stats.StatsViewModel
 
 import androidx.compose.material.icons.automirrored.rounded.ArrowForwardIos
@@ -55,6 +55,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Row
+import com.vinnovateit.latch.core.model.SessionSummary
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
@@ -79,6 +80,10 @@ fun StatsList(
   val chartItems by statsViewModel.chartItems.collectAsStateWithLifecycle()
   val selectedFilter by statsViewModel.selectedFilter.collectAsStateWithLifecycle()
   val todaySessions by statsViewModel.todaySessions.collectAsStateWithLifecycle()
+  val usePureBlack by SettingsManager.usePureBlack.collectAsStateWithLifecycle()
+  val isAmoled = usePureBlack && com.vinnovateit.latch.ui.theme.LocalIsDarkTheme.current
+  val chartPalette by SettingsManager.chartPalette.collectAsStateWithLifecycle()
+  val (dlColor, ulColor) = com.vinnovateit.latch.common.util.StatsColorPalettes.resolveColors(chartPalette)
   val layoutDirection = LocalLayoutDirection.current
 
   LazyColumn(
@@ -148,7 +153,10 @@ fun StatsList(
       itemsIndexed(todaySessions, key = { index, session -> "today_${session.loginTime}_$index" }) { index, session ->
         TodaySessionListItem(
           session = session,
-          shape = groupedItemShape(index, todaySessions.size)
+          shape = groupedItemShape(index, todaySessions.size),
+          isAmoled = isAmoled,
+          dlColor = dlColor,
+          ulColor = ulColor
         )
       }
     } else {

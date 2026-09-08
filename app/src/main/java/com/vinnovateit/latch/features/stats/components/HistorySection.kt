@@ -269,10 +269,22 @@ private fun HistoryBarChartContent(chartItems: List<HistoryChartItem>) {
     }
     var displayedData by remember { mutableStateOf(totalUsageDetail) }
 
-    val maxUsage = remember(chartItems) {
-        chartItems.filterIsInstance<HistoryChartItem.BarData>()
-            .maxOfOrNull { it.usage.rxBytes + it.usage.txBytes }
-            ?.coerceAtLeast(1L) ?: 1L
+    val visibleMaxUsage by remember(chartItems) {
+        derivedStateOf {
+            val visibleInfo = lazyListState.layoutInfo.visibleItemsInfo
+            if (visibleInfo.isEmpty()) {
+                chartItems.filterIsInstance<HistoryChartItem.BarData>()
+                    .maxOfOrNull { it.usage.rxBytes + it.usage.txBytes }
+                    ?.coerceAtLeast(1L) ?: 1L
+            } else {
+                val maxVisible = visibleInfo.mapNotNull { itemInfo ->
+                    (chartItems.getOrNull(itemInfo.index) as? HistoryChartItem.BarData)?.let {
+                        it.usage.rxBytes + it.usage.txBytes
+                    }
+                }.maxOrNull()?.coerceAtLeast(1L)
+                maxVisible ?: 1L
+            }
+        }
     }
 
     // Center today's bar and select it initially when chartItems change
@@ -365,13 +377,14 @@ private fun HistoryBarChartContent(chartItems: List<HistoryChartItem>) {
                                     .width(barWidth)
                                     .fillMaxHeight(),
                                 usage = item.usage,
-                                maxUsage = maxUsage,
+                                maxUsage = visibleMaxUsage,
                                 isSelected = (idx == selectedIndex),
                                 isAmoled = isAmoled,
                                 barWidth = barWidth,
                                 barAreaHeight = barAreaHeight,
                                 dlColor = dlColor,
                                 ulColor = ulColor,
+                                index = idx,
                                 onTap = {
                                     haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                                     coroutineScope.launch {
@@ -442,18 +455,46 @@ private fun Bar(
     barAreaHeight: Dp,
     dlColor: Color,
     ulColor: Color,
+    index: Int = 0,
     onTap: () -> Unit
 ) {
     val total = usage.rxBytes + usage.txBytes
-    val totalFrac = if (maxUsage > 0L && total > 0L) {
+    val targetFrac = if (maxUsage > 0L && total > 0L) {
         (total.toFloat() / maxUsage.toFloat()).coerceIn(0.04f, 0.96f)
     } else 0.04f
+
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val animScale = remember {
+        try {
+            android.provider.Settings.Global.getFloat(
+                context.contentResolver,
+                android.provider.Settings.Global.ANIMATOR_DURATION_SCALE,
+                1.0f
+            )
+        } catch (e: Exception) {
+            1.0f
+        }
+    }
+
+    val animatedFrac by androidx.compose.animation.core.animateFloatAsState(
+        targetValue = targetFrac,
+        animationSpec = if (animScale <= 0f) {
+            androidx.compose.animation.core.snap()
+        } else {
+            androidx.compose.animation.core.tween(
+                durationMillis = (280 * animScale).toInt().coerceAtLeast(1),
+                delayMillis = ((index % 12) * 18 * animScale).toInt(),
+                easing = androidx.compose.animation.core.FastOutSlowInEasing
+            )
+        },
+        label = "BarFrac_$index"
+    )
 
     val uploadFrac = if (total > 0) usage.txBytes.toFloat() / total.toFloat() else 0f
     val downloadFrac = 1f - uploadFrac
     val density = LocalDensity.current
     val barHeightInDp = with(density) {
-        if (total > 0) (barAreaHeight.toPx() * totalFrac).toDp().coerceAtLeast(6.dp) else 4.dp
+        if (total > 0) (barAreaHeight.toPx() * animatedFrac).toDp().coerceAtLeast(6.dp) else 4.dp
     }
 
     Column(

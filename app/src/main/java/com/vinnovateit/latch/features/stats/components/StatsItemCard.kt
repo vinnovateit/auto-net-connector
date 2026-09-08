@@ -57,10 +57,10 @@ fun groupedItemShape(index: Int, totalCount: Int, cornerRadius: Dp = 24.dp, inne
 fun TodaySessionListItem(
   session: PortalSessionRecord,
   shape: Shape = RoundedCornerShape(16.dp),
+  isAmoled: Boolean = false,
+  dlColor: Color = ColorGraphDownload,
+  ulColor: Color = ColorGraphUpload,
 ) {
-  val usePureBlack by SettingsManager.usePureBlack.collectAsStateWithLifecycle()
-  val isAmoled = usePureBlack && LocalIsDarkTheme.current
-
   Surface(
     modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
     shape = shape,
@@ -73,10 +73,13 @@ fun TodaySessionListItem(
     }
     val dlFormatted = remember(session.downloadBytes) { formatBytes(session.downloadBytes) }
     val ulFormatted = remember(session.uploadBytes) { formatBytes(session.uploadBytes) }
-    val durationStr = session.durationFormatted.ifBlank { formatDurationDynamic(session.durationMillis) }
+    val durationStr = remember(session.durationFormatted, session.durationMillis) {
+      session.durationFormatted.ifBlank { formatDurationDynamic(session.durationMillis) }
+    }
 
     ListItem(
-      headlineContent = {
+      modifier = Modifier.fillMaxWidth(),
+      content = {
         Row(verticalAlignment = Alignment.CenterVertically) {
           Text(
             text = session.location.ifBlank { "Session" },
@@ -99,12 +102,12 @@ fun TodaySessionListItem(
           horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
           Row(verticalAlignment = Alignment.CenterVertically) {
-            Icon(Icons.Rounded.ArrowDownward, null, tint = ColorGraphDownload, modifier = Modifier.size(14.dp))
+            Icon(Icons.Rounded.ArrowDownward, null, tint = dlColor, modifier = Modifier.size(14.dp))
             Spacer(modifier = Modifier.width(2.dp))
             Text("${dlFormatted.first} ${dlFormatted.second}", style = MaterialTheme.typography.labelSmall)
           }
           Row(verticalAlignment = Alignment.CenterVertically) {
-            Icon(Icons.Rounded.ArrowUpward, null, tint = ColorGraphUpload, modifier = Modifier.size(14.dp))
+            Icon(Icons.Rounded.ArrowUpward, null, tint = ulColor, modifier = Modifier.size(14.dp))
             Spacer(modifier = Modifier.width(2.dp))
             Text("${ulFormatted.first} ${ulFormatted.second}", style = MaterialTheme.typography.labelSmall)
           }
@@ -130,26 +133,19 @@ fun TodaySessionListItem(
 fun DayAggregateListItem(
   record: AggregatedDayRecord,
   shape: Shape = RoundedCornerShape(16.dp),
+  isAmoled: Boolean = false,
+  dlColor: Color = ColorGraphDownload,
+  ulColor: Color = ColorGraphUpload,
 ) {
-  val usePureBlack by SettingsManager.usePureBlack.collectAsStateWithLifecycle()
-  val isAmoled = usePureBlack && com.vinnovateit.latch.ui.theme.LocalIsDarkTheme.current
-  val chartPalette by SettingsManager.chartPalette.collectAsStateWithLifecycle()
-  val (dlColor, ulColor) = com.vinnovateit.latch.common.util.StatsColorPalettes.resolveColors(chartPalette)
-
   Surface(
     modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
     shape = shape,
     color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
     border = if (isAmoled) androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant) else null
   ) {
-    Row(
-      modifier = Modifier
-        .fillMaxWidth()
-        .padding(horizontal = 14.dp, vertical = 10.dp),
-      verticalAlignment = Alignment.CenterVertically,
-      horizontalArrangement = Arrangement.SpaceBetween
-    ) {
-      Column(modifier = Modifier.weight(1f)) {
+    ListItem(
+      modifier = Modifier.fillMaxWidth(),
+      content = {
         Row(verticalAlignment = Alignment.CenterVertically) {
           Text(
             text = record.dateFormatted,
@@ -170,8 +166,10 @@ fun DayAggregateListItem(
             )
           }
         }
-        Spacer(modifier = Modifier.height(2.dp))
+      },
+      supportingContent = {
         Row(
+          modifier = Modifier.padding(top = 2.dp),
           verticalAlignment = Alignment.CenterVertically,
           horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
@@ -201,25 +199,27 @@ fun DayAggregateListItem(
             )
           }
         }
-      }
-
-      Row(verticalAlignment = Alignment.Bottom) {
-        Text(
-          text = record.totalFormatted.first,
-          style = MaterialTheme.typography.titleMedium,
-          fontWeight = FontWeight.Black,
-          color = MaterialTheme.colorScheme.onSurface
-        )
-        Spacer(modifier = Modifier.width(3.dp))
-        Text(
-          text = record.totalFormatted.second,
-          style = MaterialTheme.typography.labelSmall,
-          fontWeight = FontWeight.Bold,
-          color = MaterialTheme.colorScheme.primary,
-          modifier = Modifier.padding(bottom = 1.dp)
-        )
-      }
-    }
+      },
+      trailingContent = {
+        Row(verticalAlignment = Alignment.Bottom) {
+          Text(
+            text = record.totalFormatted.first,
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.Black,
+            color = MaterialTheme.colorScheme.onSurface
+          )
+          Spacer(modifier = Modifier.width(3.dp))
+          Text(
+            text = record.totalFormatted.second,
+            style = MaterialTheme.typography.labelSmall,
+            fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.primary,
+            modifier = Modifier.padding(bottom = 1.dp)
+          )
+        }
+      },
+      colors = ListItemDefaults.colors(containerColor = Color.Transparent)
+    )
   }
 }
 
