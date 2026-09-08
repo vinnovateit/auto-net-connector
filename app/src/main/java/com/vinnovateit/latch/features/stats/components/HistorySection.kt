@@ -1,6 +1,7 @@
 package com.vinnovateit.latch.features.stats.components
 
 import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
@@ -195,6 +196,15 @@ private fun HistoryBarChartContent(chartItems: List<HistoryChartItem>, isLoaded:
         }
     }
 
+    val animatedMaxUsage by animateFloatAsState(
+        targetValue = visibleMaxUsage.toFloat(),
+        animationSpec = spring(
+            dampingRatio = Spring.DampingRatioNoBouncy,
+            stiffness = Spring.StiffnessMediumLow
+        ),
+        label = "BarChartMaxUsageSpring"
+    )
+
     var lastCenteredIndex by remember { mutableIntStateOf(-1) }
     LaunchedEffect(chartItems) {
         snapshotFlow {
@@ -310,7 +320,7 @@ private fun HistoryBarChartContent(chartItems: List<HistoryChartItem>, isLoaded:
                                     .width(barWidth)
                                     .fillMaxHeight(),
                                 usage = item.usage,
-                                maxUsage = { visibleMaxUsage },
+                                maxUsage = { animatedMaxUsage },
                                 isSelected = (idx == selectedIndex),
                                 hasSelection = (selectedIndex != -1),
                                 isAmoled = isAmoled,
@@ -388,7 +398,7 @@ private fun MonthSeparator(monthName: String) {
 private fun Bar(
     modifier: Modifier = Modifier,
     usage: DataUsage,
-    maxUsage: () -> Long,
+    maxUsage: () -> Float,
     isSelected: Boolean,
     hasSelection: Boolean = false,
     isAmoled: Boolean = false,
@@ -417,8 +427,8 @@ private fun Bar(
             )
     ) {
         val maxVal = maxUsage()
-        val currentFrac = if (maxVal > 0L && total > 0L) {
-            (total.toFloat() / maxVal.toFloat()).coerceIn(0.04f, 0.96f)
+        val currentFrac = if (maxVal > 0f && total > 0L) {
+            (total.toFloat() / maxVal).coerceIn(0.04f, 0.96f)
         } else 0.04f
         val cornerRadius = androidx.compose.ui.geometry.CornerRadius(4.dp.toPx(), 4.dp.toPx())
         val strokeWidth = 1.5.dp.toPx()

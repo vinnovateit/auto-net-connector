@@ -127,13 +127,6 @@ fun ChartPaletteBottomSheet(
                     color = MaterialTheme.colorScheme.onSurface,
                     textAlign = TextAlign.Center
                 )
-                Spacer(Modifier.height(4.dp))
-                Text(
-                    text = currentPalette.description,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    textAlign = TextAlign.Center
-                )
             }
         }
     }

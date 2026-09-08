@@ -111,14 +111,13 @@ class StatsViewModelPortalTest {
         assertTrue(palettes.isNotEmpty())
         palettes.forEach { palette ->
             assertTrue(palette.name.isNotBlank())
-            assertTrue(palette.description.isNotBlank())
         }
         val names = palettes.map { it.name }
         assertTrue(names.contains("Material Dynamic"))
         assertTrue(names.contains("Emerald & Ocean"))
         assertTrue(names.contains("Sunset & Violet"))
         assertTrue(names.contains("Neon Teal & Coral"))
-        assertTrue(names.contains("Electric Cyan & Indigo"))
+        assertTrue(names.contains("Neon Lime & Magenta"))
     }
 
     @Test

@@ -38,10 +38,10 @@ object StatsColorPalettes {
             previewUpload = Color(0xFFF43F5E)
         ),
         ChartPalette(
-            name = "Electric Cyan & Indigo",
-            description = "Futuristic cyan download & electric indigo upload",
-            previewDownload = Color(0xFF06B6D4),
-            previewUpload = Color(0xFF6366F1)
+            name = "Neon Lime & Magenta",
+            description = "",
+            previewDownload = Color(0xFF10E88A),
+            previewUpload = Color(0xFFFF007F)
         )
     )
 
@@ -53,7 +53,7 @@ object StatsColorPalettes {
             "Emerald & Ocean" -> Color(0xFF10B981) to Color(0xFF3B82F6)
             "Sunset & Violet" -> Color(0xFFF59E0B) to Color(0xFF8B5CF6)
             "Neon Teal & Coral" -> Color(0xFF14B8A6) to Color(0xFFF43F5E)
-            "Electric Cyan & Indigo" -> Color(0xFF06B6D4) to Color(0xFF6366F1)
+            "Neon Lime & Magenta" -> Color(0xFF10E88A) to Color(0xFFFF007F)
             else -> primary to tertiary // "Material Dynamic"
         }
     }
