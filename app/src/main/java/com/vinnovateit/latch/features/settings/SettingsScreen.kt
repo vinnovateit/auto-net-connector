@@ -338,6 +338,29 @@ fun SettingsScreen(onBackClick: () -> Unit, onNavigateToCredentials: () -> Unit)
                   onClick = { showAccentColorSheet = true }
                 )
                 Spacer(modifier = Modifier.height(3.dp))
+                SettingsItem(
+                  title = "Palette Style",
+                  subtitle = when (paletteStyle) {
+                    "TonalSpot" -> "Tonal Spot"
+                    "Expressive" -> "Expressive"
+                    "FruitSalad" -> "Fruit Salad"
+                    "Spritz" -> "Spritz"
+                    "Rainbow" -> "Rainbow"
+                    "Vibrant" -> "Vibrant"
+                    "Fidelity" -> "Fidelity"
+                    "Content" -> "Content"
+                    else -> paletteStyle
+                  },
+                  leadingIcon = {
+                    Icon(
+                      Icons.Rounded.Palette,
+                      contentDescription = null,
+                      tint = MaterialTheme.colorScheme.primary
+                    )
+                  },
+                  onClick = { showPaletteStyleSheet = true }
+                )
+                Spacer(modifier = Modifier.height(3.dp))
               }
             }
 
@@ -360,29 +383,6 @@ fun SettingsScreen(onBackClick: () -> Unit, onNavigateToCredentials: () -> Unit)
                   })
               },
               onClick = { SettingsManager.setUseDynamicColors(!useDynamicColors) },
-            )
-            Spacer(modifier = Modifier.height(3.dp))
-            SettingsItem(
-              title = "Palette Style",
-              subtitle = when (paletteStyle) {
-                "TonalSpot" -> "Tonal Spot"
-                "Expressive" -> "Expressive"
-                "FruitSalad" -> "Fruit Salad"
-                "Spritz" -> "Spritz"
-                "Rainbow" -> "Rainbow"
-                "Vibrant" -> "Vibrant"
-                "Fidelity" -> "Fidelity"
-                "Content" -> "Content"
-                else -> paletteStyle
-              },
-              leadingIcon = {
-                Icon(
-                  Icons.Rounded.Palette,
-                  contentDescription = null,
-                  tint = MaterialTheme.colorScheme.primary
-                )
-              },
-              onClick = { showPaletteStyleSheet = true }
             )
             Spacer(modifier = Modifier.height(3.dp))
             SettingsItem(
