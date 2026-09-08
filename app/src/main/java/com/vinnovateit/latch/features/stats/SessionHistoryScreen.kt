@@ -25,9 +25,10 @@ import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.automirrored.rounded.Sort
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.ButtonGroup
+import androidx.compose.material3.ButtonGroupDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilterChip
-import androidx.compose.material3.FilterChipDefaults
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -71,7 +72,7 @@ enum class HistorySortOption(val label: String) {
     MOST_SESSIONS("Most sessions")
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun SessionHistoryScreen(
     onBackPressed: () -> Unit,
@@ -209,45 +210,26 @@ fun SessionHistoryScreen(
                 .padding(innerPadding)
         ) {
             val filterScrollState = rememberScrollState()
-            val totalFilters = HistoryFilterOption.entries.size
-            fun filterChipShape(index: Int) = when (index) {
-                0 -> RoundedCornerShape(topStart = 24.dp, bottomStart = 24.dp, topEnd = 4.dp, bottomEnd = 4.dp)
-                totalFilters - 1 -> RoundedCornerShape(topStart = 4.dp, bottomStart = 4.dp, topEnd = 24.dp, bottomEnd = 24.dp)
-                else -> RoundedCornerShape(4.dp)
-            }
 
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
                     .horizontalScroll(filterScrollState)
                     .padding(horizontal = 16.dp, vertical = 4.dp),
-                horizontalArrangement = Arrangement.spacedBy(0.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                HistoryFilterOption.entries.forEachIndexed { index, filter ->
-                    val isSelected = filter == selectedFilter
-                    FilterChip(
-                        selected = isSelected,
-                        onClick = { selectedFilter = filter },
-                        shape = filterChipShape(index),
-                        label = {
-                            Text(
-                                text = filter.label,
-                                style = MaterialTheme.typography.labelMedium,
-                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
-                            )
-                        },
-                        colors = FilterChipDefaults.filterChipColors(
-                            containerColor = Color.Transparent,
-                            selectedContainerColor = Color.Transparent,
-                            labelColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                            selectedLabelColor = MaterialTheme.colorScheme.primary
-                        ),
-                        border = BorderStroke(
-                            1.dp,
-                            if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant
+                ButtonGroup(
+                    overflowIndicator = { menuState ->
+                        ButtonGroupDefaults.OverflowIndicator(menuState = menuState)
+                    }
+                ) {
+                    HistoryFilterOption.entries.forEach { filter ->
+                        toggleableItem(
+                            checked = (filter == selectedFilter),
+                            label = filter.label,
+                            onCheckedChange = { selectedFilter = filter }
                         )
-                    )
+                    }
                 }
             }
 

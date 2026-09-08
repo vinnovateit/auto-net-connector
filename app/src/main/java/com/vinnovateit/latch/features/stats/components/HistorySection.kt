@@ -41,16 +41,16 @@ import androidx.compose.material.icons.rounded.ArrowDownward
 import androidx.compose.material.icons.rounded.ArrowDropDown
 import androidx.compose.material.icons.rounded.ArrowUpward
 import androidx.compose.material.icons.rounded.Tune
-import androidx.compose.material3.FilterChip
-import androidx.compose.material3.FilterChipDefaults
+import androidx.compose.material3.ButtonGroup
+import androidx.compose.material3.ButtonGroupDefaults
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.runtime.Composable
 import com.vinnovateit.latch.common.util.StatsColorPalettes
 import com.vinnovateit.latch.features.settings.manager.SettingsManager
-import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
@@ -69,6 +69,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
@@ -110,6 +111,7 @@ data class ChartDetailState(
     val durationFormatted: String = ""
 )
 
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun HistoryBarChart(
     history: List<HistoryChartItem>,
@@ -160,78 +162,39 @@ fun HistoryBarChart(
 
         if (onFilterSelected != null) {
             val quickFilterScrollState = rememberScrollState()
-            val totalChips = quickFilters.size + 1
-            fun chipShape(index: Int) = when (index) {
-                0 -> RoundedCornerShape(topStart = 24.dp, bottomStart = 24.dp, topEnd = 4.dp, bottomEnd = 4.dp)
-                totalChips - 1 -> RoundedCornerShape(topStart = 4.dp, bottomStart = 4.dp, topEnd = 24.dp, bottomEnd = 24.dp)
-                else -> RoundedCornerShape(4.dp)
-            }
+            val isAdvancedSelected = selectedFilter !in quickFilters
 
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
                     .horizontalScroll(quickFilterScrollState)
                     .padding(horizontal = 16.dp, vertical = 4.dp),
-                horizontalArrangement = Arrangement.spacedBy(0.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                quickFilters.forEachIndexed { index, filter ->
-                    val isSelected = filter == selectedFilter
-                    FilterChip(
-                        selected = isSelected,
-                        onClick = { onFilterSelected(filter) },
-                        shape = chipShape(index),
-                        label = {
-                            Text(
-                                text = filter.label,
-                                style = MaterialTheme.typography.labelMedium,
-                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
-                            )
-                        },
-                        colors = FilterChipDefaults.filterChipColors(
-                            containerColor = Color.Transparent,
-                            selectedContainerColor = Color.Transparent,
-                            labelColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                            selectedLabelColor = MaterialTheme.colorScheme.primary
-                        ),
-                        border = BorderStroke(
-                            1.dp,
-                            if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant
+                ButtonGroup(
+                    overflowIndicator = { menuState ->
+                        ButtonGroupDefaults.OverflowIndicator(menuState = menuState)
+                    }
+                ) {
+                    quickFilters.forEach { filter ->
+                        toggleableItem(
+                            checked = (filter == selectedFilter),
+                            label = filter.label,
+                            onCheckedChange = { onFilterSelected(filter) }
                         )
+                    }
+                    clickableItem(
+                        onClick = { showAdvancedSheet = true },
+                        label = if (isAdvancedSelected) selectedFilter.label else "Advanced...",
+                        icon = {
+                            Icon(
+                                imageVector = Icons.Rounded.Tune,
+                                contentDescription = "Advanced filters",
+                                modifier = Modifier.size(16.dp)
+                            )
+                        }
                     )
                 }
-
-                val isAdvancedSelected = selectedFilter !in quickFilters
-                FilterChip(
-                    selected = isAdvancedSelected,
-                    onClick = { showAdvancedSheet = true },
-                    shape = chipShape(totalChips - 1),
-                    label = {
-                        Text(
-                            text = if (isAdvancedSelected) selectedFilter.label else "Advanced...",
-                            style = MaterialTheme.typography.labelMedium,
-                            fontWeight = if (isAdvancedSelected) FontWeight.Bold else FontWeight.Normal
-                        )
-                    },
-                    trailingIcon = {
-                        Icon(
-                            imageVector = Icons.Rounded.Tune,
-                            contentDescription = "Advanced filters",
-                            modifier = Modifier.size(16.dp)
-                        )
-                    },
-                    colors = FilterChipDefaults.filterChipColors(
-                        containerColor = Color.Transparent,
-                        selectedContainerColor = Color.Transparent,
-                        labelColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                        selectedLabelColor = MaterialTheme.colorScheme.primary,
-                        selectedTrailingIconColor = MaterialTheme.colorScheme.primary
-                    ),
-                    border = BorderStroke(
-                        1.dp,
-                        if (isAdvancedSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant
-                    )
-                )
             }
             Spacer(Modifier.height(8.dp))
         }
