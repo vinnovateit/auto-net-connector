@@ -12,6 +12,7 @@ import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.key
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -39,12 +40,26 @@ fun RollingNumberText(
     )
     val textMeasurer = rememberTextMeasurer()
     val density = LocalDensity.current
-    val textLayoutResult = remember(textMeasurer, styledText, density) {
-        textMeasurer.measure("0", styledText)
+
+    val (maxDigitWidthPx, maxDigitHeightPx) = remember(textMeasurer, styledText) {
+        var maxW = 0
+        var maxH = 0
+        for (d in 0..9) {
+            val result = textMeasurer.measure(d.toString(), styledText)
+            if (result.size.width > maxW) maxW = result.size.width
+            if (result.size.height > maxH) maxH = result.size.height
+        }
+        maxW to maxH
     }
-    val digitWidth = with(density) { textLayoutResult.size.width.toDp() }
-    val digitHeight = with(density) { textLayoutResult.size.height.toDp() }
-    val digitHeightPx = textLayoutResult.size.height.toFloat()
+    val digitWidth = with(density) { (maxDigitWidthPx + 2).toDp() }
+    val digitHeight = with(density) { maxDigitHeightPx.toDp() }
+    val digitHeightPx = maxDigitHeightPx.toFloat()
+
+    val resolvedColor = if (styledText.color != Color.Unspecified) {
+        styledText.color
+    } else {
+        LocalContentColor.current
+    }
 
     Row(
         modifier = modifier,
@@ -54,20 +69,32 @@ fun RollingNumberText(
         for (i in value.indices) {
             val char = value[i]
             if (char in '0'..'9') {
-                DigitRoller(
-                    digit = char.digitToInt(),
-                    textStyle = styledText,
-                    digitWidth = digitWidth,
-                    digitHeight = digitHeight,
-                    digitHeightPx = digitHeightPx,
-                    colIndex = digitIndex++
-                )
+                val idx = digitIndex++
+                key("digit_${idx}_$char") {
+                    DigitRoller(
+                        digit = char.digitToInt(),
+                        textStyle = styledText,
+                        resolvedColor = resolvedColor,
+                        digitWidth = digitWidth,
+                        digitHeight = digitHeight,
+                        digitHeightPx = digitHeightPx,
+                        colIndex = idx
+                    )
+                }
             } else {
-                Text(
-                    text = char.toString(),
-                    style = styledText,
-                    textAlign = TextAlign.Center
-                )
+                key("char_$i") {
+                    Box(
+                        modifier = Modifier.height(digitHeight),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = char.toString(),
+                            style = styledText,
+                            color = resolvedColor,
+                            textAlign = TextAlign.Center
+                        )
+                    }
+                }
             }
         }
     }
@@ -77,6 +104,7 @@ fun RollingNumberText(
 private fun DigitRoller(
     digit: Int,
     textStyle: TextStyle,
+    resolvedColor: Color,
     digitWidth: Dp,
     digitHeight: Dp,
     digitHeightPx: Float,
@@ -84,21 +112,14 @@ private fun DigitRoller(
 ) {
     val animatable = remember { Animatable(0f) }
 
-    val resolvedColor = if (textStyle.color != Color.Unspecified) {
-        textStyle.color
-    } else {
-        LocalContentColor.current
-    }
-
     LaunchedEffect(digit) {
-        // Target is in the second cycle (indices 10..19) so initial roll from 0 completes 1 full spin + lands
         val target = (10 + digit).toFloat()
         animatable.animateTo(
             targetValue = target,
             animationSpec = tween(
-                durationMillis = 900 + (colIndex * 90).coerceAtMost(500),
-                delayMillis = colIndex * 70,
-                easing = CubicBezierEasing(0.16f, 1.0f, 0.3f, 1.0f)
+                durationMillis = 800 + (colIndex * 100).coerceAtMost(600),
+                delayMillis = colIndex * 60,
+                easing = CubicBezierEasing(0.12f, 0.98f, 0.32f, 1.0f)
             )
         )
     }
@@ -108,7 +129,7 @@ private fun DigitRoller(
             .width(digitWidth)
             .height(digitHeight)
             .clipToBounds(),
-        contentAlignment = Alignment.Center
+        contentAlignment = Alignment.TopCenter
     ) {
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
@@ -116,7 +137,9 @@ private fun DigitRoller(
                 translationY = -animatable.value * digitHeightPx
             }
         ) {
-            // 3 cycles of digits 0..9 (30 items total)
+            // 3 cycles of digits 0..9 (30 items total).
+            // Cycle 0: indices 0..9. Cycle 1: indices 10..19. Cycle 2: indices 20..29.
+            // Target is in cycle 1 (10 + digit). TopCenter alignment anchors y=0 to item 0.
             for (cycle in 0..2) {
                 for (d in 0..9) {
                     Box(
@@ -129,7 +152,8 @@ private fun DigitRoller(
                             text = "$d",
                             style = textStyle,
                             color = resolvedColor,
-                            textAlign = TextAlign.Center
+                            textAlign = TextAlign.Center,
+                            softWrap = false
                         )
                     }
                 }

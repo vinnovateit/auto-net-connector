@@ -183,9 +183,9 @@ private fun SessionHeader(session: SessionSummary, speedUnit: String) {
                 modifier = Modifier.size(16.dp)
             )
             Row(verticalAlignment = Alignment.Bottom) {
-                RollingNumberText(
-                    value = value,
-                    textStyle = MaterialTheme.typography.labelLarge.copy(
+                Text(
+                    text = value,
+                    style = MaterialTheme.typography.labelLarge.copy(
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onSurface
                     )
