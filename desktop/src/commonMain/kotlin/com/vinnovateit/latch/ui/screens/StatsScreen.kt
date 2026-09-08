@@ -59,7 +59,10 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.vinnovateit.latch.core.domain.SessionRepository
+import com.vinnovateit.latch.core.model.AggregatedDayRecord
 import com.vinnovateit.latch.core.model.DataUsage
+import com.vinnovateit.latch.core.model.DateRangeFilter
+import com.vinnovateit.latch.core.model.HistoryChartItem
 import com.vinnovateit.latch.core.model.PortalSessionRecord
 import com.vinnovateit.latch.core.platform.PlatformServices
 import com.vinnovateit.latch.core.settings.SettingsManager
@@ -81,36 +84,6 @@ import com.vinnovateit.latch.ui.theme.satoshiFontFamily
 import kotlinx.coroutines.delay
 import org.jetbrains.compose.resources.stringResource
 import java.util.Calendar
-
-enum class DateRangeFilter(val label: String) {
-    LAST_30_DAYS("Last 30"),
-    LAST_60_DAYS("Last 60"),
-    LAST_90_DAYS("Last 90"),
-    THIS_MONTH("This Month"),
-    THIS_YEAR("This Year"),
-    YTD("YTD"),
-    LAST_YEAR("Last Year"),
-    ALL_TIME("All Time")
-}
-
-data class AggregatedDayRecord(
-    val dayTimestamp: Long,
-    val dateFormatted: String,
-    val downloadBytes: Long,
-    val uploadBytes: Long,
-    val totalBytes: Long,
-    val downloadFormatted: Pair<String, String>,
-    val uploadFormatted: Pair<String, String>,
-    val totalFormatted: Pair<String, String>,
-    val sessionCount: Int,
-    val totalDurationMillis: Long,
-    val durationFormatted: String,
-)
-
-sealed class HistoryChartItem {
-    data class BarData(val usage: DataUsage, val label: String, val timestamp: Long) : HistoryChartItem()
-    data class MonthSeparator(val monthName: String) : HistoryChartItem()
-}
 
 fun groupedItemShape(index: Int, totalCount: Int, cornerRadius: Dp = 24.dp, innerRadius: Dp = 4.dp): Shape {
     return when {
@@ -667,6 +640,23 @@ private fun PortalDailyBarChart(history: List<PortalSessionRecord>) {
                             }
                         }
                         is HistoryChartItem.MonthSeparator -> {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxHeight()
+                                    .padding(horizontal = 4.dp),
+                                contentAlignment = Alignment.Center,
+                            ) {
+                                Text(
+                                    text = item.monthName,
+                                    style = MaterialTheme.typography.labelSmall,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    fontFamily = satoshiFontFamily(),
+                                    modifier = Modifier.rotate(-90f),
+                                )
+                            }
+                        }
+                        is HistoryChartItem.CollapsedMonth -> {
                             Box(
                                 modifier = Modifier
                                     .fillMaxHeight()

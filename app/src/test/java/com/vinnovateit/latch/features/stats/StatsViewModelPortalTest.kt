@@ -1,8 +1,9 @@
 package com.vinnovateit.latch.features.stats
 
 import com.vinnovateit.latch.core.model.DataUsage
+import com.vinnovateit.latch.core.model.DateRangeFilter
+import com.vinnovateit.latch.core.model.HistoryChartItem
 import com.vinnovateit.latch.core.model.PortalSessionRecord
-import com.vinnovateit.latch.features.stats.components.HistoryChartItem
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue

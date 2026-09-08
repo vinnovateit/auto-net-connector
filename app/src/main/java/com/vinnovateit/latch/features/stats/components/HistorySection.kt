@@ -67,6 +67,7 @@ import com.vinnovateit.latch.common.util.NoDataCard
 import com.vinnovateit.latch.common.util.formatBytes
 import com.vinnovateit.latch.common.util.formatDate
 import com.vinnovateit.latch.core.model.DataUsage
+import com.vinnovateit.latch.core.model.HistoryChartItem
 import com.vinnovateit.latch.ui.theme.ColorGraphDownload
 import com.vinnovateit.latch.ui.theme.ColorGraphUpload
 import kotlinx.coroutines.flow.distinctUntilChanged
@@ -75,21 +76,6 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-
-@Immutable
-sealed class HistoryChartItem {
-    data class BarData(
-        val usage: DataUsage,
-        val label: String,
-        val timestamp: Long,
-        val formattedDate: String = "",
-        val sessionCount: Int = 0,
-        val durationMillis: Long = 0L,
-        val durationFormatted: String = ""
-    ) : HistoryChartItem()
-    data class MonthSeparator(val monthName: String) : HistoryChartItem()
-    data class CollapsedMonth(val monthName: String, val timestamp: Long) : HistoryChartItem()
-}
 
 @Immutable
 data class ChartDetailState(

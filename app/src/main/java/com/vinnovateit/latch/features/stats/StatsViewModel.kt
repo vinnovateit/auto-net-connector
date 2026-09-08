@@ -4,14 +4,17 @@ import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.vinnovateit.latch.common.util.formatDate
+import com.vinnovateit.latch.core.model.AggregatedDayRecord
 import com.vinnovateit.latch.core.model.DataUsage
+import com.vinnovateit.latch.core.model.DateRangeFilter
+import com.vinnovateit.latch.core.model.HistoryChartItem
 import com.vinnovateit.latch.core.model.PortalSessionRecord
 import com.vinnovateit.latch.core.model.SessionSummary
-import com.vinnovateit.latch.features.stats.components.HistoryChartItem
-import com.vinnovateit.latch.features.stats.components.StatsOverviewMetrics
-import com.vinnovateit.latch.features.stats.components.computeMetrics
+import com.vinnovateit.latch.core.model.StatsOverviewMetrics
+import com.vinnovateit.latch.core.model.computeMetrics
 import com.vinnovateit.latch.platform.LatchAppGraph
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
@@ -20,34 +23,6 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import java.util.Calendar
-
-import kotlinx.coroutines.flow.MutableStateFlow
-
-enum class DateRangeFilter(val label: String) {
-  LAST_30_DAYS("Last 30"),
-  LAST_60_DAYS("Last 60"),
-  LAST_90_DAYS("Last 90"),
-  THIS_MONTH("This Month"),
-  THIS_YEAR("This Year"),
-  YTD("YTD"),
-  LAST_YEAR("Last Year"),
-  ALL_TIME("All Time")
-}
-
-data class AggregatedDayRecord(
-  val dayTimestamp: Long,
-  val dateFormatted: String,
-  val downloadBytes: Long,
-  val uploadBytes: Long,
-  val totalBytes: Long,
-  val downloadFormatted: Pair<String, String>,
-  val uploadFormatted: Pair<String, String>,
-  val totalFormatted: Pair<String, String>,
-  val sessionCount: Int,
-  val totalDurationMillis: Long,
-  val durationFormatted: String,
-  val isToday: Boolean = false,
-)
 
 class StatsViewModel(application: Application) : AndroidViewModel(application) {
 

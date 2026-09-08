@@ -1,7 +1,7 @@
 package com.vinnovateit.latch.features.stats
 
 import com.vinnovateit.latch.core.model.PortalSessionRecord
-import com.vinnovateit.latch.features.stats.components.computeMetrics
+import com.vinnovateit.latch.core.model.computeMetrics
 import org.junit.Assert.assertEquals
 import org.junit.Test
 

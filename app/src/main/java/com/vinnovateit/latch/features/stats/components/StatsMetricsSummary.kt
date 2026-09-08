@@ -28,30 +28,9 @@ import com.vinnovateit.latch.common.util.StatsColorPalettes
 import com.vinnovateit.latch.common.util.formatBytes
 import com.vinnovateit.latch.common.util.formatDurationDynamic
 import com.vinnovateit.latch.core.model.PortalSessionRecord
+import com.vinnovateit.latch.core.model.StatsOverviewMetrics
+import com.vinnovateit.latch.core.model.computeMetrics
 import com.vinnovateit.latch.features.settings.manager.SettingsManager
-
-data class StatsOverviewMetrics(
-    val totalBytes: Long,
-    val totalUploadBytes: Long,
-    val totalDownloadBytes: Long,
-    val totalSessions: Int
-)
-
-fun computeMetrics(sessions: List<PortalSessionRecord>): StatsOverviewMetrics {
-    if (sessions.isEmpty()) {
-        return StatsOverviewMetrics(0L, 0L, 0L, 0)
-    }
-    val total = sessions.sumOf { it.totalBytes }
-    val ul = sessions.sumOf { it.uploadBytes }
-    val dl = sessions.sumOf { it.downloadBytes }
-
-    return StatsOverviewMetrics(
-        totalBytes = total,
-        totalUploadBytes = ul,
-        totalDownloadBytes = dl,
-        totalSessions = sessions.size
-    )
-}
 
 @Composable
 fun StatsMetricsSummary(
