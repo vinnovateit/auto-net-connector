@@ -110,6 +110,8 @@ private fun SessionDetailsOverlay(
     isAmoled: Boolean = false
 ) {
     val overlayColor = MaterialTheme.colorScheme.surface
+    val chartPalette by SettingsManager.chartPalette.collectAsStateWithLifecycle()
+    val (dlColor, ulColor) = com.vinnovateit.latch.common.util.StatsColorPalettes.resolveColors(chartPalette)
 
     Box(
         modifier = modifier
@@ -125,19 +127,30 @@ private fun SessionDetailsOverlay(
             .padding(24.dp)
     ) {
         Column {
-            SessionHeader(session, speedUnit)
+            SessionHeader(session, speedUnit, dlColor = dlColor, ulColor = ulColor)
             Spacer(modifier = Modifier.height(16.dp))
             Row(
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                DataUsageCircle(modifier = Modifier.size(100.dp), data = session.totalData, isAmoled = isAmoled)
+                DataUsageCircle(
+                    modifier = Modifier.size(100.dp),
+                    data = session.totalData,
+                    isAmoled = isAmoled,
+                    dlColor = dlColor,
+                    ulColor = ulColor
+                )
             }
         }
     }
 }
 
 @Composable
-private fun SessionHeader(session: SessionSummary, speedUnit: String) {
+private fun SessionHeader(
+    session: SessionSummary,
+    speedUnit: String,
+    dlColor: Color = ColorGraphDownload,
+    ulColor: Color = ColorGraphUpload
+) {
     var duration by remember(session.startTimestamp) {
         mutableLongStateOf(System.currentTimeMillis() - session.startTimestamp)
     }
@@ -158,7 +171,7 @@ private fun SessionHeader(session: SessionSummary, speedUnit: String) {
     val isDownloadDominant = downloadBps >= uploadBps
     val dominatingBps = if (isDownloadDominant) downloadBps else uploadBps
     val icon = if (isDownloadDominant) Icons.Rounded.ArrowDownward else Icons.Rounded.ArrowUpward
-    val iconColor = if (isDownloadDominant) ColorGraphDownload else ColorGraphUpload
+    val iconColor = if (isDownloadDominant) dlColor else ulColor
     val (value, unit) = formatBitsPerSecond(dominatingBps, speedUnit)
 
     Row(
@@ -389,7 +402,9 @@ private fun SessionRateGraph(
 fun DataUsageCircle(
     modifier: Modifier = Modifier,
     data: DataUsage,
-    isAmoled: Boolean = false
+    isAmoled: Boolean = false,
+    dlColor: Color = ColorGraphDownload,
+    ulColor: Color = ColorGraphUpload
 ) {
     var mode by remember { mutableStateOf(DisplayMode.TOTAL) }
     LaunchedEffect(mode) {
@@ -441,14 +456,14 @@ fun DataUsageCircle(
                 style = Stroke(width = strokeWidth, cap = StrokeCap.Butt)
             )
             drawArc(
-                color = ColorGraphDownload,
+                color = dlColor,
                 startAngle = -90f + gapAngle,
                 sweepAngle = downloadSweep,
                 useCenter = false,
                 style = Stroke(width = strokeWidth, cap = StrokeCap.Butt)
             )
             drawArc(
-                color = ColorGraphUpload,
+                color = ulColor,
                 startAngle = -90f + gapAngle + downloadSweep + gapAngle,
                 sweepAngle = uploadSweep,
                 useCenter = false,
@@ -469,13 +484,13 @@ fun DataUsageCircle(
                 DisplayMode.DOWNLOAD -> Quadruple(
                     formatBytes(data.rxBytes).first,
                     formatBytes(data.rxBytes).second,
-                    ColorGraphDownload,
+                    dlColor,
                     Icons.Rounded.ArrowDownward
                 )
                 DisplayMode.UPLOAD -> Quadruple(
                     formatBytes(data.txBytes).first,
                     formatBytes(data.txBytes).second,
-                    ColorGraphUpload,
+                    ulColor,
                     Icons.Rounded.ArrowUpward
                 )
                 DisplayMode.TOTAL -> Quadruple(
