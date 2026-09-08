@@ -30,6 +30,7 @@ import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
@@ -42,7 +43,9 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import kotlinx.coroutines.launch
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -63,6 +66,7 @@ import com.vinnovateit.latch.core.settings.SettingsManager
 import com.vinnovateit.latch.core.stats.formatBitsPerSecond
 import com.vinnovateit.latch.core.stats.formatBytes
 import com.vinnovateit.latch.core.stats.formatDate
+import com.vinnovateit.latch.core.stats.formatDisplayDate
 import com.vinnovateit.latch.core.stats.formatDurationDynamic
 import com.vinnovateit.latch.desktop.resources.Res
 import com.vinnovateit.latch.desktop.resources.stats_empty_message
