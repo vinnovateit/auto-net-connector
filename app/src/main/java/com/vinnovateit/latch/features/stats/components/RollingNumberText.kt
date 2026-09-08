@@ -18,6 +18,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -84,8 +85,8 @@ private fun DigitRoller(
     resolvedColor: Color,
     colIndex: Int
 ) {
-    var currentDigit by remember { mutableIntStateOf(0) }
-    var hasAnimated by remember { androidx.compose.runtime.mutableStateOf(false) }
+    var hasAnimated by rememberSaveable(colIndex) { androidx.compose.runtime.mutableStateOf(false) }
+    var currentDigit by rememberSaveable(colIndex) { mutableIntStateOf(if (hasAnimated) digit else 0) }
     val haptic = androidx.compose.ui.platform.LocalHapticFeedback.current
 
     LaunchedEffect(digit) {
