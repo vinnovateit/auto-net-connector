@@ -182,10 +182,46 @@ fun StatsScreen(
         olderDayRecords.take(displayedOlderDaysCount)
     }
 
+    var menuExpanded by remember { mutableStateOf(false) }
+    val coroutineScope = rememberCoroutineScope()
+
     Column(modifier = Modifier.fillMaxSize()) {
         LatchDetailHeader(
             title = stringResource(Res.string.stats_title),
             onBack = onBack,
+            actions = {
+                Box {
+                    IconButton(
+                        onClick = { menuExpanded = true },
+                        modifier = Modifier.size(36.dp),
+                    ) {
+                        Icon(
+                            imageVector = LatchIcons.MoreVert,
+                            contentDescription = "More options",
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.size(20.dp),
+                        )
+                    }
+                    DropdownMenu(
+                        expanded = menuExpanded,
+                        onDismissRequest = { menuExpanded = false },
+                    ) {
+                        DropdownMenuItem(
+                            text = { Text("Resync History") },
+                            onClick = {
+                                menuExpanded = false
+                                val userId = platform.credentials.userId()
+                                val password = platform.credentials.password()
+                                if (!userId.isNullOrBlank() && !password.isNullOrBlank()) {
+                                    coroutineScope.launch {
+                                        sessions.syncPortalHistory(userId, password, force = true)
+                                    }
+                                }
+                            },
+                        )
+                    }
+                }
+            },
         )
 
         LazyColumn(

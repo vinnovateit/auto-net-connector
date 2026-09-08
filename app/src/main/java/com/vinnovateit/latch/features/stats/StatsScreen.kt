@@ -40,9 +40,11 @@ private fun StatsTopBar(
   headerHeight: Dp,
   onBackPressed: () -> Unit,
   onSaveReport: () -> Unit,
+  onResyncHistory: () -> Unit,
 ) {
   val surfaceColor = MaterialTheme.colorScheme.surface
   val haptic = LocalHapticFeedback.current
+  var menuExpanded by remember { mutableStateOf(false) }
 
   Box(
     modifier = Modifier
@@ -83,25 +85,58 @@ private fun StatsTopBar(
         )
       }
 
-      Row(
+      Box(
         modifier = Modifier
           .align(Alignment.TopEnd)
-          .padding(end = 12.dp, top = 4.dp),
-        verticalAlignment = Alignment.CenterVertically
+          .padding(end = 12.dp, top = 4.dp)
       ) {
-        TooltipHint(tooltipText = "Export Report") {
-          IconButton(
+        IconButton(
+          onClick = {
+            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+            menuExpanded = true
+          }
+        ) {
+          Icon(
+            imageVector = androidx.compose.material.icons.Icons.Rounded.MoreVert,
+            contentDescription = "More Options",
+            tint = MaterialTheme.colorScheme.primary
+          )
+        }
+
+        DropdownMenu(
+          expanded = menuExpanded,
+          onDismissRequest = { menuExpanded = false }
+        ) {
+          DropdownMenuItem(
+            text = { Text("Export Full Report") },
             onClick = {
+              menuExpanded = false
               haptic.performHapticFeedback(HapticFeedbackType.LongPress)
               onSaveReport()
+            },
+            leadingIcon = {
+              Icon(
+                imageVector = com.vinnovateit.latch.ui.icons.ExportNotes,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary
+              )
             }
-          ) {
-            Icon(
-              imageVector = com.vinnovateit.latch.ui.icons.ExportNotes,
-              contentDescription = "Save Report",
-              tint = MaterialTheme.colorScheme.primary
-            )
-          }
+          )
+          DropdownMenuItem(
+            text = { Text("Resync History") },
+            onClick = {
+              menuExpanded = false
+              haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+              onResyncHistory()
+            },
+            leadingIcon = {
+              Icon(
+                imageVector = androidx.compose.material.icons.Icons.Rounded.Refresh,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary
+              )
+            }
+          )
         }
       }
     }
@@ -200,6 +235,7 @@ fun StatsScreen(
               headerHeight = minTopBarHeight,
               onBackPressed = onBackPressed,
               onSaveReport = onSaveReport,
+              onResyncHistory = { statsViewModel.refreshHistory() },
             )
             Box(
               modifier = Modifier.padding(horizontal = 24.dp, vertical = 16.dp).fillMaxSize(),
@@ -252,6 +288,7 @@ fun StatsScreen(
             headerHeight = currentTopBarHeightDp,
             onBackPressed = onBackPressed,
             onSaveReport = onSaveReport,
+            onResyncHistory = { statsViewModel.refreshHistory() },
           )
         }
       }
