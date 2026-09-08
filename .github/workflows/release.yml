@@ -87,16 +87,28 @@ jobs:
           cli/build/cli-package/image/latch-cli/bin/latch-cli --version
           test "$(cli/build/cli-package/image/latch-cli/bin/latch-cli --version)" = "latch-cli ${{ needs.prepare.outputs.version }}"
 
+      # upload-artifact roots an artifact at the least common ancestor of its
+      # path patterns. desktop/... and cli/... share only the repo root, so the
+      # artifact kept the full source paths and the release job found
+      # release-assets/cli/build/distributions/latch-cli-*.tar.gz rather than
+      # release-assets/latch-cli-*.tar.gz. Staging into one directory first
+      # makes the uploaded layout flat and independent of where Gradle wrote
+      # each file.
+      - name: Stage Linux artifacts
+        run: |
+          mkdir -p staging
+          cp desktop/build/distributions/*.tar.gz staging/
+          cp cli/build/distributions/*.tar.gz staging/
+          cp cli/build/distributions/*.deb staging/
+          cp cli/build/distributions/*.rpm staging/
+          ls -l staging
+
       - name: Upload Linux artifacts
         uses: actions/upload-artifact@v4
         with:
           name: linux-artifacts
           if-no-files-found: error
-          path: |
-            desktop/build/distributions/*.tar.gz
-            cli/build/distributions/*.tar.gz
-            cli/build/distributions/*.deb
-            cli/build/distributions/*.rpm
+          path: staging/*
 
   build-windows:
     name: Build Windows artifacts
@@ -125,14 +137,21 @@ jobs:
             throw "Unexpected CLI version output: $actual"
           }
 
+      # Flattened for the same reason as the Linux job above.
+      - name: Stage Windows artifacts
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path staging | Out-Null
+          Copy-Item desktop\build\compose\binaries\main-release\msi\*.msi staging\
+          Copy-Item cli\build\distributions\*.zip staging\
+          Get-ChildItem staging
+
       - name: Upload Windows artifacts
         uses: actions/upload-artifact@v4
         with:
           name: windows-artifacts
           if-no-files-found: error
-          path: |
-            desktop/build/compose/binaries/main-release/msi/*.msi
-            cli/build/distributions/*.zip
+          path: staging/*
 
   release:
     name: Create GitHub release
@@ -148,6 +167,12 @@ jobs:
           path: release-assets
           merge-multiple: true
 
+      # Every downstream step here addresses release-assets/<file> directly, so
+      # fail with the actual listing rather than a bare "must exist" if the
+      # layout ever drifts again.
+      - name: List downloaded artifacts
+        run: ls -lR release-assets
+
       - name: Generate package-manager manifests
         env:
           VERSION: ${{ needs.prepare.outputs.version }}
@@ -161,7 +186,7 @@ jobs:
 
       - name: Generate checksums
         working-directory: release-assets
-        run: sha256sum * > SHA256SUMS
+        run: sha256sum -- * > SHA256SUMS
 
       - name: Create GitHub release
         uses: softprops/action-gh-release@v2
