@@ -59,12 +59,6 @@ class StatsViewModel(application: Application) : AndroidViewModel(application) {
   val portalHistory: StateFlow<List<PortalSessionRecord>> = LatchAppGraph.sessions.portalHistory
   val isSyncing: StateFlow<Boolean> = LatchAppGraph.sessions.isSyncing
 
-  val selectedFilter = MutableStateFlow(DateRangeFilter.THIS_MONTH)
-
-  fun setFilter(filter: DateRangeFilter) {
-    selectedFilter.value = filter
-  }
-
   val nonZeroPortalHistory: StateFlow<List<PortalSessionRecord>> =
     portalHistory.map { list ->
       list.filter { it.uploadBytes > 0L || it.downloadBytes > 0L }
@@ -203,7 +197,7 @@ class StatsViewModel(application: Application) : AndroidViewModel(application) {
 
 
   val chartItems: StateFlow<List<HistoryChartItem>> =
-    combine(selectedFilter, nonZeroPortalHistory, liveStatus) { filter, records, live ->
+    combine(nonZeroPortalHistory, liveStatus) { records, live ->
       val recordsByDay = records
         .filter { it.loginTime > 0 }
         .groupBy { formatDate(it.loginTime, "yyyy-MM-dd") }
@@ -245,40 +239,12 @@ class StatsViewModel(application: Application) : AndroidViewModel(application) {
         set(Calendar.MILLISECOND, 999)
       }
 
-      when (filter) {
-        DateRangeFilter.LAST_30_DAYS -> {
-          startCal.add(Calendar.DAY_OF_YEAR, -29)
-        }
-        DateRangeFilter.LAST_60_DAYS -> {
-          startCal.add(Calendar.DAY_OF_YEAR, -59)
-        }
-        DateRangeFilter.LAST_90_DAYS -> {
-          startCal.add(Calendar.DAY_OF_YEAR, -89)
-        }
-        DateRangeFilter.THIS_MONTH -> {
-          startCal.set(Calendar.DAY_OF_MONTH, 1)
-        }
-        DateRangeFilter.THIS_YEAR -> {
-          startCal.set(Calendar.DAY_OF_YEAR, 1)
-        }
-        DateRangeFilter.YTD -> {
-          startCal.set(Calendar.DAY_OF_YEAR, 1)
-        }
-        DateRangeFilter.LAST_YEAR -> {
-          startCal.add(Calendar.YEAR, -1)
-          startCal.set(Calendar.DAY_OF_YEAR, 1)
-          endCal.add(Calendar.YEAR, -1)
-          endCal.set(Calendar.MONTH, Calendar.DECEMBER)
-          endCal.set(Calendar.DAY_OF_MONTH, 31)
-        }
-        DateRangeFilter.ALL_TIME -> {
-          val validRecords = records.filter { it.loginTime > 0 }
-          val earliest = validRecords.minOfOrNull { it.loginTime } ?: (System.currentTimeMillis() - 30L * 86400000L)
-          val minAllowed = Calendar.getInstance().apply { set(2020, Calendar.JANUARY, 1) }.timeInMillis
-          startCal.timeInMillis = maxOf(earliest, minAllowed)
-          startCal.set(Calendar.DAY_OF_MONTH, 1)
-        }
-      }
+      // Always ALL_TIME data mode
+      val validRecords = records.filter { it.loginTime > 0 }
+      val earliest = validRecords.minOfOrNull { it.loginTime } ?: (System.currentTimeMillis() - 30L * 86400000L)
+      val minAllowed = Calendar.getInstance().apply { set(2020, Calendar.JANUARY, 1) }.timeInMillis
+      startCal.timeInMillis = maxOf(earliest, minAllowed)
+      startCal.set(Calendar.DAY_OF_MONTH, 1)
 
       val currentYear = now.get(Calendar.YEAR)
       val items = mutableListOf<HistoryChartItem>()

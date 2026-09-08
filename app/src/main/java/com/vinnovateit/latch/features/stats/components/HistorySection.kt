@@ -99,42 +99,12 @@ data class ChartDetailState(
 
 @Composable
 fun HistoryBarChart(
-    history: List<HistoryChartItem>,
-    selectedFilter: com.vinnovateit.latch.features.stats.DateRangeFilter = com.vinnovateit.latch.features.stats.DateRangeFilter.THIS_MONTH,
-    onFilterSelected: ((com.vinnovateit.latch.features.stats.DateRangeFilter) -> Unit)? = null
+    history: List<HistoryChartItem>
 ) {
-    val currentYear = remember { java.util.Calendar.getInstance().get(java.util.Calendar.YEAR) }
-    val headerTitle = remember(history, selectedFilter) {
-        val lastTimestamp = history.filterIsInstance<HistoryChartItem.BarData>().lastOrNull()?.timestamp
-            ?: System.currentTimeMillis()
-        val year = formatDate(lastTimestamp, "yyyy").toIntOrNull() ?: currentYear
-        val pattern = if (year == currentYear) "MMMM" else "MMMM yyyy"
-        formatDate(lastTimestamp, pattern)
-    }
-
-    Column(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 8.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text(
-                text = headerTitle,
-                style = MaterialTheme.typography.headlineSmall,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onBackground
-            )
-        }
-
-        if (history.isNotEmpty()) {
-            HistoryBarChartContent(chartItems = history)
-        } else {
-            NoDataCard("No stats available. Connect to Wi-Fi to start tracking your usage.")
-        }
+    if (history.isNotEmpty()) {
+        HistoryBarChartContent(chartItems = history)
+    } else {
+        NoDataCard("No stats available. Connect to Wi-Fi to start tracking your usage.")
     }
 }
 
@@ -277,7 +247,32 @@ private fun HistoryBarChartContent(chartItems: List<HistoryChartItem>) {
         }
     }
 
+    val currentYear = remember { java.util.Calendar.getInstance().get(java.util.Calendar.YEAR) }
+    val headerTitle = remember(chartItems, selectedIndex) {
+        val selectedItem = chartItems.getOrNull(selectedIndex) as? HistoryChartItem.BarData
+        val ts = selectedItem?.timestamp
+            ?: chartItems.filterIsInstance<HistoryChartItem.BarData>().lastOrNull()?.timestamp
+            ?: System.currentTimeMillis()
+        val year = formatDate(ts, "yyyy").toIntOrNull() ?: currentYear
+        val pattern = if (year == currentYear) "MMMM" else "MMMM yyyy"
+        formatDate(ts, pattern)
+    }
+
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = headerTitle,
+                style = MaterialTheme.typography.headlineSmall,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onBackground
+            )
+        }
+
         BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
             val barWidth = 14.dp
             val rowHeight = 160.dp
@@ -292,12 +287,21 @@ private fun HistoryBarChartContent(chartItems: List<HistoryChartItem>) {
                 horizontalArrangement = Arrangement.spacedBy(0.2.dp),
                 verticalAlignment = Alignment.Bottom
             ) {
-                itemsIndexed(chartItems, key = { index, item ->
-                    when (item) {
-                        is HistoryChartItem.BarData -> "bar_${item.timestamp}_$index"
-                        is HistoryChartItem.MonthSeparator -> "month_${item.monthName}_$index"
+                itemsIndexed(
+                    items = chartItems,
+                    key = { index, item ->
+                        when (item) {
+                            is HistoryChartItem.BarData -> "bar_${item.timestamp}_$index"
+                            is HistoryChartItem.MonthSeparator -> "month_${item.monthName}_$index"
+                        }
+                    },
+                    contentType = { _, item ->
+                        when (item) {
+                            is HistoryChartItem.BarData -> "bar"
+                            is HistoryChartItem.MonthSeparator -> "month"
+                        }
                     }
-                }) { idx, item ->
+                ) { idx, item ->
                     when (item) {
                         is HistoryChartItem.BarData -> {
                             Bar(
@@ -315,6 +319,7 @@ private fun HistoryBarChartContent(chartItems: List<HistoryChartItem>) {
                                 ulColor = ulColor,
                                 index = idx,
                                 animScale = animScale,
+                                isScrollInProgress = lazyListState.isScrollInProgress,
                                 onTap = {
                                     haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                                     coroutineScope.launch {
@@ -388,6 +393,7 @@ private fun Bar(
     ulColor: Color,
     index: Int = 0,
     animScale: Float = 1.0f,
+    isScrollInProgress: Boolean = false,
     onTap: () -> Unit
 ) {
     val total = usage.rxBytes + usage.txBytes
@@ -397,7 +403,7 @@ private fun Bar(
 
     val animatedFrac by androidx.compose.animation.core.animateFloatAsState(
         targetValue = targetFrac,
-        animationSpec = if (animScale <= 0f) {
+        animationSpec = if (animScale <= 0f || isScrollInProgress) {
             androidx.compose.animation.core.snap()
         } else {
             androidx.compose.animation.core.tween(
