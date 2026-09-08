@@ -51,6 +51,7 @@ import com.vinnovateit.latch.features.settings.manager.SettingsManager
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -333,11 +334,37 @@ private fun HistoryBarChartContent(chartItems: List<HistoryChartItem>) {
     var displayedData by remember { mutableStateOf(totalUsageDetail) }
     var revertJob by remember { mutableStateOf<Job?>(null) }
 
-    val maxDailyUsage = remember(chartItems) {
-        chartItems.filterIsInstance<HistoryChartItem.BarData>()
-            .maxOfOrNull { it.usage.rxBytes + it.usage.txBytes }
-            ?.coerceAtLeast(1L) ?: 1L
+    val visibleMaxDailyUsage by remember(chartItems) {
+        derivedStateOf {
+            val visible = lazyListState.layoutInfo.visibleItemsInfo
+            var maxBytes = 0L
+            for (itemInfo in visible) {
+                val item = chartItems.getOrNull(itemInfo.index)
+                if (item is HistoryChartItem.BarData) {
+                    val sum = item.usage.rxBytes + item.usage.txBytes
+                    if (sum > maxBytes) {
+                        maxBytes = sum
+                    }
+                }
+            }
+            if (maxBytes > 0L) {
+                maxBytes
+            } else {
+                chartItems.filterIsInstance<HistoryChartItem.BarData>()
+                    .maxOfOrNull { it.usage.rxBytes + it.usage.txBytes }
+                    ?.coerceAtLeast(1L) ?: 1L
+            }
+        }
     }
+
+    val animatedMaxUsage by animateFloatAsState(
+        targetValue = visibleMaxDailyUsage.toFloat(),
+        animationSpec = spring(
+            dampingRatio = 0.8f,
+            stiffness = Spring.StiffnessMediumLow
+        ),
+        label = "BarChartMaxUsageSpring"
+    )
 
     // Reset selection and scroll position safely when chartItems change
     LaunchedEffect(chartItems) {
@@ -379,7 +406,7 @@ private fun HistoryBarChartContent(chartItems: List<HistoryChartItem>) {
                                     .width(barWidth)
                                     .fillMaxHeight(),
                                 usage = item.usage,
-                                maxUsage = maxDailyUsage,
+                                maxUsage = animatedMaxUsage,
                                 isSelected = (idx == selectedIndex),
                                 hasSelection = (selectedIndex != -1),
                                 isAmoled = isAmoled,
@@ -473,7 +500,7 @@ private fun MonthSeparator(monthName: String) {
 private fun Bar(
     modifier: Modifier = Modifier,
     usage: DataUsage,
-    maxUsage: Long,
+    maxUsage: Float,
     isSelected: Boolean,
     hasSelection: Boolean,
     isAmoled: Boolean = false,
@@ -484,7 +511,8 @@ private fun Bar(
     onTap: () -> Unit
 ) {
     val total = usage.rxBytes + usage.txBytes
-    val totalFrac = (total.toFloat() / maxUsage.toFloat()).coerceIn(0.04f, 1f)
+    val safeMax = if (maxUsage > 0f) maxUsage else 1f
+    val totalFrac = (total.toFloat() / safeMax).coerceIn(0.04f, 1f)
 
     val uploadFrac = if (total > 0) usage.txBytes.toFloat() / total.toFloat() else 0f
     val downloadFrac = 1f - uploadFrac
