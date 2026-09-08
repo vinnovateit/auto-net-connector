@@ -70,14 +70,14 @@ class StatsViewModel(application: Application) : AndroidViewModel(application) {
     portalHistory.map { list ->
       list.filter { it.uploadBytes > 0L || it.downloadBytes > 0L }
     }.flowOn(Dispatchers.Default)
-      .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+      .stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
 
   val todaySessions: StateFlow<List<PortalSessionRecord>> =
     nonZeroPortalHistory.map { list ->
       val todayKey = formatDate(System.currentTimeMillis(), "yyyy-MM-dd")
       list.filter { it.loginTime > 0 && formatDate(it.loginTime, "yyyy-MM-dd") == todayKey }
     }.flowOn(Dispatchers.Default)
-      .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+      .stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
 
   val olderDayRecords: StateFlow<List<AggregatedDayRecord>> =
     nonZeroPortalHistory.map { list ->
@@ -107,19 +107,19 @@ class StatsViewModel(application: Application) : AndroidViewModel(application) {
         }
         .sortedByDescending { it.dayTimestamp }
     }.flowOn(Dispatchers.Default)
-      .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+      .stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
 
   val overviewMetrics: StateFlow<StatsOverviewMetrics> =
     nonZeroPortalHistory.map { sessions ->
       computeMetrics(sessions)
     }.flowOn(Dispatchers.Default)
-      .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), computeMetrics(emptyList()))
+      .stateIn(viewModelScope, SharingStarted.Lazily, computeMetrics(emptyList()))
 
   val usageTrends: StateFlow<List<DailyUsageTrend>> =
     nonZeroPortalHistory.map { sessions ->
       aggregateDailyUsage(sessions)
     }.flowOn(Dispatchers.Default)
-      .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+      .stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
 
   init {
     refreshHistory()
@@ -156,7 +156,7 @@ class StatsViewModel(application: Application) : AndroidViewModel(application) {
           maxTxBps = it.maxTxBps
         )
       } ?: last // If not live, show the last completed session
-    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
+    }.stateIn(viewModelScope, SharingStarted.Lazily, null)
 
   val historyToShow: StateFlow<List<SessionSummary>> =
     combine(
@@ -175,7 +175,7 @@ class StatsViewModel(application: Application) : AndroidViewModel(application) {
         val historyWithoutLive = history.filter { it.startTimestamp != liveSummary.startTimestamp }
         mergeSessions(listOf(liveSummary) + historyWithoutLive, 60_000L)
       } ?: mergeSessions(history, 60_000L)
-    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+    }.stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
 
   private fun mergeSessions(sessions: List<SessionSummary>, gapMs: Long): List<SessionSummary> {
     if (sessions.isEmpty()) return emptyList()
@@ -319,7 +319,7 @@ class StatsViewModel(application: Application) : AndroidViewModel(application) {
       }
       items.distinct()
     }.flowOn(Dispatchers.Default)
-      .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+      .stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
 
   val statsInsights: StateFlow<com.vinnovateit.latch.core.stats.StatsInsights> =
     nonZeroPortalHistory.map { sessions ->
@@ -327,7 +327,7 @@ class StatsViewModel(application: Application) : AndroidViewModel(application) {
     }.flowOn(Dispatchers.Default)
       .stateIn(
         viewModelScope,
-        SharingStarted.WhileSubscribed(5000),
+        SharingStarted.Lazily,
         com.vinnovateit.latch.core.stats.computeStatsInsights(emptyList())
       )
 
