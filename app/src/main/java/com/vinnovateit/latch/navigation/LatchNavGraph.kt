@@ -112,6 +112,15 @@ fun LatchNavGraph(
         )
     }
 
+    val settingsContent: @Composable () -> Unit = {
+        Surface(modifier = Modifier.fillMaxSize()) {
+            SettingsScreen(
+                onBackClick = {},
+                onNavigateToCredentials = {}
+            )
+        }
+    }
+
     NavHost(
         navController = navController,
         startDestination = startDestination,
@@ -167,7 +176,8 @@ fun LatchNavGraph(
                     } else {
                         navController.popBackStack(LatchRoutes.ONBOARDING, inclusive = false)
                     }
-                }
+                },
+                backgroundContent = if (editMode) settingsContent else null
             ) { triggerBack ->
                 CredentialsScreen(
                     editMode = editMode,
