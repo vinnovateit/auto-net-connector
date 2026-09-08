@@ -186,6 +186,7 @@ fun StatsScreen(
   onSaveReport: () -> Unit,
   onBackPressed: () -> Unit = {},
   onNavigateToHistory: () -> Unit = {},
+  onNavigateToPortalAccount: () -> Unit = {},
   statsViewModel: StatsViewModel = viewModel()
 ) {
   val sessionToShow by statsViewModel.sessionToShow.collectAsStateWithLifecycle()
@@ -196,11 +197,6 @@ fun StatsScreen(
   val isLive = remember(liveStatus) { liveStatus != null }
   val speedUnits by SettingsManager.speedUnits.collectAsStateWithLifecycle()
   var showAllSessions by remember { mutableStateOf(false) }
-
-  val context = LocalContext.current
-  val onOpenManageAccount = remember(context) {
-    { PortalBrowserLauncher.launchManageAccount(context) }
-  }
 
   val density = LocalDensity.current
 
@@ -257,7 +253,7 @@ fun StatsScreen(
             onSaveReport = onSaveReport,
             onResyncHistory = { statsViewModel.refreshHistory() },
             onNavigateToHistory = onNavigateToHistory,
-            onOpenManageAccount = onOpenManageAccount,
+            onOpenManageAccount = onNavigateToPortalAccount,
           )
         }
       ) { innerPadding ->
@@ -282,7 +278,7 @@ fun StatsScreen(
               onSaveReport = onSaveReport,
               onResyncHistory = { statsViewModel.refreshHistory() },
               onNavigateToHistory = onNavigateToHistory,
-              onOpenManageAccount = onOpenManageAccount,
+              onOpenManageAccount = onNavigateToPortalAccount,
             )
             Box(
               modifier = Modifier.padding(horizontal = 24.dp, vertical = 16.dp).fillMaxSize(),
@@ -339,7 +335,7 @@ fun StatsScreen(
             onSaveReport = onSaveReport,
             onResyncHistory = { statsViewModel.refreshHistory() },
             onNavigateToHistory = onNavigateToHistory,
-            onOpenManageAccount = onOpenManageAccount,
+            onOpenManageAccount = onNavigateToPortalAccount,
           )
         }
       }

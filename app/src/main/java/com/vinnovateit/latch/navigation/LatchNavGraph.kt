@@ -58,6 +58,7 @@ object LatchRoutes {
     const val SETTINGS = "settings"
     const val STATS = "stats"
     const val SESSION_HISTORY = "session_history"
+    const val PORTAL_ACCOUNT = "portal_account"
     const val MEET_THE_TEAM = "meet_the_team"
 
     fun credentials(editMode: Boolean = false) = "credentials/$editMode"
@@ -106,6 +107,7 @@ fun LatchNavGraph(
             onSaveReport = {},
             onBackPressed = {},
             onNavigateToHistory = {},
+            onNavigateToPortalAccount = {},
             statsViewModel = statsViewModel
         )
     }
@@ -233,6 +235,7 @@ fun LatchNavGraph(
                     },
                     onBackPressed = triggerBack,
                     onNavigateToHistory = { navController.navigate(LatchRoutes.SESSION_HISTORY) },
+                    onNavigateToPortalAccount = { navController.navigate(LatchRoutes.PORTAL_ACCOUNT) },
                     statsViewModel = statsViewModel
                 )
             }
@@ -248,6 +251,18 @@ fun LatchNavGraph(
                 com.vinnovateit.latch.features.stats.SessionHistoryScreen(
                     onBackPressed = triggerBack,
                     statsViewModel = statsViewModel
+                )
+            }
+        }
+
+        // Portal Account Management
+        composable(LatchRoutes.PORTAL_ACCOUNT) {
+            PredictiveSlideBackContainer(
+                onBackPressed = { navController.popBackStack() },
+                backgroundContent = statsContent
+            ) { triggerBack ->
+                com.vinnovateit.latch.features.stats.PortalAccountScreen(
+                    onBackPressed = triggerBack
                 )
             }
         }
