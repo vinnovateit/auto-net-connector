@@ -215,8 +215,7 @@ class SessionRepository(
                         totalBytes = it.totalBytes,
                     )
                 }
-                statsDao.clearAllPortalSessions()
-                statsDao.insertAllPortalSessions(entities)
+                statsDao.replacePortalSessions(entities)
                 logger.d(TAG, "Persisted ${entities.size} portal session records to database")
                 _portalHistory.value = merged
                 Result.success(Unit)

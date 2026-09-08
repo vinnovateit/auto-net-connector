@@ -10,6 +10,7 @@ import androidx.room.PrimaryKey
 import androidx.room.Query
 import androidx.room.RoomDatabase
 import androidx.room.RoomDatabaseConstructor
+import androidx.room.Transaction
 import androidx.sqlite.execSQL
 import kotlinx.coroutines.flow.Flow
 
@@ -101,6 +102,12 @@ interface StatsDao {
 
     @Query("DELETE FROM portal_sessions")
     suspend fun clearAllPortalSessions()
+
+    @Transaction
+    suspend fun replacePortalSessions(sessions: List<PortalSessionEntity>) {
+        clearAllPortalSessions()
+        insertAllPortalSessions(sessions)
+    }
 }
 
 @Database(entities = [Session::class, PortalSessionEntity::class], version = 4, exportSchema = false)
