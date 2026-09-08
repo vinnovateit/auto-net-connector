@@ -142,11 +142,13 @@ fun SettingsScreen(onBackClick: () -> Unit, onNavigateToCredentials: () -> Unit)
   var showThemeSheet by remember { mutableStateOf(false) }
   var showClearStatsSheet by remember { mutableStateOf(false) }
   var showAccentColorSheet by remember { mutableStateOf(false) }
+  var showChartPaletteSheet by remember { mutableStateOf(false) }
 
   val useDynamicColors by SettingsManager.useDynamicColors.collectAsStateWithLifecycle()
   val usePureBlack by SettingsManager.usePureBlack.collectAsStateWithLifecycle()
   val useMonochrome by SettingsManager.useMonochrome.collectAsStateWithLifecycle()
   val accentColor by SettingsManager.accentColor.collectAsStateWithLifecycle()
+  val chartPalette by SettingsManager.chartPalette.collectAsStateWithLifecycle()
 
   val density = LocalDensity.current
   val coroutineScope = rememberCoroutineScope()
@@ -343,6 +345,36 @@ fun SettingsScreen(onBackClick: () -> Unit, onNavigateToCredentials: () -> Unit)
                   })
               },
               onClick = { SettingsManager.setUseDynamicColors(!useDynamicColors) },
+            )
+            Spacer(modifier = Modifier.height(3.dp))
+            SettingsItem(
+              title = "Chart Bar Colors",
+              subtitle = chartPalette,
+              leadingIcon = {
+                Icon(
+                  Icons.Rounded.FormatPaint,
+                  contentDescription = null,
+                  tint = MaterialTheme.colorScheme.primary
+                )
+              },
+              trailingContent = {
+                val (previewDl, previewUl) = com.vinnovateit.latch.common.util.StatsColorPalettes.resolveColors(chartPalette)
+                Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                  Box(
+                    modifier = Modifier
+                      .size(16.dp)
+                      .clip(androidx.compose.foundation.shape.CircleShape)
+                      .background(previewDl)
+                  )
+                  Box(
+                    modifier = Modifier
+                      .size(16.dp)
+                      .clip(androidx.compose.foundation.shape.CircleShape)
+                      .background(previewUl)
+                  )
+                }
+              },
+              onClick = { showChartPaletteSheet = true }
             )
           }
         }
@@ -546,6 +578,17 @@ fun SettingsScreen(onBackClick: () -> Unit, onNavigateToCredentials: () -> Unit)
         showClearStatsSheet = false
       },
       onDismiss = { showClearStatsSheet = false }
+    )
+  }
+
+  if (showChartPaletteSheet) {
+    com.vinnovateit.latch.features.stats.components.ChartPaletteBottomSheet(
+      selectedPalette = chartPalette,
+      onSelectPalette = {
+        SettingsManager.setChartPalette(it)
+        showChartPaletteSheet = false
+      },
+      onDismiss = { showChartPaletteSheet = false }
     )
   }
 }

@@ -127,11 +127,6 @@ fun StatsList(
     }
 
     item {
-      UsageInsightsCards(insights = statsInsights)
-      Spacer(modifier = Modifier.height(15.dp))
-    }
-
-    item {
       Text(
         text = "Today's Sessions",
         style = MaterialTheme.typography.titleMedium,
@@ -222,6 +217,11 @@ fun StatsList(
           )
         }
       }
+    }
+
+    item {
+      Spacer(modifier = Modifier.height(14.dp))
+      UsageInsightsCards(insights = statsInsights)
     }
   }
 }

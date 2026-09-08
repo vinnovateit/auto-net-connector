@@ -21,6 +21,7 @@ object SettingsManager {
     val usePureBlack: StateFlow<Boolean> get() = CoreSettings.usePureBlack
     val useMonochrome: StateFlow<Boolean> get() = CoreSettings.useMonochrome
     val accentColor: StateFlow<String> get() = CoreSettings.accentColor
+    val chartPalette: StateFlow<String> get() = CoreSettings.chartPalette
 
     fun initialize(context: Context) {
         appContext = context.applicationContext
@@ -68,6 +69,11 @@ object SettingsManager {
 
     fun setAccentColor(color: String) {
         CoreSettings.setAccentColor(color)
+        sendSettingsChangedBroadcast()
+    }
+
+    fun setChartPalette(palette: String) {
+        CoreSettings.setChartPalette(palette)
         sendSettingsChangedBroadcast()
     }
 

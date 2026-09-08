@@ -45,6 +45,9 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.ui.graphics.graphicsLayer
+import com.vinnovateit.latch.common.util.StatsColorPalettes
+import com.vinnovateit.latch.features.settings.manager.SettingsManager
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.LaunchedEffect
@@ -82,7 +85,6 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.vinnovateit.latch.features.settings.manager.SettingsManager
 
 @Immutable
 sealed class HistoryChartItem {
@@ -140,6 +142,10 @@ fun HistoryBarChart(
         modifier = Modifier.fillMaxWidth(),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
+        var showPaletteSheet by remember { mutableStateOf(false) }
+        val chartPalette by SettingsManager.chartPalette.collectAsStateWithLifecycle()
+        val (currentDlColor, currentUlColor) = StatsColorPalettes.resolveColors(chartPalette)
+
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -152,6 +158,44 @@ fun HistoryBarChart(
                 style = MaterialTheme.typography.headlineSmall,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.onBackground
+            )
+
+            Surface(
+                onClick = { showPaletteSheet = true },
+                shape = CircleShape,
+                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f),
+                modifier = Modifier.size(36.dp)
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(3.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(11.dp)
+                                .clip(CircleShape)
+                                .background(currentDlColor)
+                        )
+                        Box(
+                            modifier = Modifier
+                                .size(11.dp)
+                                .clip(CircleShape)
+                                .background(currentUlColor)
+                        )
+                    }
+                }
+            }
+        }
+
+        if (showPaletteSheet) {
+            ChartPaletteBottomSheet(
+                selectedPalette = chartPalette,
+                onSelectPalette = {
+                    SettingsManager.setChartPalette(it)
+                    showPaletteSheet = false
+                },
+                onDismiss = { showPaletteSheet = false }
             )
         }
 
@@ -305,18 +349,21 @@ private fun HistoryBarChartContent(chartItems: List<HistoryChartItem>) {
         }
     }
 
+    val chartPalette by SettingsManager.chartPalette.collectAsStateWithLifecycle()
+    val (dlColor, ulColor) = StatsColorPalettes.resolveColors(chartPalette)
+
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
         BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
-            val containerWidth = 24.dp
-            val rowHeight = 200.dp
-            val barAreaHeight = 150.dp
+            val barWidth = 16.dp
+            val rowHeight = 165.dp
+            val barAreaHeight = 160.dp
             val horizontalPadding = 16.dp
 
             LazyRow(
                 state = lazyListState,
                 modifier = Modifier.height(rowHeight),
                 contentPadding = PaddingValues(horizontal = horizontalPadding),
-                horizontalArrangement = Arrangement.spacedBy(2.dp),
+                horizontalArrangement = Arrangement.spacedBy(0.dp),
                 verticalAlignment = Alignment.Bottom
             ) {
                 itemsIndexed(chartItems, key = { index, item ->
@@ -329,14 +376,17 @@ private fun HistoryBarChartContent(chartItems: List<HistoryChartItem>) {
                         is HistoryChartItem.BarData -> {
                             Bar(
                                 modifier = Modifier
-                                    .width(containerWidth)
+                                    .width(barWidth)
                                     .fillMaxHeight(),
                                 usage = item.usage,
                                 maxUsage = maxDailyUsage,
-                                dayLabel = item.label,
                                 isSelected = (idx == selectedIndex),
+                                hasSelection = (selectedIndex != -1),
                                 isAmoled = isAmoled,
+                                barWidth = barWidth,
                                 barAreaHeight = barAreaHeight,
+                                dlColor = dlColor,
+                                ulColor = ulColor,
                                 onTap = {
                                     val clickedItem = chartItems.getOrNull(idx) as? HistoryChartItem.BarData ?: return@Bar
                                     haptic.performHapticFeedback(HapticFeedbackType.KeyboardTap)
@@ -378,7 +428,7 @@ private fun HistoryBarChartContent(chartItems: List<HistoryChartItem>) {
 
         Spacer(Modifier.height(16.dp))
 
-        StatDetailRow(data = displayedData)
+        StatDetailRow(data = displayedData, dlColor = dlColor, ulColor = ulColor)
     }
 }
 
@@ -387,16 +437,35 @@ private fun MonthSeparator(monthName: String) {
     Box(
         modifier = Modifier
             .fillMaxHeight()
-            .padding(horizontal = 4.dp),
+            .padding(horizontal = 6.dp),
         contentAlignment = Alignment.Center
     ) {
-        Text(
-            text = monthName,
-            style = MaterialTheme.typography.labelSmall,
-            fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.rotate(-90f)
-        )
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
+        ) {
+            Box(
+                modifier = Modifier
+                    .width(1.dp)
+                    .height(28.dp)
+                    .background(MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
+            )
+            Spacer(Modifier.height(4.dp))
+            Text(
+                text = monthName,
+                style = MaterialTheme.typography.labelSmall,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.rotate(-90f)
+            )
+            Spacer(Modifier.height(4.dp))
+            Box(
+                modifier = Modifier
+                    .width(1.dp)
+                    .height(28.dp)
+                    .background(MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
+            )
+        }
     }
 }
 
@@ -405,22 +474,33 @@ private fun Bar(
     modifier: Modifier = Modifier,
     usage: DataUsage,
     maxUsage: Long,
-    dayLabel: String,
     isSelected: Boolean,
+    hasSelection: Boolean,
     isAmoled: Boolean = false,
+    barWidth: Dp,
     barAreaHeight: Dp,
+    dlColor: Color,
+    ulColor: Color,
     onTap: () -> Unit
 ) {
     val total = usage.rxBytes + usage.txBytes
-    val totalFrac = (total.toFloat() / maxUsage.toFloat()).coerceIn(0.06f, 1f)
+    val totalFrac = (total.toFloat() / maxUsage.toFloat()).coerceIn(0.04f, 1f)
 
     val uploadFrac = if (total > 0) usage.txBytes.toFloat() / total.toFloat() else 0f
     val downloadFrac = 1f - uploadFrac
     val density = LocalDensity.current
-    val barHeightInDp = with(density) { (barAreaHeight.toPx() * totalFrac).toDp() }
+    val barHeightInDp = with(density) {
+        if (total > 0) (barAreaHeight.toPx() * totalFrac).toDp().coerceAtLeast(6.dp) else 4.dp
+    }
+
+    val barAlpha by animateFloatAsState(
+        targetValue = if (isSelected) 1f else if (hasSelection) 0.55f else 1f,
+        label = "BarAlpha"
+    )
 
     Column(
         modifier = modifier
+            .graphicsLayer { alpha = barAlpha }
             .clickable(
                 interactionSource = remember { MutableInteractionSource() },
                 indication = null,
@@ -431,36 +511,36 @@ private fun Bar(
     ) {
         Box(
             modifier = Modifier
-                .width(24.dp)
+                .width(barWidth)
                 .height(barAreaHeight),
             contentAlignment = Alignment.BottomCenter
         ) {
-            val dlColor = ColorGraphDownload
-            val ulColor = ColorGraphUpload
-
+            val emptyColor = if (isAmoled) Color(0xFF262626) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f)
             Canvas(
                 modifier = Modifier
-                    .width(10.dp)
+                    .width(barWidth)
                     .height(barHeightInDp)
             ) {
-                val strokeWidth = 2.dp.toPx()
-                val cornerRadius = androidx.compose.ui.geometry.CornerRadius(size.width / 2, size.width / 2)
+                val cornerRadius = androidx.compose.ui.geometry.CornerRadius(4.dp.toPx(), 4.dp.toPx())
+                val strokeWidth = 1.5.dp.toPx()
                 val inset = if (isAmoled) strokeWidth / 2 else 0f
-                val drawSize = Size(size.width - inset * 2, size.height - inset * 2)
+                val drawWidth = (size.width - inset * 2).coerceAtLeast(0f)
+                val drawHeight = (size.height - inset * 2).coerceAtLeast(0f)
                 val topLeftOffset = Offset(inset, inset)
 
                 if (total > 0) {
-                    val gapPx = if (downloadFrac > 0f && uploadFrac > 0f) 2.dp.toPx() else 0f
-                    val availableHeight = (drawSize.height - gapPx).coerceAtLeast(0f)
-                    val ulH = availableHeight * uploadFrac
-                    val dlH = availableHeight * downloadFrac
+                    val gapPx = if (downloadFrac > 0.05f && uploadFrac > 0.05f) 2.dp.toPx() else 0f
+                    val availableHeight = (drawHeight - gapPx).coerceAtLeast(0f)
+                    val ulH = if (uploadFrac > 0f) (availableHeight * uploadFrac).coerceAtLeast(2.dp.toPx()) else 0f
+                    val dlH = (availableHeight - ulH).coerceAtLeast(0f)
 
+                    // Upload on top
                     if (ulH > 0f) {
                         if (isAmoled) {
                             drawRoundRect(
                                 color = ulColor,
                                 topLeft = topLeftOffset,
-                                size = Size(drawSize.width, ulH),
+                                size = Size(drawWidth, ulH),
                                 cornerRadius = cornerRadius,
                                 style = androidx.compose.ui.graphics.drawscope.Stroke(width = strokeWidth)
                             )
@@ -468,19 +548,20 @@ private fun Bar(
                             drawRoundRect(
                                 color = ulColor,
                                 topLeft = topLeftOffset,
-                                size = Size(drawSize.width, ulH),
+                                size = Size(drawWidth, ulH),
                                 cornerRadius = cornerRadius
                             )
                         }
                     }
 
+                    // Download below upload
                     if (dlH > 0f) {
                         val dlTopY = topLeftOffset.y + if (ulH > 0f) ulH + gapPx else 0f
                         if (isAmoled) {
                             drawRoundRect(
                                 color = dlColor,
                                 topLeft = Offset(topLeftOffset.x, dlTopY),
-                                size = Size(drawSize.width, dlH),
+                                size = Size(drawWidth, dlH),
                                 cornerRadius = cornerRadius,
                                 style = androidx.compose.ui.graphics.drawscope.Stroke(width = strokeWidth)
                             )
@@ -488,58 +569,40 @@ private fun Bar(
                             drawRoundRect(
                                 color = dlColor,
                                 topLeft = Offset(topLeftOffset.x, dlTopY),
-                                size = Size(drawSize.width, dlH),
+                                size = Size(drawWidth, dlH),
                                 cornerRadius = cornerRadius
                             )
                         }
                     }
-                } else {
-                    val emptyColor = if (isAmoled) Color.DarkGray else Color.Gray.copy(alpha = 0.25f)
-                    if (isAmoled) {
+
+                    // Selected highlight cap
+                    if (isSelected) {
                         drawRoundRect(
-                            color = emptyColor,
-                            topLeft = topLeftOffset,
-                            size = drawSize,
-                            cornerRadius = cornerRadius,
-                            style = androidx.compose.ui.graphics.drawscope.Stroke(width = strokeWidth)
-                        )
-                    } else {
-                        drawRoundRect(
-                            color = emptyColor,
-                            topLeft = topLeftOffset,
-                            size = drawSize,
-                            cornerRadius = cornerRadius
+                            color = Color.White.copy(alpha = 0.85f),
+                            topLeft = Offset(topLeftOffset.x, 0f),
+                            size = Size(drawWidth, 3.dp.toPx()),
+                            cornerRadius = androidx.compose.ui.geometry.CornerRadius(2.dp.toPx(), 2.dp.toPx())
                         )
                     }
+                } else {
+                    drawRoundRect(
+                        color = emptyColor,
+                        topLeft = topLeftOffset,
+                        size = Size(drawWidth, drawHeight),
+                        cornerRadius = androidx.compose.ui.geometry.CornerRadius(2.dp.toPx(), 2.dp.toPx())
+                    )
                 }
             }
-        }
-
-        Spacer(Modifier.height(8.dp))
-
-        val backgroundColor = if (isSelected) MaterialTheme.colorScheme.primary else Color.Transparent
-        val textColor = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant
-
-        Box(
-            contentAlignment = Alignment.Center,
-            modifier = Modifier
-                .size(20.dp)
-                .clip(CircleShape)
-                .background(backgroundColor)
-        ) {
-            Text(
-                text = dayLabel,
-                style = MaterialTheme.typography.labelSmall,
-                color = textColor,
-                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
-                textAlign = TextAlign.Center
-            )
         }
     }
 }
 
 @Composable
-private fun StatDetailRow(data: ChartDetailState) {
+private fun StatDetailRow(
+    data: ChartDetailState,
+    dlColor: Color,
+    ulColor: Color
+) {
     val (currentUsage, label, sessionCount, durationFormatted) = data
 
     val (totalFmt, dlFmt, ulFmt) = remember(currentUsage) {
@@ -580,7 +643,7 @@ private fun StatDetailRow(data: ChartDetailState) {
         ) {
             AnimatedContent(dlFmt, label = "DLStat", transitionSpec = { fadeIn() togetherWith fadeOut() }) { (value, unit) ->
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Rounded.ArrowDownward, null, tint = ColorGraphDownload, modifier = Modifier.size(16.dp))
+                    Icon(Icons.Rounded.ArrowDownward, null, tint = dlColor, modifier = Modifier.size(16.dp))
                     Spacer(Modifier.width(4.dp))
                     Text("$value $unit",
                         style = MaterialTheme.typography.bodyMedium,
@@ -590,7 +653,7 @@ private fun StatDetailRow(data: ChartDetailState) {
             }
             AnimatedContent(ulFmt, label = "ULStat", transitionSpec = { fadeIn() togetherWith fadeOut() }) { (value, unit) ->
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Rounded.ArrowUpward, null, tint = ColorGraphUpload, modifier = Modifier.size(16.dp))
+                    Icon(Icons.Rounded.ArrowUpward, null, tint = ulColor, modifier = Modifier.size(16.dp))
                     Spacer(Modifier.width(4.dp))
                     Text("$value $unit",
                         style = MaterialTheme.typography.bodyMedium,
