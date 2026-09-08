@@ -74,3 +74,23 @@ dependencies {
     add("kspDesktop", libs.room.compiler.desktop)
     add("kspAndroid", libs.room.compiler.desktop)
 }
+
+// latch-version.properties is checked in as `version=${latchVersion}` and is the
+// only place :cli's --version, DesktopPlatformServices.versionName and the
+// GithubUpdater's "am I out of date" comparison get the version from. Nothing
+// substituted that token, so every desktop and CLI build shipped the literal
+// string. Scoped by filesMatching because expand() runs a Groovy template over
+// whatever it matches, and declared as an input so a latchVersion bump
+// invalidates the task instead of reusing a stale processed resource.
+tasks.named<ProcessResources>("desktopProcessResources") {
+    inputs.property("latchVersion", latchVersion)
+    filesMatching("latch-version.properties") {
+        expand("latchVersion" to latchVersion)
+    }
+}
+
+// Lets the desktopTest source set assert the packaged resource against the
+// gradle.properties value rather than a hardcoded copy of it.
+tasks.named<Test>("desktopTest") {
+    systemProperty("latchVersion", latchVersion)
+}
