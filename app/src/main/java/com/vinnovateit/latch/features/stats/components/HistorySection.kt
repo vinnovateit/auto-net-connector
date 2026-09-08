@@ -32,14 +32,17 @@ import androidx.compose.material.icons.rounded.ArrowDownward
 import androidx.compose.material.icons.rounded.ArrowDropDown
 import androidx.compose.material.icons.rounded.ArrowUpward
 import androidx.compose.material.icons.rounded.Tune
-import androidx.compose.material3.ButtonGroup
 import androidx.compose.material3.ButtonGroupDefaults
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.ToggleButton
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.semantics
 import com.vinnovateit.latch.common.util.StatsColorPalettes
 import com.vinnovateit.latch.features.settings.manager.SettingsManager
 import androidx.compose.runtime.Immutable
@@ -162,37 +165,41 @@ fun HistoryBarChart(
                     .fillMaxWidth()
                     .horizontalScroll(quickFilterScrollState)
                     .padding(horizontal = 16.dp, vertical = 4.dp),
+                horizontalArrangement = Arrangement.spacedBy(ButtonGroupDefaults.ConnectedSpaceBetween),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                ButtonGroup(
-                    overflowIndicator = { menuState ->
-                        ButtonGroupDefaults.OverflowIndicator(menuState = menuState)
-                    }
-                ) {
-                    quickFilters.forEach { filter ->
-                        toggleableItem(
-                            checked = (filter == selectedFilter),
-                            label = filter.label,
-                            onCheckedChange = {
-                                haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                                onFilterSelected(filter)
-                            }
-                        )
-                    }
-                    clickableItem(
-                        onClick = {
+                quickFilters.forEachIndexed { index, filter ->
+                    ToggleButton(
+                        checked = (filter == selectedFilter),
+                        onCheckedChange = {
                             haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                            showAdvancedSheet = true
+                            onFilterSelected(filter)
                         },
-                        label = if (isAdvancedSelected) selectedFilter.label else "Advanced...",
-                        icon = {
-                            Icon(
-                                imageVector = Icons.Rounded.Tune,
-                                contentDescription = "Advanced filters",
-                                modifier = Modifier.size(16.dp)
-                            )
-                        }
+                        shapes = when (index) {
+                            0 -> ButtonGroupDefaults.connectedLeadingButtonShapes()
+                            else -> ButtonGroupDefaults.connectedMiddleButtonShapes()
+                        },
+                        modifier = Modifier.semantics { role = Role.RadioButton }
+                    ) {
+                        Text(filter.label)
+                    }
+                }
+                ToggleButton(
+                    checked = isAdvancedSelected,
+                    onCheckedChange = {
+                        haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                        showAdvancedSheet = true
+                    },
+                    shapes = ButtonGroupDefaults.connectedTrailingButtonShapes(),
+                    modifier = Modifier.semantics { role = Role.RadioButton }
+                ) {
+                    Icon(
+                        imageVector = Icons.Rounded.Tune,
+                        contentDescription = "Advanced filters",
+                        modifier = Modifier.size(16.dp)
                     )
+                    Spacer(Modifier.width(4.dp))
+                    Text(if (isAdvancedSelected) selectedFilter.label else "Advanced...")
                 }
             }
             Spacer(Modifier.height(8.dp))
