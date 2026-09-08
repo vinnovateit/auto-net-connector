@@ -1,11 +1,19 @@
 package com.vinnovateit.latch.ui.screens
 
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.animateScrollBy
+import androidx.compose.foundation.gestures.snapping.rememberSnapFlingBehavior
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -28,7 +36,6 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
@@ -37,7 +44,9 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
@@ -45,45 +54,56 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
-import kotlinx.coroutines.launch
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.vinnovateit.latch.core.domain.SessionRepository
 import com.vinnovateit.latch.core.model.AggregatedDayRecord
 import com.vinnovateit.latch.core.model.DataUsage
-import com.vinnovateit.latch.core.model.DateRangeFilter
 import com.vinnovateit.latch.core.model.HistoryChartItem
 import com.vinnovateit.latch.core.model.PortalSessionRecord
+import com.vinnovateit.latch.core.model.StatsOverviewMetrics
+import com.vinnovateit.latch.core.model.computeMetrics
 import com.vinnovateit.latch.core.platform.PlatformServices
 import com.vinnovateit.latch.core.settings.SettingsManager
+import com.vinnovateit.latch.core.stats.StatsInsights
+import com.vinnovateit.latch.core.stats.computeChartItems
+import com.vinnovateit.latch.core.stats.computeStatsInsights
 import com.vinnovateit.latch.core.stats.formatBitsPerSecond
 import com.vinnovateit.latch.core.stats.formatBytes
 import com.vinnovateit.latch.core.stats.formatDate
 import com.vinnovateit.latch.core.stats.formatDisplayDate
 import com.vinnovateit.latch.core.stats.formatDurationDynamic
+import com.vinnovateit.latch.core.stats.generatePortalHtmlReport
 import com.vinnovateit.latch.desktop.resources.Res
 import com.vinnovateit.latch.desktop.resources.stats_empty_message
 import com.vinnovateit.latch.desktop.resources.stats_title
 import com.vinnovateit.latch.ui.components.DataUsageDonut
 import com.vinnovateit.latch.ui.components.LatchDetailHeader
 import com.vinnovateit.latch.ui.components.LatchIcons
-import com.vinnovateit.latch.ui.theme.ColorGraphDownload
-import com.vinnovateit.latch.ui.theme.ColorGraphUpload
 import com.vinnovateit.latch.ui.theme.LocalIsDarkTheme
+import com.vinnovateit.latch.ui.theme.StatsColorPalettes
 import com.vinnovateit.latch.ui.theme.satoshiFontFamily
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.stringResource
-import java.util.Calendar
+import java.io.File
 
 fun groupedItemShape(index: Int, totalCount: Int, cornerRadius: Dp = 24.dp, innerRadius: Dp = 4.dp): Shape {
     return when {
@@ -94,13 +114,6 @@ fun groupedItemShape(index: Int, totalCount: Int, cornerRadius: Dp = 24.dp, inne
     }
 }
 
-/**
- * Session history driven by portal history from the Pronto Networks captive portal.
- *
- * Shows live connection speed while connected, KPI summary tiles, daily bar chart with
- * date range filtering and month grouping, and Material 3 grouped list items for today's
- * sessions and aggregated older days.
- */
 @Composable
 fun StatsScreen(
     sessions: SessionRepository,
@@ -112,6 +125,10 @@ fun StatsScreen(
     val portalHistory by sessions.portalHistory.collectAsStateWithLifecycle()
     val isSyncing by sessions.isSyncing.collectAsStateWithLifecycle()
     val speedUnit by SettingsManager.speedUnits.collectAsStateWithLifecycle()
+    val chartPalette by SettingsManager.chartPalette.collectAsStateWithLifecycle()
+    val usePureBlack by SettingsManager.usePureBlack.collectAsStateWithLifecycle()
+    val isAmoled = usePureBlack && LocalIsDarkTheme.current
+    val (dlColor, ulColor) = StatsColorPalettes.resolveColors(chartPalette)
 
     LaunchedEffect(Unit) {
         val userId = platform.credentials.userId()
@@ -121,9 +138,15 @@ fun StatsScreen(
         }
     }
 
-    // Filter out 0B entries
     val nonZeroHistory = remember(portalHistory) {
         portalHistory.filter { it.uploadBytes > 0L || it.downloadBytes > 0L }
+    }
+    val metrics = remember(nonZeroHistory) { computeMetrics(nonZeroHistory) }
+    val insights = remember(nonZeroHistory) { computeStatsInsights(nonZeroHistory) }
+    val chartItems = remember(nonZeroHistory, liveStatus) {
+        val liveRx = liveStatus?.totalRxBytes ?: 0L
+        val liveTx = liveStatus?.totalTxBytes ?: 0L
+        computeChartItems(nonZeroHistory, liveRxBytes = liveRx, liveTxBytes = liveTx)
     }
 
     val todayKey = remember { formatDate(System.currentTimeMillis(), "yyyy-MM-dd") }
@@ -199,6 +222,29 @@ fun StatsScreen(
                                 }
                             },
                         )
+                        DropdownMenuItem(
+                            text = { Text("Export HTML Report") },
+                            onClick = {
+                                menuExpanded = false
+                                coroutineScope.launch {
+                                    try {
+                                        val userHome = System.getProperty("user.home") ?: "."
+                                        val downloadsDir = File(userHome, "Downloads").takeIf { it.exists() && it.isDirectory }
+                                            ?: File(userHome)
+                                        val reportFile = File(downloadsDir, "latch-session-report-${System.currentTimeMillis()}.html")
+                                        reportFile.outputStream().use { stream ->
+                                            generatePortalHtmlReport(
+                                                sessions = nonZeroHistory,
+                                                outputStream = stream,
+                                                appVersion = "Desktop",
+                                                userId = platform.credentials.userId() ?: ""
+                                            )
+                                        }
+                                        platform.systemActions.openUrl(reportFile.toURI().toString())
+                                    } catch (_: Exception) {}
+                                }
+                            },
+                        )
                     }
                 }
             },
@@ -206,8 +252,8 @@ fun StatsScreen(
 
         LazyColumn(
             modifier = Modifier.fillMaxWidth().weight(1f),
-            contentPadding = PaddingValues(start = 8.dp, end = 8.dp, bottom = 32.dp),
-            verticalArrangement = Arrangement.spacedBy(6.dp),
+            contentPadding = PaddingValues(start = 12.dp, end = 12.dp, bottom = 32.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             // Live session card (when connected)
             liveStatus?.let { live ->
@@ -219,19 +265,35 @@ fun StatsScreen(
                         latestRxBps = live.liveData.lastOrNull()?.usage?.rxBps ?: 0L,
                         latestTxBps = live.liveData.lastOrNull()?.usage?.txBps ?: 0L,
                         speedUnit = speedUnit,
+                        dlColor = dlColor,
+                        ulColor = ulColor,
                     )
                 }
             }
 
-            // KPI summary tiles from portal history
-            item {
-                PortalTotalsRow(history = nonZeroHistory)
-            }
-
-            // Daily usage bar chart from portal history
             if (nonZeroHistory.isNotEmpty()) {
+                // Hero Total Data Used & DL/UL summary
                 item {
-                    PortalDailyBarChart(history = nonZeroHistory)
+                    StatsMetricsSummary(
+                        metrics = metrics,
+                        dlColor = dlColor,
+                        ulColor = ulColor,
+                    )
+                }
+
+                // Usage insights rows
+                item {
+                    UsageInsightsCards(insights = insights)
+                }
+
+                // Daily usage bar chart (All-time history with 0-gap Canvas bars & centering)
+                item {
+                    HistoryBarChart(
+                        chartItems = chartItems,
+                        dlColor = dlColor,
+                        ulColor = ulColor,
+                        isAmoled = isAmoled,
+                    )
                 }
             }
 
@@ -239,13 +301,13 @@ fun StatsScreen(
             if (nonZeroHistory.isEmpty()) {
                 item {
                     Box(
-                        modifier = Modifier.fillMaxWidth().height(160.dp),
+                        modifier = Modifier.fillMaxWidth().height(200.dp),
                         contentAlignment = Alignment.Center,
                     ) {
                         if (isSyncing) {
                             CircularProgressIndicator(
-                                modifier = Modifier.size(24.dp),
-                                strokeWidth = 2.dp,
+                                modifier = Modifier.size(28.dp),
+                                strokeWidth = 2.5.dp,
                                 color = MaterialTheme.colorScheme.primary,
                             )
                         } else {
@@ -266,7 +328,7 @@ fun StatsScreen(
                             style = MaterialTheme.typography.labelLarge,
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.onSurface,
-                            modifier = Modifier.padding(top = 12.dp, bottom = 4.dp),
+                            modifier = Modifier.padding(top = 16.dp, bottom = 4.dp),
                             fontFamily = satoshiFontFamily(),
                         )
                     }
@@ -274,6 +336,8 @@ fun StatsScreen(
                         TodaySessionListItem(
                             session = session,
                             shape = groupedItemShape(index, todaySessions.size),
+                            dlColor = dlColor,
+                            ulColor = ulColor,
                         )
                     }
                 }
@@ -285,7 +349,7 @@ fun StatsScreen(
                             style = MaterialTheme.typography.labelLarge,
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.onSurface,
-                            modifier = Modifier.padding(top = 16.dp, bottom = 4.dp),
+                            modifier = Modifier.padding(top = 20.dp, bottom = 4.dp),
                             fontFamily = satoshiFontFamily(),
                         )
                     }
@@ -298,6 +362,8 @@ fun StatsScreen(
                         DayAggregateListItem(
                             record = record,
                             shape = groupedItemShape(index, visibleOlderDays.size),
+                            dlColor = dlColor,
+                            ulColor = ulColor,
                         )
                     }
                 }
@@ -307,193 +373,324 @@ fun StatsScreen(
 }
 
 // ---------------------------------------------------------------------------
-// KPI tiles
+// Hero Metrics Summary
 // ---------------------------------------------------------------------------
 
 @Composable
-private fun PortalTotalsRow(history: List<PortalSessionRecord>) {
-    val totalBytes = history.sumOf { it.totalBytes.coerceAtLeast(it.uploadBytes + it.downloadBytes) }
-    val (totalValue, totalUnit) = formatBytes(totalBytes)
+private fun StatsMetricsSummary(
+    metrics: StatsOverviewMetrics,
+    dlColor: Color,
+    ulColor: Color,
+    modifier: Modifier = Modifier,
+) {
+    val totalFmt = formatBytes(metrics.totalBytes)
+    val dlFmt = formatBytes(metrics.totalDownloadBytes)
+    val ulFmt = formatBytes(metrics.totalUploadBytes)
 
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
+    Column(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(vertical = 8.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        TotalTile(
-            label = "Total Data",
-            value = "$totalValue $totalUnit",
-            modifier = Modifier.weight(1f),
+        Text(
+            text = "Total data used",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            fontFamily = satoshiFontFamily(),
         )
-        TotalTile(
-            label = "Sessions",
-            value = history.size.toString(),
-            modifier = Modifier.weight(1f),
-        )
-    }
-}
-
-@Composable
-private fun TotalTile(label: String, value: String, modifier: Modifier = Modifier) {
-    Card(
-        modifier = modifier,
-        shape = RoundedCornerShape(20.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceContainer,
-        ),
-    ) {
-        Column(modifier = Modifier.padding(20.dp)) {
+        Spacer(modifier = Modifier.height(4.dp))
+        Row(
+            verticalAlignment = Alignment.Bottom,
+            horizontalArrangement = Arrangement.Center,
+        ) {
             Text(
-                text = label,
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                text = totalFmt.first,
+                style = MaterialTheme.typography.displayMedium.copy(
+                    fontSize = 44.sp,
+                    fontWeight = FontWeight.Black,
+                    color = MaterialTheme.colorScheme.onSurface,
+                ),
+                fontFamily = satoshiFontFamily(),
             )
-            Spacer(Modifier.height(6.dp))
+            Spacer(modifier = Modifier.width(6.dp))
             Text(
-                text = value,
-                style = MaterialTheme.typography.headlineSmall,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onSurface,
+                text = totalFmt.second,
+                style = MaterialTheme.typography.headlineMedium,
+                fontWeight = FontWeight.ExtraBold,
+                color = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.padding(bottom = 6.dp),
+                fontFamily = satoshiFontFamily(),
             )
         }
-    }
-}
 
-// ---------------------------------------------------------------------------
-// Daily bar chart (portal history)
-// ---------------------------------------------------------------------------
-
-@Composable
-private fun PortalDailyBarChart(history: List<PortalSessionRecord>) {
-    var selectedFilter by remember { mutableStateOf(DateRangeFilter.THIS_MONTH) }
-    var selectedTimestamp by remember { mutableStateOf<Long?>(null) }
-
-    val chartItems = remember(history, selectedFilter) {
-        val groupedByDay = history
-            .filter { it.loginTime > 0 }
-            .groupBy { formatDate(it.loginTime, "yyyy-MM-dd") }
-            .mapValues { (_, list) ->
-                DataUsage(
-                    rxBytes = list.sumOf { it.downloadBytes },
-                    txBytes = list.sumOf { it.uploadBytes },
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.Center,
+            modifier = Modifier.padding(top = 4.dp, bottom = 4.dp),
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(
+                    imageVector = LatchIcons.ArrowDownward,
+                    contentDescription = "Downloaded",
+                    tint = dlColor,
+                    modifier = Modifier.size(16.dp),
+                )
+                Spacer(modifier = Modifier.width(4.dp))
+                Text(
+                    text = "${dlFmt.first} ${dlFmt.second}",
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    fontFamily = satoshiFontFamily(),
                 )
             }
 
-        val now = Calendar.getInstance()
-        val startCal = Calendar.getInstance().apply {
-            set(Calendar.HOUR_OF_DAY, 0)
-            set(Calendar.MINUTE, 0)
-            set(Calendar.SECOND, 0)
-            set(Calendar.MILLISECOND, 0)
-        }
+            Spacer(modifier = Modifier.width(20.dp))
 
-        val endCal = Calendar.getInstance().apply {
-            set(Calendar.HOUR_OF_DAY, 23)
-            set(Calendar.MINUTE, 59)
-            set(Calendar.SECOND, 59)
-            set(Calendar.MILLISECOND, 999)
-        }
-
-        when (selectedFilter) {
-            DateRangeFilter.LAST_30_DAYS -> {
-                startCal.add(Calendar.DAY_OF_YEAR, -29)
-            }
-            DateRangeFilter.LAST_60_DAYS -> {
-                startCal.add(Calendar.DAY_OF_YEAR, -59)
-            }
-            DateRangeFilter.LAST_90_DAYS -> {
-                startCal.add(Calendar.DAY_OF_YEAR, -89)
-            }
-            DateRangeFilter.THIS_MONTH -> {
-                startCal.set(Calendar.DAY_OF_MONTH, 1)
-            }
-            DateRangeFilter.THIS_YEAR -> {
-                startCal.set(Calendar.DAY_OF_YEAR, 1)
-                endCal.set(Calendar.MONTH, Calendar.DECEMBER)
-                endCal.set(Calendar.DAY_OF_MONTH, 31)
-            }
-            DateRangeFilter.YTD -> {
-                startCal.set(Calendar.DAY_OF_YEAR, 1)
-            }
-            DateRangeFilter.LAST_YEAR -> {
-                startCal.add(Calendar.YEAR, -1)
-                startCal.set(Calendar.DAY_OF_YEAR, 1)
-                endCal.add(Calendar.YEAR, -1)
-                endCal.set(Calendar.MONTH, Calendar.DECEMBER)
-                endCal.set(Calendar.DAY_OF_MONTH, 31)
-            }
-            DateRangeFilter.ALL_TIME -> {
-                val earliest = history.minOfOrNull { it.loginTime } ?: (System.currentTimeMillis() - 30L * 86400000L)
-                startCal.timeInMillis = earliest
-                startCal.set(Calendar.DAY_OF_MONTH, 1)
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(
+                    imageVector = LatchIcons.ArrowUpward,
+                    contentDescription = "Uploaded",
+                    tint = ulColor,
+                    modifier = Modifier.size(16.dp),
+                )
+                Spacer(modifier = Modifier.width(4.dp))
+                Text(
+                    text = "${ulFmt.first} ${ulFmt.second}",
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    fontFamily = satoshiFontFamily(),
+                )
             }
         }
 
-        val currentYear = now.get(Calendar.YEAR)
-        val items = mutableListOf<HistoryChartItem>()
-        var lastMonth = -1
-
-        val cursor = startCal.clone() as Calendar
-        while (!cursor.after(endCal)) {
-            val dayTimestamp = cursor.timeInMillis
-            val currentMonth = cursor.get(Calendar.MONTH)
-            val itemYear = cursor.get(Calendar.YEAR)
-            if (lastMonth != -1 && currentMonth != lastMonth) {
-                val monthPattern = if (itemYear == currentYear) "MMM" else "MMM yyyy"
-                items.add(HistoryChartItem.MonthSeparator(formatDate(dayTimestamp, monthPattern)))
-            }
-            lastMonth = currentMonth
-
-            val key = formatDate(dayTimestamp, "yyyy-MM-dd")
-            val usage = groupedByDay[key] ?: DataUsage(0, 0)
-            val label = formatDate(dayTimestamp, "dd")
-            items.add(HistoryChartItem.BarData(usage, label, dayTimestamp))
-            cursor.add(Calendar.DAY_OF_YEAR, 1)
-        }
-        items.distinct()
+        Spacer(modifier = Modifier.height(4.dp))
+        GameStatRow(label = "Portal logins", value = "${metrics.totalSessions}")
     }
+}
 
+@Composable
+fun GameStatRow(
+    label: String,
+    value: String,
+    unit: String = "",
+    sublabel: String = "",
+    valueColor: Color = MaterialTheme.colorScheme.onSurface,
+    modifier: Modifier = Modifier,
+) {
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(horizontal = 20.dp, vertical = 5.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = label,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                fontFamily = satoshiFontFamily(),
+            )
+            if (sublabel.isNotBlank()) {
+                Text(
+                    text = sublabel,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.outline,
+                    fontFamily = satoshiFontFamily(),
+                )
+            }
+        }
+        Row(verticalAlignment = Alignment.Bottom) {
+            Text(
+                text = value,
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+                color = valueColor,
+                fontFamily = satoshiFontFamily(),
+            )
+            if (unit.isNotBlank()) {
+                Spacer(modifier = Modifier.width(4.dp))
+                Text(
+                    text = unit,
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.padding(bottom = 1.dp),
+                    fontFamily = satoshiFontFamily(),
+                )
+            }
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Usage Insights
+// ---------------------------------------------------------------------------
+
+@Composable
+private fun UsageInsightsCards(
+    insights: StatsInsights,
+    modifier: Modifier = Modifier,
+) {
+    Card(
+        modifier = modifier.fillMaxWidth().padding(vertical = 4.dp),
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
+    ) {
+        Column(modifier = Modifier.padding(vertical = 8.dp)) {
+            GameStatRow(
+                label = "Daily average",
+                value = insights.dailyAverageFormatted.first,
+                unit = insights.dailyAverageFormatted.second,
+            )
+            GameStatRow(
+                label = "Highest usage day",
+                value = insights.highestUsageDayFormatted,
+                sublabel = if (insights.highestUsageDayDate != "N/A") insights.highestUsageDayDate else "",
+            )
+            GameStatRow(
+                label = "Peak usage window",
+                value = insights.peakUsageTimeWindow,
+            )
+            GameStatRow(
+                label = "Active streak",
+                value = "${insights.currentStreakDays}",
+                unit = if (insights.currentStreakDays == 1) "day" else "days",
+            )
+            GameStatRow(
+                label = "Max streak",
+                value = "${insights.longestStreakDays}",
+                unit = if (insights.longestStreakDays == 1) "day" else "days",
+            )
+            GameStatRow(
+                label = "Active days",
+                value = "${insights.activeDaysCount}",
+                unit = if (insights.activeDaysCount == 1) "day" else "days",
+            )
+            GameStatRow(
+                label = "Longest session",
+                value = insights.mostActiveSessionDurationFormatted,
+            )
+            if (insights.nightOwlPercentage >= 10) {
+                GameStatRow(
+                    label = "Night owl traffic",
+                    value = insights.nightOwlFormatted.first,
+                    unit = insights.nightOwlFormatted.second,
+                    sublabel = "${insights.nightOwlPercentage}% after midnight (12 - 6 AM)",
+                )
+            }
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Daily Usage Bar Chart (All-time history with 0-gap Canvas bars & centering)
+// ---------------------------------------------------------------------------
+
+@Immutable
+data class DesktopChartDetailState(
+    val usage: DataUsage,
+    val label: String,
+    val sessionCount: Int = 0,
+    val durationFormatted: String = "",
+)
+
+@Composable
+private fun HistoryBarChart(
+    chartItems: List<HistoryChartItem>,
+    dlColor: Color,
+    ulColor: Color,
+    isAmoled: Boolean,
+) {
     if (chartItems.isEmpty()) return
 
-    val maxBytes = remember(chartItems) {
-        chartItems.filterIsInstance<HistoryChartItem.BarData>()
-            .maxOfOrNull { it.usage.rxBytes + it.usage.txBytes }
-            ?.coerceAtLeast(1L) ?: 1L
-    }
-
-    val lazyListState = rememberLazyListState()
-    LaunchedEffect(chartItems) {
-        if (chartItems.isNotEmpty()) {
-            lazyListState.scrollToItem(chartItems.size - 1)
+    val todayIdx = remember(chartItems) {
+        val todayKey = formatDate(System.currentTimeMillis(), "yyyy-MM-dd")
+        val exact = chartItems.indexOfLast {
+            it is HistoryChartItem.BarData && formatDate(it.timestamp, "yyyy-MM-dd") == todayKey
         }
-        selectedTimestamp = null
+        val idx = if (exact != -1) exact else chartItems.indexOfLast { it is HistoryChartItem.BarData }
+        idx.coerceAtLeast(0)
     }
 
-    val totalUsageData = remember(chartItems) {
-        val totalRx = chartItems.filterIsInstance<HistoryChartItem.BarData>().sumOf { it.usage.rxBytes }
-        val totalTx = chartItems.filterIsInstance<HistoryChartItem.BarData>().sumOf { it.usage.txBytes }
-        DataUsage(totalRx, totalTx)
+    val lazyListState = rememberLazyListState(initialFirstVisibleItemIndex = todayIdx)
+    val coroutineScope = rememberCoroutineScope()
+    val density = LocalDensity.current
+
+    val initialBarItem = remember(chartItems, todayIdx) {
+        chartItems.getOrNull(todayIdx) as? HistoryChartItem.BarData
+    }
+    var selectedIndex by remember(chartItems, todayIdx) {
+        mutableIntStateOf(if (initialBarItem != null) todayIdx else -1)
+    }
+    var displayedData by remember(chartItems, todayIdx) {
+        mutableStateOf(
+            if (initialBarItem != null) {
+                DesktopChartDetailState(
+                    usage = initialBarItem.usage,
+                    label = initialBarItem.formattedDate.ifBlank {
+                        formatDisplayDate(initialBarItem.timestamp)
+                    },
+                    sessionCount = initialBarItem.sessionCount,
+                    durationFormatted = initialBarItem.durationFormatted,
+                )
+            } else {
+                DesktopChartDetailState(DataUsage(0, 0), "Total Data Usage")
+            }
+        )
     }
 
-    val selectedBar = chartItems.filterIsInstance<HistoryChartItem.BarData>()
-        .find { it.timestamp == selectedTimestamp }
-
-    val displayedUsage = selectedBar?.usage ?: totalUsageData
-    val displayedLabel = if (selectedBar != null) {
-        formatDisplayDate(selectedBar.timestamp)
-    } else {
-        "Total Usage (${selectedFilter.label})"
+    var visibleMaxUsage by remember { mutableLongStateOf(1L) }
+    LaunchedEffect(chartItems, lazyListState) {
+        snapshotFlow {
+            val visible = lazyListState.layoutInfo.visibleItemsInfo
+            var maxV = 1L
+            for (v in visible) {
+                val item = chartItems.getOrNull(v.index)
+                if (item is HistoryChartItem.BarData) {
+                    val tot = item.usage.rxBytes + item.usage.txBytes
+                    if (tot > maxV) maxV = tot
+                }
+            }
+            maxV
+        }.distinctUntilChanged().collect {
+            visibleMaxUsage = it
+        }
     }
 
-    val currentYear = remember { Calendar.getInstance().get(Calendar.YEAR) }
-    val headerTitle = remember(chartItems, selectedTimestamp, selectedFilter) {
-        val lastTimestamp = selectedTimestamp
-            ?: chartItems.filterIsInstance<HistoryChartItem.BarData>().lastOrNull()?.timestamp
-            ?: System.currentTimeMillis()
-        val cal = Calendar.getInstance().apply { timeInMillis = lastTimestamp }
-        if (cal.get(Calendar.YEAR) == currentYear) {
-            java.text.SimpleDateFormat("MMMM", java.util.Locale.getDefault()).format(cal.time)
-        } else {
-            java.text.SimpleDateFormat("MMMM yyyy", java.util.Locale.getDefault()).format(cal.time)
+    val animatedMaxUsage by animateFloatAsState(
+        targetValue = visibleMaxUsage.toFloat(),
+        animationSpec = spring(
+            dampingRatio = Spring.DampingRatioNoBouncy,
+            stiffness = Spring.StiffnessMediumLow,
+        ),
+        label = "DesktopBarMaxUsageSpring",
+    )
+
+    val currentYear = remember { java.util.Calendar.getInstance().get(java.util.Calendar.YEAR) }
+    val headerTitle by remember(chartItems, lazyListState) {
+        derivedStateOf {
+            val visible = lazyListState.layoutInfo.visibleItemsInfo
+            val centerItem = if (visible.isNotEmpty()) {
+                val centerOffset = (lazyListState.layoutInfo.viewportStartOffset + lazyListState.layoutInfo.viewportEndOffset) / 2
+                visible.minByOrNull { kotlin.math.abs((it.offset + it.size / 2) - centerOffset) }
+            } else null
+
+            val targetItem = (centerItem?.index?.let { chartItems.getOrNull(it) })
+                ?: chartItems.getOrNull(todayIdx)
+
+            val timestamp = when (targetItem) {
+                is HistoryChartItem.BarData -> targetItem.timestamp
+                is HistoryChartItem.CollapsedMonth -> targetItem.timestamp
+                else -> System.currentTimeMillis()
+            }
+            val cal = java.util.Calendar.getInstance().apply { timeInMillis = timestamp }
+            val calYear = cal.get(java.util.Calendar.YEAR)
+            val monthName = java.text.SimpleDateFormat("MMMM", java.util.Locale.US).format(cal.time)
+            if (calYear == currentYear) monthName else "$monthName $calYear"
         }
     }
 
@@ -503,215 +700,292 @@ private fun PortalDailyBarChart(history: List<PortalSessionRecord>) {
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Text(
-                    text = headerTitle,
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onSurface,
-                    fontFamily = satoshiFontFamily(),
-                )
-
-                var menuExpanded by remember { mutableStateOf(false) }
-                Box {
-                    FilterChip(
-                        selected = true,
-                        onClick = { menuExpanded = true },
-                        label = { Text(selectedFilter.label, style = MaterialTheme.typography.labelMedium) },
-                        trailingIcon = {
-                            Icon(
-                                imageVector = LatchIcons.ArrowDropDown,
-                                contentDescription = null,
-                                modifier = Modifier.size(18.dp),
-                            )
-                        },
-                        colors = androidx.compose.material3.FilterChipDefaults.filterChipColors(
-                            containerColor = Color.Transparent,
-                            selectedContainerColor = Color.Transparent,
-                            labelColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                            selectedLabelColor = MaterialTheme.colorScheme.primary,
-                        ),
-                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary),
-                    )
-                    DropdownMenu(
-                        expanded = menuExpanded,
-                        onDismissRequest = { menuExpanded = false },
-                    ) {
-                        DateRangeFilter.values().forEach { filter ->
-                            DropdownMenuItem(
-                                text = { Text(filter.label) },
-                                onClick = {
-                                    selectedFilter = filter
-                                    selectedTimestamp = null
-                                    menuExpanded = false
-                                },
-                            )
-                        }
-                    }
-                }
-            }
+            Text(
+                text = headerTitle,
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSurface,
+                fontFamily = satoshiFontFamily(),
+            )
 
             Spacer(Modifier.height(16.dp))
 
-            LazyRow(
-                state = lazyListState,
-                modifier = Modifier.fillMaxWidth().height(140.dp),
-                contentPadding = PaddingValues(horizontal = 8.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalAlignment = Alignment.Bottom,
-            ) {
-                itemsIndexed(chartItems) { _, item ->
-                    when (item) {
-                        is HistoryChartItem.BarData -> {
-                            val total = item.usage.rxBytes + item.usage.txBytes
-                            val rxFrac = (item.usage.rxBytes.toFloat() / maxBytes).coerceIn(if (total > 0) 0.05f else 0.02f, 1f)
-                            val txFrac = (item.usage.txBytes.toFloat() / maxBytes).coerceIn(if (total > 0) 0.05f else 0.02f, 1f)
-                            val isSelected = (item.timestamp == selectedTimestamp)
+            BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
+                val barWidth = 10.dp
+                val barAreaHeight = 120.dp
+                val centerPadding = (maxWidth - barWidth) / 2f
 
-                            Column(
-                                horizontalAlignment = Alignment.CenterHorizontally,
-                                modifier = Modifier
-                                    .width(36.dp)
-                                    .fillMaxHeight()
-                                    .clickable(
-                                        interactionSource = remember { MutableInteractionSource() },
-                                        indication = null,
-                                    ) {
-                                        selectedTimestamp = if (isSelected) null else item.timestamp
-                                    },
-                            ) {
-                                Box(
-                                    modifier = Modifier.weight(1f).fillMaxWidth(),
-                                    contentAlignment = Alignment.BottomCenter,
-                                ) {
-                                    if (total > 0) {
-                                        Column(
-                                            horizontalAlignment = Alignment.CenterHorizontally,
-                                            verticalArrangement = Arrangement.Bottom,
-                                        ) {
-                                            Box(
-                                                modifier = Modifier
-                                                    .width(18.dp)
-                                                    .fillMaxHeight(txFrac)
-                                                    .clip(RoundedCornerShape(topStart = 4.dp, topEnd = 4.dp))
-                                                    .background(ColorGraphUpload),
-                                            )
-                                            Spacer(Modifier.height(2.dp))
-                                            Box(
-                                                modifier = Modifier
-                                                    .width(18.dp)
-                                                    .fillMaxHeight(rxFrac)
-                                                    .clip(RoundedCornerShape(bottomStart = 4.dp, bottomEnd = 4.dp))
-                                                    .background(ColorGraphDownload),
-                                            )
-                                        }
-                                    } else {
-                                        Box(
-                                            modifier = Modifier
-                                                .width(18.dp)
-                                                .height(6.dp)
-                                                .clip(RoundedCornerShape(3.dp))
-                                                .background(MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)),
+                LazyRow(
+                    state = lazyListState,
+                    modifier = Modifier.height(130.dp),
+                    contentPadding = PaddingValues(horizontal = centerPadding),
+                    flingBehavior = rememberSnapFlingBehavior(lazyListState = lazyListState),
+                    horizontalArrangement = Arrangement.spacedBy(0.5.dp),
+                    verticalAlignment = Alignment.Bottom,
+                ) {
+                    itemsIndexed(
+                        items = chartItems,
+                        key = { index, item ->
+                            when (item) {
+                                is HistoryChartItem.BarData -> "bar_${item.timestamp}_$index"
+                                is HistoryChartItem.MonthSeparator -> "month_${item.monthName}_$index"
+                                is HistoryChartItem.CollapsedMonth -> "collapsed_${item.monthName}_$index"
+                            }
+                        },
+                    ) { idx, item ->
+                        when (item) {
+                            is HistoryChartItem.BarData -> {
+                                DesktopCanvasBar(
+                                    modifier = Modifier.width(barWidth).fillMaxHeight(),
+                                    usage = item.usage,
+                                    maxUsage = { animatedMaxUsage },
+                                    isSelected = (idx == selectedIndex),
+                                    hasSelection = (selectedIndex != -1),
+                                    isAmoled = isAmoled,
+                                    barWidth = barWidth,
+                                    barAreaHeight = barAreaHeight,
+                                    dlColor = dlColor,
+                                    ulColor = ulColor,
+                                    onTap = {
+                                        selectedIndex = idx
+                                        displayedData = DesktopChartDetailState(
+                                            usage = item.usage,
+                                            label = formatDisplayDate(item.timestamp),
+                                            sessionCount = item.sessionCount,
+                                            durationFormatted = item.durationFormatted,
                                         )
-                                    }
-                                }
-                                Spacer(Modifier.height(8.dp))
-                                val labelBg = if (isSelected) MaterialTheme.colorScheme.primary else Color.Transparent
-                                val labelColor = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant
+                                        coroutineScope.launch {
+                                            val layoutInfo = lazyListState.layoutInfo
+                                            val targetItem = layoutInfo.visibleItemsInfo.firstOrNull { it.index == idx }
+                                            if (targetItem != null) {
+                                                val viewportCenter = (layoutInfo.viewportStartOffset + layoutInfo.viewportEndOffset) / 2
+                                                val itemCenter = targetItem.offset + targetItem.size / 2
+                                                val delta = (itemCenter - viewportCenter).toFloat()
+                                                if (kotlin.math.abs(delta) > 1f) {
+                                                    lazyListState.animateScrollBy(
+                                                        value = delta,
+                                                        animationSpec = spring(
+                                                            dampingRatio = Spring.DampingRatioNoBouncy,
+                                                            stiffness = Spring.StiffnessMediumLow,
+                                                        ),
+                                                    )
+                                                }
+                                            }
+                                        }
+                                    },
+                                )
+                            }
+                            is HistoryChartItem.MonthSeparator -> {
                                 Box(
+                                    modifier = Modifier.fillMaxHeight().padding(horizontal = 8.dp),
                                     contentAlignment = Alignment.Center,
-                                    modifier = Modifier
-                                        .size(24.dp)
-                                        .clip(CircleShape)
-                                        .background(labelBg),
                                 ) {
                                     Text(
-                                        text = item.label,
+                                        text = item.monthName,
                                         style = MaterialTheme.typography.labelSmall,
-                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
-                                        color = labelColor,
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
                                         fontFamily = satoshiFontFamily(),
+                                        modifier = Modifier.rotate(-90f),
+                                    )
+                                }
+                            }
+                            is HistoryChartItem.CollapsedMonth -> {
+                                Box(
+                                    modifier = Modifier.fillMaxHeight().padding(horizontal = 8.dp),
+                                    contentAlignment = Alignment.Center,
+                                ) {
+                                    Text(
+                                        text = item.monthName,
+                                        style = MaterialTheme.typography.labelSmall,
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                                        fontFamily = satoshiFontFamily(),
+                                        modifier = Modifier.rotate(-90f),
                                     )
                                 }
                             }
                         }
-                        is HistoryChartItem.MonthSeparator -> {
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxHeight()
-                                    .padding(horizontal = 4.dp),
-                                contentAlignment = Alignment.Center,
-                            ) {
-                                Text(
-                                    text = item.monthName,
-                                    style = MaterialTheme.typography.labelSmall,
-                                    fontWeight = FontWeight.Bold,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    fontFamily = satoshiFontFamily(),
-                                    modifier = Modifier.rotate(-90f),
-                                )
-                            }
-                        }
-                        is HistoryChartItem.CollapsedMonth -> {
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxHeight()
-                                    .padding(horizontal = 4.dp),
-                                contentAlignment = Alignment.Center,
-                            ) {
-                                Text(
-                                    text = item.monthName,
-                                    style = MaterialTheme.typography.labelSmall,
-                                    fontWeight = FontWeight.Bold,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    fontFamily = satoshiFontFamily(),
-                                    modifier = Modifier.rotate(-90f),
-                                )
-                            }
-                        }
                     }
                 }
             }
 
             Spacer(Modifier.height(16.dp))
 
-            // Detailed stats row underneath chart
-            val (totalVal, totalUnit) = formatBytes(displayedUsage.rxBytes + displayedUsage.txBytes)
-            val (dlVal, dlUnit) = formatBytes(displayedUsage.rxBytes)
-            val (ulVal, ulUnit) = formatBytes(displayedUsage.txBytes)
+            DesktopStatDetailRow(data = displayedData, dlColor = dlColor, ulColor = ulColor)
+        }
+    }
+}
 
-            Column(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalAlignment = Alignment.CenterHorizontally,
-            ) {
-                Text(
-                    text = "$totalVal $totalUnit",
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onSurface,
-                    fontFamily = satoshiFontFamily(),
+@Composable
+private fun DesktopCanvasBar(
+    modifier: Modifier = Modifier,
+    usage: DataUsage,
+    maxUsage: () -> Float,
+    isSelected: Boolean,
+    hasSelection: Boolean = false,
+    isAmoled: Boolean = false,
+    barWidth: Dp,
+    barAreaHeight: Dp,
+    dlColor: Color,
+    ulColor: Color,
+    onTap: () -> Unit,
+) {
+    val total = usage.rxBytes + usage.txBytes
+    val uploadFrac = if (total > 0) usage.txBytes.toFloat() / total.toFloat() else 0f
+    val emptyColor = if (isAmoled) Color(0xFF262626) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f)
+
+    Canvas(
+        modifier = modifier
+            .width(barWidth)
+            .height(barAreaHeight)
+            .graphicsLayer {
+                alpha = if (isSelected) 1f else if (hasSelection) 0.45f else 1f
+            }
+            .clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = null,
+                onClick = onTap,
+            ),
+    ) {
+        val maxVal = maxUsage()
+        val currentFrac = if (maxVal > 0f && total > 0L) {
+            (total.toFloat() / maxVal).coerceIn(0.04f, 0.96f)
+        } else 0.04f
+        val cornerRadius = androidx.compose.ui.geometry.CornerRadius(4.dp.toPx(), 4.dp.toPx())
+        val strokeWidth = 1.5.dp.toPx()
+        val inset = if (isAmoled) strokeWidth / 2 else 0f
+        val drawWidth = (size.width - inset * 2).coerceAtLeast(0f)
+
+        if (total > 0) {
+            val rawBarHeight = (size.height * currentFrac).coerceAtLeast(6.dp.toPx())
+            val drawHeight = (rawBarHeight - inset * 2).coerceAtLeast(0f)
+            val startY = size.height - rawBarHeight + inset
+            val topLeftOffset = Offset(inset, startY)
+
+            val ulH = if (uploadFrac > 0f) (drawHeight * uploadFrac).coerceAtLeast(2.dp.toPx()) else 0f
+            val dlH = (drawHeight - ulH).coerceAtLeast(0f)
+
+            if (ulH > 0f) {
+                drawRoundRect(
+                    color = ulColor,
+                    topLeft = topLeftOffset,
+                    size = Size(drawWidth, ulH),
+                    cornerRadius = cornerRadius,
                 )
+            }
+
+            if (dlH > 0f) {
+                val dlTopY = topLeftOffset.y + ulH
+                drawRoundRect(
+                    color = dlColor,
+                    topLeft = Offset(topLeftOffset.x, dlTopY),
+                    size = Size(drawWidth, dlH),
+                    cornerRadius = cornerRadius,
+                )
+            }
+        } else {
+            val emptyHeight = 6.dp.toPx()
+            drawRoundRect(
+                color = emptyColor,
+                topLeft = Offset(0f, size.height - emptyHeight),
+                size = Size(size.width, emptyHeight),
+                cornerRadius = cornerRadius,
+            )
+        }
+    }
+}
+
+@Composable
+private fun DesktopStatDetailRow(
+    data: DesktopChartDetailState,
+    dlColor: Color,
+    ulColor: Color,
+) {
+    val (currentUsage, label, sessionCount, durationFormatted) = data
+    val (totalFmt, dlFmt, ulFmt) = remember(currentUsage) {
+        Triple(
+            formatBytes(currentUsage.rxBytes + currentUsage.txBytes),
+            formatBytes(currentUsage.rxBytes),
+            formatBytes(currentUsage.txBytes),
+        )
+    }
+
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Text(
+            "${totalFmt.first} ${totalFmt.second}",
+            style = MaterialTheme.typography.titleLarge,
+            fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.onSurface,
+            fontFamily = satoshiFontFamily(),
+        )
+        Text(
+            label,
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            fontFamily = satoshiFontFamily(),
+        )
+        Spacer(Modifier.height(8.dp))
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(LatchIcons.ArrowDownward, null, tint = dlColor, modifier = Modifier.size(16.dp))
+                Spacer(Modifier.width(4.dp))
                 Text(
-                    text = displayedLabel,
-                    style = MaterialTheme.typography.labelMedium,
+                    "${dlFmt.first} ${dlFmt.second}",
+                    style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     fontFamily = satoshiFontFamily(),
                 )
-                Spacer(Modifier.height(8.dp))
-                Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(LatchIcons.ArrowDownward, contentDescription = null, tint = ColorGraphDownload, modifier = Modifier.size(16.dp))
-                        Spacer(Modifier.width(4.dp))
-                        Text("$dlVal $dlUnit", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, fontFamily = satoshiFontFamily())
+            }
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(LatchIcons.ArrowUpward, null, tint = ulColor, modifier = Modifier.size(16.dp))
+                Spacer(Modifier.width(4.dp))
+                Text(
+                    "${ulFmt.first} ${ulFmt.second}",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    fontFamily = satoshiFontFamily(),
+                )
+            }
+        }
+        if (sessionCount > 0 || (durationFormatted.isNotBlank() && durationFormatted != "0s")) {
+            Spacer(Modifier.height(8.dp))
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                if (sessionCount > 0) {
+                    Surface(
+                        shape = CircleShape,
+                        color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.7f),
+                    ) {
+                        Text(
+                            text = "$sessionCount ${if (sessionCount == 1) "session" else "sessions"}",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSecondaryContainer,
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
+                            fontFamily = satoshiFontFamily(),
+                        )
                     }
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(LatchIcons.ArrowUpward, contentDescription = null, tint = ColorGraphUpload, modifier = Modifier.size(16.dp))
-                        Spacer(Modifier.width(4.dp))
-                        Text("$ulVal $ulUnit", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, fontFamily = satoshiFontFamily())
+                }
+                if (durationFormatted.isNotBlank() && durationFormatted != "0s") {
+                    Surface(
+                        shape = CircleShape,
+                        color = MaterialTheme.colorScheme.surfaceVariant,
+                    ) {
+                        Text(
+                            text = "⏱ $durationFormatted",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
+                            fontFamily = satoshiFontFamily(),
+                        )
                     }
                 }
             }
@@ -727,6 +1001,8 @@ private fun PortalDailyBarChart(history: List<PortalSessionRecord>) {
 fun TodaySessionListItem(
     session: PortalSessionRecord,
     shape: Shape = RoundedCornerShape(16.dp),
+    dlColor: Color = MaterialTheme.colorScheme.primary,
+    ulColor: Color = MaterialTheme.colorScheme.tertiary,
 ) {
     val usePureBlack by SettingsManager.usePureBlack.collectAsStateWithLifecycle()
     val isAmoled = usePureBlack && LocalIsDarkTheme.current
@@ -785,12 +1061,12 @@ fun TodaySessionListItem(
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(LatchIcons.ArrowDownward, null, tint = ColorGraphDownload, modifier = Modifier.size(14.dp))
+                        Icon(LatchIcons.ArrowDownward, null, tint = dlColor, modifier = Modifier.size(14.dp))
                         Spacer(modifier = Modifier.width(2.dp))
                         Text("${dlFormatted.first} ${dlFormatted.second}", style = MaterialTheme.typography.labelSmall, fontFamily = satoshiFontFamily())
                     }
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(LatchIcons.ArrowUpward, null, tint = ColorGraphUpload, modifier = Modifier.size(14.dp))
+                        Icon(LatchIcons.ArrowUpward, null, tint = ulColor, modifier = Modifier.size(14.dp))
                         Spacer(modifier = Modifier.width(2.dp))
                         Text("${ulFormatted.first} ${ulFormatted.second}", style = MaterialTheme.typography.labelSmall, fontFamily = satoshiFontFamily())
                     }
@@ -817,6 +1093,8 @@ fun TodaySessionListItem(
 fun DayAggregateListItem(
     record: AggregatedDayRecord,
     shape: Shape = RoundedCornerShape(16.dp),
+    dlColor: Color = MaterialTheme.colorScheme.primary,
+    ulColor: Color = MaterialTheme.colorScheme.tertiary,
 ) {
     val usePureBlack by SettingsManager.usePureBlack.collectAsStateWithLifecycle()
     val isAmoled = usePureBlack && LocalIsDarkTheme.current
@@ -861,12 +1139,12 @@ fun DayAggregateListItem(
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(LatchIcons.ArrowDownward, null, tint = ColorGraphDownload, modifier = Modifier.size(14.dp))
+                        Icon(LatchIcons.ArrowDownward, null, tint = dlColor, modifier = Modifier.size(14.dp))
                         Spacer(modifier = Modifier.width(2.dp))
                         Text("${record.downloadFormatted.first} ${record.downloadFormatted.second}", style = MaterialTheme.typography.labelSmall, fontFamily = satoshiFontFamily())
                     }
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(LatchIcons.ArrowUpward, null, tint = ColorGraphUpload, modifier = Modifier.size(14.dp))
+                        Icon(LatchIcons.ArrowUpward, null, tint = ulColor, modifier = Modifier.size(14.dp))
                         Spacer(modifier = Modifier.width(2.dp))
                         Text("${record.uploadFormatted.first} ${record.uploadFormatted.second}", style = MaterialTheme.typography.labelSmall, fontFamily = satoshiFontFamily())
                     }
@@ -905,6 +1183,8 @@ private fun LiveSessionCard(
     latestRxBps: Long,
     latestTxBps: Long,
     speedUnit: String,
+    dlColor: Color,
+    ulColor: Color,
 ) {
     val usePureBlack by SettingsManager.usePureBlack.collectAsStateWithLifecycle()
     val isAmoled = usePureBlack && LocalIsDarkTheme.current
@@ -949,13 +1229,13 @@ private fun LiveSessionCard(
             }
             Spacer(Modifier.height(16.dp))
             Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                DataUsageDonut(data = usage, modifier = Modifier.size(96.dp), isAmoled = isAmoled)
+                DataUsageDonut(data = usage, modifier = Modifier.size(96.dp), isAmoled = isAmoled, dlColor = dlColor, ulColor = ulColor)
                 Spacer(Modifier.width(24.dp))
                 Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     val (rxValue, rxUnit) = formatBitsPerSecond(latestRxBps, speedUnit)
                     val (txValue, txUnit) = formatBitsPerSecond(latestTxBps, speedUnit)
-                    RateChip(LatchIcons.ArrowUpward, "$txValue $txUnit", ColorGraphUpload)
-                    RateChip(LatchIcons.ArrowDownward, "$rxValue $rxUnit", ColorGraphDownload)
+                    RateChip(LatchIcons.ArrowUpward, "$txValue $txUnit", ulColor)
+                    RateChip(LatchIcons.ArrowDownward, "$rxValue $rxUnit", dlColor)
                 }
             }
         }
@@ -972,6 +1252,7 @@ private fun RateChip(icon: ImageVector, text: String, accent: Color) {
             style = MaterialTheme.typography.labelLarge,
             fontWeight = FontWeight.Bold,
             color = MaterialTheme.colorScheme.onSurface,
+            fontFamily = satoshiFontFamily(),
         )
     }
 }
