@@ -53,7 +53,6 @@ fun StatsList(
   val overviewMetrics by statsViewModel.overviewMetrics.collectAsStateWithLifecycle()
   val statsInsights by statsViewModel.statsInsights.collectAsStateWithLifecycle()
   val chartItems by statsViewModel.chartItems.collectAsStateWithLifecycle()
-  val selectedFilter by statsViewModel.selectedFilter.collectAsStateWithLifecycle()
   val todaySessions by statsViewModel.todaySessions.collectAsStateWithLifecycle()
   val usePureBlack by SettingsManager.usePureBlack.collectAsStateWithLifecycle()
   val isAmoled = usePureBlack && com.vinnovateit.latch.ui.theme.LocalIsDarkTheme.current
@@ -103,9 +102,7 @@ fun StatsList(
     if (chartItems.isNotEmpty()) {
       item {
         HistoryBarChart(
-          history = chartItems,
-          selectedFilter = selectedFilter,
-          onFilterSelected = { statsViewModel.setFilter(it) }
+          history = chartItems
         )
         Spacer(modifier = Modifier.height(15.dp))
       }

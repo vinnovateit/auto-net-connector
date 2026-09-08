@@ -6,7 +6,6 @@ import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.snapping.rememberSnapFlingBehavior
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -24,25 +23,17 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.ArrowDownward
 import androidx.compose.material.icons.rounded.ArrowDropDown
 import androidx.compose.material.icons.rounded.ArrowUpward
-import androidx.compose.material.icons.rounded.Tune
-import androidx.compose.material3.ButtonGroupDefaults
-import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.ToggleButton
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.semantics.Role
-import androidx.compose.ui.semantics.role
-import androidx.compose.ui.semantics.semantics
 import com.vinnovateit.latch.common.util.StatsColorPalettes
 import com.vinnovateit.latch.features.settings.manager.SettingsManager
 import androidx.compose.runtime.Immutable
@@ -106,16 +97,6 @@ data class ChartDetailState(
     val durationFormatted: String = ""
 )
 
-private val quickFilters = listOf(
-    com.vinnovateit.latch.features.stats.DateRangeFilter.LAST_30_DAYS,
-    com.vinnovateit.latch.features.stats.DateRangeFilter.LAST_60_DAYS,
-    com.vinnovateit.latch.features.stats.DateRangeFilter.LAST_90_DAYS,
-    com.vinnovateit.latch.features.stats.DateRangeFilter.THIS_MONTH,
-    com.vinnovateit.latch.features.stats.DateRangeFilter.THIS_YEAR,
-    com.vinnovateit.latch.features.stats.DateRangeFilter.YTD
-)
-
-@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun HistoryBarChart(
     history: List<HistoryChartItem>,
@@ -130,8 +111,6 @@ fun HistoryBarChart(
         val pattern = if (year == currentYear) "MMMM" else "MMMM yyyy"
         formatDate(lastTimestamp, pattern)
     }
-
-    var showAdvancedSheet by remember { mutableStateOf(false) }
 
     Column(
         modifier = Modifier.fillMaxWidth(),
@@ -148,64 +127,6 @@ fun HistoryBarChart(
                 style = MaterialTheme.typography.headlineSmall,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.onBackground
-            )
-        }
-
-        if (onFilterSelected != null) {
-            val quickFilterScrollState = rememberScrollState()
-            val isAdvancedSelected = selectedFilter !in quickFilters
-            val haptic = LocalHapticFeedback.current
-
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .horizontalScroll(quickFilterScrollState)
-                    .padding(horizontal = 16.dp, vertical = 4.dp),
-                horizontalArrangement = Arrangement.spacedBy(ButtonGroupDefaults.ConnectedSpaceBetween),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                quickFilters.forEachIndexed { index, filter ->
-                    ToggleButton(
-                        checked = (filter == selectedFilter),
-                        onCheckedChange = {
-                            haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                            onFilterSelected(filter)
-                        },
-                        shapes = when (index) {
-                            0 -> ButtonGroupDefaults.connectedLeadingButtonShapes()
-                            else -> ButtonGroupDefaults.connectedMiddleButtonShapes()
-                        },
-                        modifier = Modifier.semantics { role = Role.RadioButton }
-                    ) {
-                        Text(filter.label)
-                    }
-                }
-                ToggleButton(
-                    checked = isAdvancedSelected,
-                    onCheckedChange = {
-                        haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                        showAdvancedSheet = true
-                    },
-                    shapes = ButtonGroupDefaults.connectedTrailingButtonShapes(),
-                    modifier = Modifier.semantics { role = Role.RadioButton }
-                ) {
-                    Icon(
-                        imageVector = Icons.Rounded.Tune,
-                        contentDescription = "Advanced filters",
-                        modifier = Modifier.size(16.dp)
-                    )
-                    Spacer(Modifier.width(4.dp))
-                    Text(if (isAdvancedSelected) selectedFilter.label else "Advanced...")
-                }
-            }
-            Spacer(Modifier.height(8.dp))
-        }
-
-        if (showAdvancedSheet && onFilterSelected != null) {
-            StatsAdvancedFilterBottomSheet(
-                selectedFilter = selectedFilter,
-                onFilterSelected = onFilterSelected,
-                onDismiss = { showAdvancedSheet = false }
             )
         }
 
