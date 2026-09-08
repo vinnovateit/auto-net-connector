@@ -505,7 +505,7 @@ fun TopBarSection(
                     painter = painterResource(id = R.drawable.ic_latch),
                     contentDescription = null,
                     tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(28.dp),
+                    modifier = Modifier.size(36.dp),
                 )
                 Spacer(Modifier.width(12.dp))
                 AnimatedVisibility(
@@ -523,11 +523,11 @@ fun TopBarSection(
                                 if (isConnected) R.string.home_status_connected
                                 else R.string.home_status_disconnected,
                             ),
-                            style = MaterialTheme.typography.labelMedium,
+                            style = MaterialTheme.typography.labelLarge,
                             color = if (isConnected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant,
                             fontWeight = FontWeight.Bold,
                             fontFamily = SatoshiFontFamily,
-                            modifier = Modifier.padding(horizontal = 14.dp, vertical = 5.dp),
+                            modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp),
                         )
                     }
                 }
@@ -535,12 +535,12 @@ fun TopBarSection(
         },
         actions = {
             Box {
-                IconButton(onClick = { menuExpanded = true }, modifier = Modifier.size(40.dp)) {
+                IconButton(onClick = { menuExpanded = true }, modifier = Modifier.size(48.dp)) {
                     Icon(
                         imageVector = Icons.Rounded.Menu,
                         contentDescription = "Menu",
                         tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.size(18.dp),
+                        modifier = Modifier.size(28.dp),
                     )
                 }
                 DropdownMenu(
