@@ -1,10 +1,13 @@
 package com.vinnovateit.latch.features.stats.components
 
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.spring
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.animateScrollBy
 import androidx.compose.foundation.gestures.snapping.rememberSnapFlingBehavior
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
@@ -123,6 +126,7 @@ private fun HistoryBarChartContent(chartItems: List<HistoryChartItem>, isLoaded:
     val lazyListState = rememberLazyListState(initialFirstVisibleItemIndex = todayIdx)
     val coroutineScope = rememberCoroutineScope()
     val haptic = LocalHapticFeedback.current
+    val density = LocalDensity.current
 
     val (totalUsageDetail, overallMaxUsage) = remember(chartItems) {
         var rx = 0L
@@ -317,7 +321,30 @@ private fun HistoryBarChartContent(chartItems: List<HistoryChartItem>, isLoaded:
                                 onTap = {
                                     haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                                     coroutineScope.launch {
-                                        lazyListState.scrollToItem(idx)
+                                        val layoutInfo = lazyListState.layoutInfo
+                                        val targetItem = layoutInfo.visibleItemsInfo.firstOrNull { it.index == idx }
+                                        if (targetItem != null) {
+                                            val viewportCenter = (layoutInfo.viewportStartOffset + layoutInfo.viewportEndOffset) / 2
+                                            val itemCenter = targetItem.offset + targetItem.size / 2
+                                            val delta = (itemCenter - viewportCenter).toFloat()
+                                            if (kotlin.math.abs(delta) > 1f) {
+                                                lazyListState.animateScrollBy(
+                                                    value = delta,
+                                                    animationSpec = spring(
+                                                        dampingRatio = Spring.DampingRatioNoBouncy,
+                                                        stiffness = Spring.StiffnessMediumLow
+                                                    )
+                                                )
+                                            }
+                                        } else {
+                                            val viewportWidth = layoutInfo.viewportSize.width
+                                            val barWidthPx = with(density) { barWidth.roundToPx() }
+                                            val centeredOffset = (viewportWidth / 2) - (barWidthPx / 2)
+                                            lazyListState.animateScrollToItem(
+                                                index = idx,
+                                                scrollOffset = -centeredOffset
+                                            )
+                                        }
                                     }
                                 }
                             )
