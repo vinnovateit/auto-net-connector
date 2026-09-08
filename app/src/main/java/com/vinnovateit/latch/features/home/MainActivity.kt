@@ -7,8 +7,13 @@ import androidx.activity.compose.setContent
 import androidx.activity.viewModels
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.Surface
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.hapticfeedback.HapticFeedback
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.core.view.WindowCompat
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -68,42 +73,58 @@ class MainActivity : ComponentActivity() {
         }
 
         setContent {
-            LatchTheme {
-                Surface(
-                    modifier = Modifier.fillMaxSize(),
-                    color = androidx.compose.material3.MaterialTheme.colorScheme.background
-                ) {
-                    if (updateDownloaded.value) {
-                        androidx.compose.material3.AlertDialog(
-                            onDismissRequest = { /* Force user to decide */ },
-                            title = { androidx.compose.material3.Text("Update Ready") },
-                            text = { androidx.compose.material3.Text("An update has been downloaded and is ready to be installed. Restart the app to apply the update.") },
-                            confirmButton = {
-                                androidx.compose.material3.TextButton(onClick = {
-                                    appUpdateManager.completeUpdate()
-                                        .addOnSuccessListener { updateDownloaded.value = false }
-                                        .addOnFailureListener { e ->
-                                            e.printStackTrace()
-                                            updateDownloaded.value = false
-                                        }
-                                }) {
-                                    androidx.compose.material3.Text("Restart")
+            val hapticsEnabled by SettingsManager.hapticsEnabled.collectAsStateWithLifecycle()
+            val systemHapticFeedback = LocalHapticFeedback.current
+            val hapticFeedback = remember(hapticsEnabled, systemHapticFeedback) {
+                if (hapticsEnabled) {
+                    systemHapticFeedback
+                } else {
+                    object : HapticFeedback {
+                        override fun performHapticFeedback(hapticFeedbackType: HapticFeedbackType) {
+                            // Silenced globally
+                        }
+                    }
+                }
+            }
+
+            CompositionLocalProvider(LocalHapticFeedback provides hapticFeedback) {
+                LatchTheme {
+                    Surface(
+                        modifier = Modifier.fillMaxSize(),
+                        color = androidx.compose.material3.MaterialTheme.colorScheme.background
+                    ) {
+                        if (updateDownloaded.value) {
+                            androidx.compose.material3.AlertDialog(
+                                onDismissRequest = { /* Force user to decide */ },
+                                title = { androidx.compose.material3.Text("Update Ready") },
+                                text = { androidx.compose.material3.Text("An update has been downloaded and is ready to be installed. Restart the app to apply the update.") },
+                                confirmButton = {
+                                    androidx.compose.material3.TextButton(onClick = {
+                                        appUpdateManager.completeUpdate()
+                                            .addOnSuccessListener { updateDownloaded.value = false }
+                                            .addOnFailureListener { e ->
+                                                e.printStackTrace()
+                                                updateDownloaded.value = false
+                                            }
+                                    }) {
+                                        androidx.compose.material3.Text("Restart")
+                                    }
+                                },
+                                dismissButton = {
+                                    androidx.compose.material3.TextButton(onClick = { 
+                                        updateDownloaded.value = false 
+                                    }) {
+                                        androidx.compose.material3.Text("Later")
+                                    }
                                 }
-                            },
-                            dismissButton = {
-                                androidx.compose.material3.TextButton(onClick = { 
-                                    updateDownloaded.value = false 
-                                }) {
-                                    androidx.compose.material3.Text("Later")
-                                }
-                            }
+                            )
+                        }
+
+                        com.vinnovateit.latch.navigation.LatchNavGraph(
+                            wifiStatusViewModel = wifiStatusViewModel,
+                            startDestination = startDest
                         )
                     }
-
-                    com.vinnovateit.latch.navigation.LatchNavGraph(
-                        wifiStatusViewModel = wifiStatusViewModel,
-                        startDestination = startDest
-                    )
                 }
             }
         }

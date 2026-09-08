@@ -22,6 +22,7 @@ object SettingsManager {
     val useMonochrome: StateFlow<Boolean> get() = CoreSettings.useMonochrome
     val accentColor: StateFlow<String> get() = CoreSettings.accentColor
     val chartPalette: StateFlow<String> get() = CoreSettings.chartPalette
+    val hapticsEnabled: StateFlow<Boolean> get() = CoreSettings.hapticsEnabled
 
     fun initialize(context: Context) {
         appContext = context.applicationContext
@@ -76,6 +77,8 @@ object SettingsManager {
         CoreSettings.setChartPalette(palette)
         sendSettingsChangedBroadcast()
     }
+
+    fun setHapticsEnabled(enabled: Boolean) = CoreSettings.setHapticsEnabled(enabled)
 
     private fun sendSettingsChangedBroadcast() {
         appContext?.let {

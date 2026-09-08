@@ -30,6 +30,7 @@ object SettingsManager {
     private const val KEY_USE_MONOCHROME = "use_monochrome"
     private const val KEY_ACCENT_COLOR = "accent_color"
     private const val KEY_CHART_PALETTE = "chart_palette"
+    private const val KEY_HAPTICS_ENABLED = "haptics_enabled"
     // Desktop-only additions.
     private const val KEY_ALLOWED_SSIDS = "allowed_ssids"
     private const val KEY_HAS_SEEN_ONBOARDING = "hasSeenOnboarding"
@@ -54,6 +55,7 @@ object SettingsManager {
     private const val DEFAULT_USE_MONOCHROME = false
     private const val DEFAULT_ACCENT_COLOR = "Red"
     private const val DEFAULT_CHART_PALETTE = "Material Dynamic"
+    private const val DEFAULT_HAPTICS_ENABLED = true
 
     /**
      * SSID fragments Latch is allowed to authenticate against, matched as
@@ -99,8 +101,15 @@ object SettingsManager {
     private val _hasSeenOnboarding = MutableStateFlow(false)
     val hasSeenOnboarding: StateFlow<Boolean> = _hasSeenOnboarding
 
+    private val _hapticsEnabled = MutableStateFlow(DEFAULT_HAPTICS_ENABLED)
+    val hapticsEnabled: StateFlow<Boolean> = _hapticsEnabled
+
     private val _settingsChanged = MutableSharedFlow<Unit>(extraBufferCapacity = 8)
     val settingsChanged: SharedFlow<Unit> = _settingsChanged
+
+    init {
+        _hapticsEnabled.value = store.getBoolean(KEY_HAPTICS_ENABLED, DEFAULT_HAPTICS_ENABLED)
+    }
 
     fun initialize(keyValueStore: KeyValueStore) {
         store = keyValueStore
@@ -118,6 +127,7 @@ object SettingsManager {
         _chartPalette.value = store.getString(KEY_CHART_PALETTE, DEFAULT_CHART_PALETTE)
         _allowedSsids.value = store.getStringSet(KEY_ALLOWED_SSIDS, DEFAULT_ALLOWED_SSIDS)
         _hasSeenOnboarding.value = store.getBoolean(KEY_HAS_SEEN_ONBOARDING, false)
+        _hapticsEnabled.value = store.getBoolean(KEY_HAPTICS_ENABLED, DEFAULT_HAPTICS_ENABLED)
     }
 
     fun setAutoLogin(enabled: Boolean) {
@@ -174,6 +184,16 @@ object SettingsManager {
     fun setHasSeenOnboarding(seen: Boolean) {
         _hasSeenOnboarding.value = seen
         store.putBoolean(KEY_HAS_SEEN_ONBOARDING, seen)
+    }
+
+    fun setHapticsEnabled(enabled: Boolean) {
+        store.putBoolean(KEY_HAPTICS_ENABLED, enabled)
+        _hapticsEnabled.value = enabled
+    }
+
+    fun clearAll() {
+        store.putBoolean(KEY_HAPTICS_ENABLED, DEFAULT_HAPTICS_ENABLED)
+        _hapticsEnabled.value = DEFAULT_HAPTICS_ENABLED
     }
 
     var autostartDefaultApplied: Boolean

@@ -41,6 +41,7 @@ import androidx.compose.material.icons.rounded.Password
 import androidx.compose.material.icons.rounded.SettingsBackupRestore
 import androidx.compose.material.icons.rounded.SettingsSystemDaydream
 import androidx.compose.material.icons.rounded.Speed
+import androidx.compose.material.icons.rounded.Vibration
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledIconButton
@@ -151,6 +152,7 @@ fun SettingsScreen(onBackClick: () -> Unit, onNavigateToCredentials: () -> Unit)
   val useMonochrome by SettingsManager.useMonochrome.collectAsStateWithLifecycle()
   val accentColor by SettingsManager.accentColor.collectAsStateWithLifecycle()
   val chartPalette by SettingsManager.chartPalette.collectAsStateWithLifecycle()
+  val hapticsEnabled by SettingsManager.hapticsEnabled.collectAsStateWithLifecycle()
 
   val density = LocalDensity.current
   val coroutineScope = rememberCoroutineScope()
@@ -381,6 +383,25 @@ fun SettingsScreen(onBackClick: () -> Unit, onNavigateToCredentials: () -> Unit)
                 }
               },
               onClick = { showChartPaletteSheet = true }
+            )
+            Spacer(modifier = Modifier.height(3.dp))
+            SettingsItem(
+              title = "Haptic feedback",
+              subtitle = "Vibrate on interactions and button taps",
+              leadingIcon = {
+                Icon(
+                  Icons.Rounded.Vibration,
+                  contentDescription = null,
+                  tint = MaterialTheme.colorScheme.primary
+                )
+              },
+              trailingContent = {
+                Switch(
+                  checked = hapticsEnabled,
+                  onCheckedChange = { SettingsManager.setHapticsEnabled(it) }
+                )
+              },
+              onClick = { SettingsManager.setHapticsEnabled(!hapticsEnabled) }
             )
           }
         }
