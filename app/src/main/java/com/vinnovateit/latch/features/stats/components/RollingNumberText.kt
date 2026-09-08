@@ -88,15 +88,21 @@ private fun DigitRoller(
 
     LaunchedEffect(digit) {
         if (currentDigit == digit) return@LaunchedEffect
-        delay(colIndex * 30L)
+        delay(colIndex * 25L)
         val diff = kotlin.math.abs(digit - currentDigit)
         if (diff == 0) return@LaunchedEffect
-        val stepDelay = (360L / diff).coerceIn(50L, 90L)
-        val step = if (digit > currentDigit) 1 else -1
+        val stepSize = if (diff > 4) kotlin.math.ceil(diff / 4.0).toInt() else 1
+        val direction = if (digit > currentDigit) 1 else -1
+        val totalSteps = (diff + stepSize - 1) / stepSize
+        val stepDelay = (220L / totalSteps.coerceAtLeast(1)).coerceIn(50L, 75L)
         var d = currentDigit
         while (d != digit) {
             delay(stepDelay)
-            d += step
+            d = if (direction > 0) {
+                (d + stepSize).coerceAtMost(digit)
+            } else {
+                (d - stepSize).coerceAtLeast(digit)
+            }
             currentDigit = d
         }
     }
@@ -105,7 +111,7 @@ private fun DigitRoller(
         targetState = currentDigit,
         transitionSpec = {
             val isFinal = targetState == digit
-            val duration = if (isFinal) 140 else 75
+            val duration = if (isFinal) 130 else 60
             (slideInVertically(
                 animationSpec = tween(durationMillis = duration, easing = if (isFinal) LinearOutSlowInEasing else androidx.compose.animation.core.LinearEasing)
             ) { height -> height } + fadeIn(tween(duration))).togetherWith(

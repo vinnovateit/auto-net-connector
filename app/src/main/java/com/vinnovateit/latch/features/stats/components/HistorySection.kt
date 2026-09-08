@@ -126,11 +126,11 @@ private fun HistoryBarChartContent(chartItems: List<HistoryChartItem>) {
         val exact = chartItems.indexOfLast {
             it is HistoryChartItem.BarData && formatDate(it.timestamp, "yyyy-MM-dd") == todayKey
         }
-        if (exact != -1) exact else chartItems.indexOfLast { it is HistoryChartItem.BarData }
+        val idx = if (exact != -1) exact else chartItems.indexOfLast { it is HistoryChartItem.BarData }
+        idx.coerceAtLeast(0)
     }
-    var selectedIndex by remember { mutableIntStateOf(-1) }
 
-    val lazyListState = rememberLazyListState()
+    val lazyListState = rememberLazyListState(initialFirstVisibleItemIndex = todayIdx)
     val coroutineScope = rememberCoroutineScope()
     val haptic = LocalHapticFeedback.current
 
@@ -154,7 +154,29 @@ private fun HistoryBarChartContent(chartItems: List<HistoryChartItem>) {
             durationFormatted = totalDurationFormatted
         )
     }
-    var displayedData by remember { mutableStateOf(totalUsageDetail) }
+
+    val initialBarItem = remember(chartItems, todayIdx) {
+        chartItems.getOrNull(todayIdx) as? HistoryChartItem.BarData
+    }
+    var selectedIndex by remember(chartItems, todayIdx) {
+        mutableIntStateOf(if (initialBarItem != null) todayIdx else -1)
+    }
+    var displayedData by remember(chartItems, todayIdx) {
+        mutableStateOf(
+            if (initialBarItem != null) {
+                ChartDetailState(
+                    usage = initialBarItem.usage,
+                    label = initialBarItem.formattedDate.ifBlank {
+                        com.vinnovateit.latch.common.util.formatDisplayDate(initialBarItem.timestamp)
+                    },
+                    sessionCount = initialBarItem.sessionCount,
+                    durationFormatted = initialBarItem.durationFormatted
+                )
+            } else {
+                totalUsageDetail
+            }
+        )
+    }
 
     val visibleMaxUsage by remember(chartItems) {
         derivedStateOf {
@@ -171,31 +193,6 @@ private fun HistoryBarChartContent(chartItems: List<HistoryChartItem>) {
                 }.maxOrNull()?.coerceAtLeast(1L)
                 maxVisible ?: 1L
             }
-        }
-    }
-
-    // Center today's bar and select it initially when chartItems change
-    LaunchedEffect(chartItems) {
-        if (todayIdx in chartItems.indices) {
-            lazyListState.scrollToItem(todayIdx)
-            val todayItem = chartItems.getOrNull(todayIdx) as? HistoryChartItem.BarData
-            if (todayItem != null) {
-                selectedIndex = todayIdx
-                displayedData = ChartDetailState(
-                    usage = todayItem.usage,
-                    label = todayItem.formattedDate.ifBlank {
-                        com.vinnovateit.latch.common.util.formatDisplayDate(todayItem.timestamp)
-                    },
-                    sessionCount = todayItem.sessionCount,
-                    durationFormatted = todayItem.durationFormatted
-                )
-            } else {
-                selectedIndex = -1
-                displayedData = totalUsageDetail
-            }
-        } else {
-            selectedIndex = -1
-            displayedData = totalUsageDetail
         }
     }
 
@@ -235,18 +232,6 @@ private fun HistoryBarChartContent(chartItems: List<HistoryChartItem>) {
 
     val chartPalette by SettingsManager.chartPalette.collectAsStateWithLifecycle()
     val (dlColor, ulColor) = StatsColorPalettes.resolveColors(chartPalette)
-    val context = androidx.compose.ui.platform.LocalContext.current
-    val animScale = remember {
-        try {
-            android.provider.Settings.Global.getFloat(
-                context.contentResolver,
-                android.provider.Settings.Global.ANIMATOR_DURATION_SCALE,
-                1.0f
-            )
-        } catch (e: Exception) {
-            1.0f
-        }
-    }
 
     val currentYear = remember { java.util.Calendar.getInstance().get(java.util.Calendar.YEAR) }
     val headerTitle = remember(chartItems, selectedIndex) {
@@ -318,13 +303,10 @@ private fun HistoryBarChartContent(chartItems: List<HistoryChartItem>) {
                                 barAreaHeight = barAreaHeight,
                                 dlColor = dlColor,
                                 ulColor = ulColor,
-                                index = idx,
-                                animScale = animScale,
-                                isScrollInProgress = lazyListState.isScrollInProgress,
                                 onTap = {
                                     haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                                     coroutineScope.launch {
-                                        lazyListState.animateScrollToItem(idx)
+                                        lazyListState.scrollToItem(idx)
                                     }
                                 }
                             )
@@ -392,29 +374,12 @@ private fun Bar(
     barAreaHeight: Dp,
     dlColor: Color,
     ulColor: Color,
-    index: Int = 0,
-    animScale: Float = 1.0f,
-    isScrollInProgress: Boolean = false,
     onTap: () -> Unit
 ) {
     val total = usage.rxBytes + usage.txBytes
-    val targetFrac = if (maxUsage > 0L && total > 0L) {
+    val currentFrac = if (maxUsage > 0L && total > 0L) {
         (total.toFloat() / maxUsage.toFloat()).coerceIn(0.04f, 0.96f)
     } else 0.04f
-
-    val animatedFrac by androidx.compose.animation.core.animateFloatAsState(
-        targetValue = targetFrac,
-        animationSpec = if (animScale <= 0f || isScrollInProgress) {
-            androidx.compose.animation.core.snap()
-        } else {
-            androidx.compose.animation.core.tween(
-                durationMillis = (280 * animScale).toInt().coerceAtLeast(1),
-                delayMillis = ((index % 12) * 12 * animScale).toInt(),
-                easing = androidx.compose.animation.core.FastOutSlowInEasing
-            )
-        },
-        label = "BarFrac_$index"
-    )
 
     val uploadFrac = if (total > 0) usage.txBytes.toFloat() / total.toFloat() else 0f
     val downloadFrac = 1f - uploadFrac
@@ -442,7 +407,6 @@ private fun Bar(
             Canvas(
                 modifier = Modifier.fillMaxSize()
             ) {
-                val currentFrac = animatedFrac
                 val cornerRadius = androidx.compose.ui.geometry.CornerRadius(4.dp.toPx(), 4.dp.toPx())
                 val strokeWidth = 1.5.dp.toPx()
                 val inset = if (isAmoled) strokeWidth / 2 else 0f

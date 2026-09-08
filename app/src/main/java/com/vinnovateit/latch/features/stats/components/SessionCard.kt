@@ -223,11 +223,7 @@ private fun SessionRateGraph(
         val idleDuration = System.currentTimeMillis() - lastInteractionTime
         if (lastInteractionTime == 0L || idleDuration > 5000L) {
             isAutoScrolling = true
-            delay(50L)
-            scrollState.animateScrollTo(
-                scrollState.maxValue,
-                animationSpec = tween(durationMillis = 300, easing = LinearEasing)
-            )
+            scrollState.scrollTo(scrollState.maxValue)
             isAutoScrolling = false
         }
     }
