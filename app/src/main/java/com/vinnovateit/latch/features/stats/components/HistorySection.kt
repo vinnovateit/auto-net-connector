@@ -208,19 +208,33 @@ private fun HistoryBarChartContent(chartItems: List<HistoryChartItem>) {
             val layoutInfo = lazyListState.layoutInfo
             val viewportCenter = (layoutInfo.viewportStartOffset + layoutInfo.viewportEndOffset) / 2
             val visibleItems = layoutInfo.visibleItemsInfo
-            if (visibleItems.isEmpty()) return@snapshotFlow -1
-            visibleItems.minByOrNull { item ->
-                val itemCenter = item.offset + item.size / 2
-                kotlin.math.abs(itemCenter - viewportCenter)
-            }?.index ?: -1
+            val visibleBars = visibleItems.filter {
+                chartItems.getOrNull(it.index) is HistoryChartItem.BarData
+            }
+            if (visibleBars.isEmpty()) {
+                val closestAny = visibleItems.minByOrNull { item ->
+                    val itemCenter = item.offset + item.size / 2
+                    kotlin.math.abs(itemCenter - viewportCenter)
+                }?.index ?: -1
+                if (closestAny != -1) {
+                    val prevBar = (closestAny downTo 0).firstOrNull { chartItems.getOrNull(it) is HistoryChartItem.BarData }
+                    val nextBar = (closestAny until chartItems.size).firstOrNull { chartItems.getOrNull(it) is HistoryChartItem.BarData }
+                    prevBar ?: nextBar ?: -1
+                } else -1
+            } else {
+                visibleBars.minByOrNull { item ->
+                    val itemCenter = item.offset + item.size / 2
+                    kotlin.math.abs(itemCenter - viewportCenter)
+                }?.index ?: -1
+            }
         }.distinctUntilChanged().collect { centerIdx ->
             if (centerIdx != -1 && centerIdx != lastCenteredIndex) {
-                if (lazyListState.isScrollInProgress) {
-                    haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                }
-                lastCenteredIndex = centerIdx
-                val item = chartItems.getOrNull(centerIdx)
-                if (item is HistoryChartItem.BarData) {
+                val item = chartItems.getOrNull(centerIdx) as? HistoryChartItem.BarData
+                if (item != null) {
+                    if (lazyListState.isScrollInProgress) {
+                        haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                    }
+                    lastCenteredIndex = centerIdx
                     selectedIndex = centerIdx
                     val formattedDate = item.formattedDate.ifBlank {
                         com.vinnovateit.latch.common.util.formatDisplayDate(item.timestamp)
@@ -323,22 +337,7 @@ private fun HistoryBarChartContent(chartItems: List<HistoryChartItem>) {
                             MonthSeparator(monthName = item.monthName)
                         }
                         is HistoryChartItem.CollapsedMonth -> {
-                            CollapsedMonthItem(
-                                monthName = item.monthName,
-                                onTap = {
-                                    haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                                    selectedIndex = idx
-                                    displayedData = ChartDetailState(
-                                        usage = DataUsage(0, 0),
-                                        label = "${item.monthName} (No usage recorded)",
-                                        sessionCount = 0,
-                                        durationFormatted = "0m"
-                                    )
-                                    coroutineScope.launch {
-                                        lazyListState.scrollToItem(idx)
-                                    }
-                                }
-                            )
+                            MonthSeparator(monthName = item.monthName)
                         }
                     }
                 }
@@ -356,85 +355,16 @@ private fun MonthSeparator(monthName: String) {
     Box(
         modifier = Modifier
             .fillMaxHeight()
-            .padding(horizontal = 6.dp),
+            .padding(horizontal = 8.dp),
         contentAlignment = Alignment.Center
     ) {
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
-        ) {
-            Box(
-                modifier = Modifier
-                    .width(1.dp)
-                    .height(28.dp)
-                    .background(MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
-            )
-            Spacer(Modifier.height(4.dp))
-            Text(
-                text = monthName,
-                style = MaterialTheme.typography.labelSmall,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.rotate(-90f)
-            )
-            Spacer(Modifier.height(4.dp))
-            Box(
-                modifier = Modifier
-                    .width(1.dp)
-                    .height(28.dp)
-                    .background(MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
-            )
-        }
-    }
-}
-
-@Composable
-private fun CollapsedMonthItem(
-    monthName: String,
-    onTap: () -> Unit
-) {
-    Box(
-        modifier = Modifier
-            .fillMaxHeight()
-            .padding(horizontal = 4.dp)
-            .clickable(
-                interactionSource = remember { MutableInteractionSource() },
-                indication = null,
-                onClick = onTap
-            ),
-        contentAlignment = Alignment.Center
-    ) {
-        Surface(
-            shape = RoundedCornerShape(10.dp),
-            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f),
-            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.25f)),
-            modifier = Modifier
-                .width(26.dp)
-                .height(96.dp)
-        ) {
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.Center,
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(vertical = 6.dp)
-            ) {
-                Text(
-                    text = monthName,
-                    style = MaterialTheme.typography.labelSmall,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
-                    modifier = Modifier.rotate(-90f),
-                    maxLines = 1
-                )
-                Spacer(Modifier.height(4.dp))
-                Box(
-                    modifier = Modifier
-                        .size(3.dp)
-                        .background(MaterialTheme.colorScheme.outlineVariant, CircleShape)
-                )
-            }
-        }
+        Text(
+            text = monthName,
+            style = MaterialTheme.typography.labelSmall,
+            fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+            modifier = Modifier.rotate(-90f)
+        )
     }
 }
 
@@ -485,10 +415,8 @@ private fun Bar(
             val startY = size.height - rawBarHeight + inset
             val topLeftOffset = Offset(inset, startY)
 
-            val gapPx = if (downloadFrac > 0.05f && uploadFrac > 0.05f) 2.dp.toPx() else 0f
-            val availableHeight = (drawHeight - gapPx).coerceAtLeast(0f)
-            val ulH = if (uploadFrac > 0f) (availableHeight * uploadFrac).coerceAtLeast(2.dp.toPx()) else 0f
-            val dlH = (availableHeight - ulH).coerceAtLeast(0f)
+            val ulH = if (uploadFrac > 0f) (drawHeight * uploadFrac).coerceAtLeast(2.dp.toPx()) else 0f
+            val dlH = (drawHeight - ulH).coerceAtLeast(0f)
 
             // Upload on top
             if (ulH > 0f) {
@@ -510,9 +438,9 @@ private fun Bar(
                 }
             }
 
-            // Download below upload
+            // Download below upload (zero gap)
             if (dlH > 0f) {
-                val dlTopY = topLeftOffset.y + if (ulH > 0f) ulH + gapPx else 0f
+                val dlTopY = topLeftOffset.y + ulH
                 if (isAmoled) {
                     drawRoundRect(
                         color = dlColor,
