@@ -1,17 +1,20 @@
 package com.vinnovateit.latch.core.domain
 
-import com.vinnovateit.latch.core.data.Session
+import com.vinnovateit.latch.core.data.PortalSessionEntity
 import com.vinnovateit.latch.core.data.StatsDao
 import com.vinnovateit.latch.core.model.DataUsage
 import com.vinnovateit.latch.core.model.LiveConnectionStatus
 import com.vinnovateit.latch.core.model.LiveDataPoint
+import com.vinnovateit.latch.core.model.PortalSessionRecord
 import com.vinnovateit.latch.core.model.SessionSummary
+import com.vinnovateit.latch.core.portal.PortalHistoryClient
 import com.vinnovateit.latch.core.stats.ThroughputMonitor
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
@@ -22,7 +25,7 @@ import kotlinx.coroutines.launch
 private const val LIVE_HISTORY_CAP = 200
 
 /**
- * Tracks the live session and persists finished ones.
+ * Tracks the live session and persists portal history.
  *
  * Ported from the Android singleton, with the Application context, the
  * WorkManager widget enqueue and the TileService nudge all removed. The
@@ -33,6 +36,7 @@ private const val LIVE_HISTORY_CAP = 200
 class SessionRepository(
     private val statsDao: StatsDao,
     private val throughput: ThroughputMonitor,
+    private val portalClient: PortalHistoryClient? = null,
     private val scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.IO),
 ) {
     private var sessionUpdateJob: Job? = null
@@ -48,6 +52,12 @@ class SessionRepository(
 
     private val _lastSession = MutableStateFlow<SessionSummary?>(null)
     val lastSession = _lastSession.asStateFlow()
+
+    private val _portalHistory = MutableStateFlow<List<PortalSessionRecord>>(emptyList())
+    val portalHistory: StateFlow<List<PortalSessionRecord>> = _portalHistory.asStateFlow()
+
+    private val _isSyncing = MutableStateFlow(false)
+    val isSyncing: StateFlow<Boolean> = _isSyncing.asStateFlow()
 
     fun initialize() {
         scope.launch {
@@ -67,6 +77,28 @@ class SessionRepository(
                 .collect { summaries ->
                     _sessionSummaries.value = summaries
                     _lastSession.value = summaries.firstOrNull()
+                }
+        }
+
+        scope.launch {
+            statsDao.getAllPortalSessions()
+                .map { entities ->
+                    entities.map { entity ->
+                        PortalSessionRecord(
+                            location = entity.location,
+                            macAddress = entity.macAddress,
+                            loginTime = entity.loginTime,
+                            logoutTime = entity.logoutTime,
+                            durationFormatted = entity.durationFormatted,
+                            durationMillis = entity.durationMillis,
+                            uploadBytes = entity.uploadBytes,
+                            downloadBytes = entity.downloadBytes,
+                            totalBytes = entity.totalBytes,
+                        )
+                    }
+                }
+                .collect { records ->
+                    _portalHistory.value = records
                 }
         }
     }
@@ -98,48 +130,65 @@ class SessionRepository(
     }
 
     fun stopSession() {
-        val session = finishActiveSession() ?: return
-        scope.launch { statsDao.insertSession(session) }
+        finishActiveSession()
     }
 
     /** Completes persistence before returning, for orderly process shutdown. */
     suspend fun stopSessionAndAwait() {
-        val session = finishActiveSession() ?: return
-        statsDao.insertSession(session)
+        finishActiveSession()
     }
 
-    private fun finishActiveSession(): Session? {
-        val sessionToFinalize = _liveStatus.value ?: return null
+    private fun finishActiveSession() {
+        if (_liveStatus.value == null) return
 
         sessionUpdateJob?.cancel()
         sessionUpdateJob = null
         throughput.stop()
         _liveStatus.value = null
-
-        val totalRxBytes = sessionToFinalize.totalRxBytes
-        val totalTxBytes = sessionToFinalize.totalTxBytes
-        val maxRxBps = sessionToFinalize.maxRxBps
-        val maxTxBps = sessionToFinalize.maxTxBps
-
-        // Discard trivial sessions so the history isn't polluted by a connect
-        // that carried no traffic. Threshold matches Android.
-        if (totalRxBytes + totalTxBytes < 1024) {
-            onSessionChanged?.invoke()
-            return null
-        }
-
         onSessionChanged?.invoke()
-        return Session(
-            startTime = sessionToFinalize.startTimeMillis,
-            endTime = System.currentTimeMillis(),
-            rxBytes = totalRxBytes,
-            txBytes = totalTxBytes,
-            maxRxBps = maxRxBps,
-            maxTxBps = maxTxBps,
-        )
+    }
+
+    suspend fun syncPortalHistory(
+        userId: String,
+        password: String,
+        host: String = PortalHistoryClient.DEFAULT_PORTAL_HOST,
+    ): Result<Unit> {
+        val client = portalClient ?: return Result.failure(IllegalStateException("Portal client not configured"))
+        _isSyncing.value = true
+        return try {
+            val result = client.fetchHistory(userId, password, host = host)
+            if (result.isSuccess) {
+                val records = result.getOrThrow()
+                val entities = records.map {
+                    PortalSessionEntity(
+                        location = it.location,
+                        macAddress = it.macAddress,
+                        loginTime = it.loginTime,
+                        logoutTime = it.logoutTime,
+                        durationFormatted = it.durationFormatted,
+                        durationMillis = it.durationMillis,
+                        uploadBytes = it.uploadBytes,
+                        downloadBytes = it.downloadBytes,
+                        totalBytes = it.totalBytes,
+                    )
+                }
+                statsDao.clearAllPortalSessions()
+                statsDao.insertAllPortalSessions(entities)
+                _portalHistory.value = records
+                Result.success(Unit)
+            } else {
+                Result.failure(result.exceptionOrNull() ?: Exception("Unknown portal sync error"))
+            }
+        } finally {
+            _isSyncing.value = false
+        }
     }
 
     fun clearHistory() {
-        scope.launch { statsDao.clearAllSessions() }
+        scope.launch {
+            statsDao.clearAllSessions()
+            statsDao.clearAllPortalSessions()
+            _portalHistory.value = emptyList()
+        }
     }
 }

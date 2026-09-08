@@ -17,7 +17,7 @@ import kotlinx.coroutines.runBlocking
 
 class SessionRepositoryShutdownTest {
     @Test
-    fun `awaited stop persists active session before returning`() = runBlocking {
+    fun `awaited stop finishes active session before returning`() = runBlocking {
         val dao = RecordingStatsDao()
         var bytes = 0L
         val counters = object : ByteCounterSource {
@@ -31,11 +31,11 @@ class SessionRepositoryShutdownTest {
         val repository = SessionRepository(dao, monitor)
 
         repository.startSession()
+        assertTrue(repository.liveStatus.value != null)
         delay(25)
         repository.stopSessionAndAwait()
 
-        assertTrue(dao.inserted.isNotEmpty())
-        assertTrue(dao.inserted.single().rxBytes >= 1_024)
+        assertTrue(repository.liveStatus.value == null)
     }
 }
 
