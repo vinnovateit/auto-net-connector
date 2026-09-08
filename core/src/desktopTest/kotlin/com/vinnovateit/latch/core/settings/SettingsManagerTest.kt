@@ -51,4 +51,39 @@ class SettingsManagerTest {
         SettingsManager.initialize(populatedStore)
         assertFalse(SettingsManager.hapticsEnabled.value)
     }
+
+    @Test
+    fun `paletteStyle is TonalSpot by default`() {
+        assertEquals("TonalSpot", SettingsManager.paletteStyle.value)
+    }
+
+    @Test
+    fun `setPaletteStyle updates state and store`() {
+        SettingsManager.setPaletteStyle("Expressive")
+        assertEquals("Expressive", SettingsManager.paletteStyle.value)
+        assertEquals("Expressive", store.getString("palette_style", ""))
+
+        SettingsManager.setPaletteStyle("FruitSalad")
+        assertEquals("FruitSalad", SettingsManager.paletteStyle.value)
+        assertEquals("FruitSalad", store.getString("palette_style", ""))
+    }
+
+    @Test
+    fun `clearAll resets paletteStyle to TonalSpot`() {
+        SettingsManager.setPaletteStyle("Vibrant")
+        assertEquals("Vibrant", SettingsManager.paletteStyle.value)
+
+        SettingsManager.clearAll()
+        assertEquals("TonalSpot", SettingsManager.paletteStyle.value)
+        assertEquals("TonalSpot", store.getString("palette_style", ""))
+    }
+
+    @Test
+    fun `initialize loads persisted paletteStyle setting`() {
+        val populatedStore = InMemoryKeyValueStore()
+        populatedStore.putString("palette_style", "Rainbow")
+
+        SettingsManager.initialize(populatedStore)
+        assertEquals("Rainbow", SettingsManager.paletteStyle.value)
+    }
 }

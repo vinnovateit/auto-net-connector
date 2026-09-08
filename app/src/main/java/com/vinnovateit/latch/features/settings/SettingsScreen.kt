@@ -34,14 +34,17 @@ import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.Autorenew
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.ColorLens
+import androidx.compose.material.icons.rounded.Colorize
 import androidx.compose.material.icons.rounded.DarkMode
 import androidx.compose.material.icons.rounded.FormatPaint
 import androidx.compose.material.icons.rounded.LightMode
+import androidx.compose.material.icons.rounded.Palette
 import androidx.compose.material.icons.rounded.Password
 import androidx.compose.material.icons.rounded.SettingsBackupRestore
 import androidx.compose.material.icons.rounded.SettingsSystemDaydream
 import androidx.compose.material.icons.rounded.Speed
 import androidx.compose.material.icons.rounded.Vibration
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledIconButton
@@ -50,6 +53,8 @@ import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Slider
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
@@ -58,6 +63,7 @@ import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -66,6 +72,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
@@ -146,12 +154,14 @@ fun SettingsScreen(onBackClick: () -> Unit, onNavigateToCredentials: () -> Unit)
   var showClearStatsSheet by remember { mutableStateOf(false) }
   var showAccentColorSheet by remember { mutableStateOf(false) }
   var showChartPaletteSheet by remember { mutableStateOf(false) }
+  var showPaletteStyleSheet by remember { mutableStateOf(false) }
 
   val useDynamicColors by SettingsManager.useDynamicColors.collectAsStateWithLifecycle()
   val usePureBlack by SettingsManager.usePureBlack.collectAsStateWithLifecycle()
   val useMonochrome by SettingsManager.useMonochrome.collectAsStateWithLifecycle()
   val accentColor by SettingsManager.accentColor.collectAsStateWithLifecycle()
   val chartPalette by SettingsManager.chartPalette.collectAsStateWithLifecycle()
+  val paletteStyle by SettingsManager.paletteStyle.collectAsStateWithLifecycle()
   val hapticsEnabled by SettingsManager.hapticsEnabled.collectAsStateWithLifecycle()
 
   val density = LocalDensity.current
@@ -309,18 +319,19 @@ fun SettingsScreen(onBackClick: () -> Unit, onNavigateToCredentials: () -> Unit)
                   },
                   trailingContent = {
                     val colors = listOf(
-                      "Red" to androidx.compose.ui.graphics.Color(0xFFC01221),
-                      "Blue" to androidx.compose.ui.graphics.Color(0xFF005AC1),
-                      "Green" to androidx.compose.ui.graphics.Color(0xFF0F5223),
-                      "Purple" to androidx.compose.ui.graphics.Color(0xFF7D00B8),
-                      "Pink" to androidx.compose.ui.graphics.Color(0xFFD81B60),
-                      "Yellow" to androidx.compose.ui.graphics.Color(0xFFF5B300)
+                      "Red" to Color(0xFFC01221),
+                      "Blue" to Color(0xFF005AC1),
+                      "Green" to Color(0xFF0F5223),
+                      "Purple" to Color(0xFF7D00B8),
+                      "Yellow" to Color(0xFFF5B300)
                     )
-                    val selectedColor = if (useMonochrome) androidx.compose.ui.graphics.Color(0xFF808080) else (colors.find { it.first == accentColor }?.second ?: androidx.compose.ui.graphics.Color.Transparent)
+                    val customParsed = if (accentColor.startsWith("#")) parseHexOrNull(accentColor) else null
+                    val selectedColor = if (useMonochrome) Color(0xFF808080)
+                        else (customParsed ?: colors.find { it.first == accentColor }?.second ?: Color(0xFFC01221))
                     Box(
                       modifier = Modifier
                         .size(24.dp)
-                        .clip(androidx.compose.foundation.shape.CircleShape)
+                        .clip(CircleShape)
                         .background(selectedColor)
                     )
                   },
@@ -349,6 +360,29 @@ fun SettingsScreen(onBackClick: () -> Unit, onNavigateToCredentials: () -> Unit)
                   })
               },
               onClick = { SettingsManager.setUseDynamicColors(!useDynamicColors) },
+            )
+            Spacer(modifier = Modifier.height(3.dp))
+            SettingsItem(
+              title = "Palette Style",
+              subtitle = when (paletteStyle) {
+                "TonalSpot" -> "Tonal Spot"
+                "Expressive" -> "Expressive"
+                "FruitSalad" -> "Fruit Salad"
+                "Spritz" -> "Spritz"
+                "Rainbow" -> "Rainbow"
+                "Vibrant" -> "Vibrant"
+                "Fidelity" -> "Fidelity"
+                "Content" -> "Content"
+                else -> paletteStyle
+              },
+              leadingIcon = {
+                Icon(
+                  Icons.Rounded.Palette,
+                  contentDescription = null,
+                  tint = MaterialTheme.colorScheme.primary
+                )
+              },
+              onClick = { showPaletteStyleSheet = true }
             )
             Spacer(modifier = Modifier.height(3.dp))
             SettingsItem(
@@ -618,6 +652,30 @@ fun SettingsScreen(onBackClick: () -> Unit, onNavigateToCredentials: () -> Unit)
       onDismiss = { showChartPaletteSheet = false }
     )
   }
+
+  if (showPaletteStyleSheet) {
+    val paletteOptions = listOf(
+      SelectionOption("TonalSpot", Icons.Rounded.Palette, "Tonal Spot"),
+      SelectionOption("Expressive", Icons.Rounded.Palette, "Expressive"),
+      SelectionOption("FruitSalad", Icons.Rounded.Palette, "Fruit Salad"),
+      SelectionOption("Spritz", Icons.Rounded.Palette, "Spritz"),
+      SelectionOption("Rainbow", Icons.Rounded.Palette, "Rainbow"),
+      SelectionOption("Vibrant", Icons.Rounded.Palette, "Vibrant"),
+      SelectionOption("Fidelity", Icons.Rounded.Palette, "Fidelity"),
+      SelectionOption("Content", Icons.Rounded.Palette, "Content")
+    )
+    SettingsSelectionBottomSheet(
+      title = "Palette Style",
+      description = "Choose the Material You palette algorithm",
+      options = paletteOptions,
+      selected = paletteStyle,
+      onSelect = {
+        SettingsManager.setPaletteStyle(it.label)
+        showPaletteStyleSheet = false
+      },
+      onDismiss = { showPaletteStyleSheet = false }
+    )
+  }
 }
 
 data class SelectionOption(
@@ -649,44 +707,320 @@ fun SettingsSection(
   }
 }
 
+private const val CustomColorSaturation = 0.75f
+private const val CustomColorLightness = 0.45f
+
+private fun hslToColor(hue: Float, saturation: Float = CustomColorSaturation, lightness: Float = CustomColorLightness): Color {
+  val c = (1f - kotlin.math.abs(2f * lightness - 1f)) * saturation
+  val x = c * (1f - kotlin.math.abs((hue / 60f) % 2f - 1f))
+  val m = lightness - c / 2f
+  val (r1, g1, b1) = when {
+    hue < 60f -> Triple(c, x, 0f)
+    hue < 120f -> Triple(x, c, 0f)
+    hue < 180f -> Triple(0f, c, x)
+    hue < 240f -> Triple(0f, x, c)
+    hue < 300f -> Triple(x, 0f, c)
+    else -> Triple(c, 0f, x)
+  }
+  return Color(r1 + m, g1 + m, b1 + m)
+}
+
+private fun colorToHue(color: Color): Float {
+  val r = color.red
+  val g = color.green
+  val b = color.blue
+  val max = maxOf(r, g, b)
+  val min = minOf(r, g, b)
+  val delta = max - min
+  if (delta == 0f) return 0f
+  val hue = when (max) {
+    r -> 60f * (((g - b) / delta) % 6f)
+    g -> 60f * (((b - r) / delta) + 2f)
+    else -> 60f * (((r - g) / delta) + 4f)
+  }
+  return if (hue < 0f) hue + 360f else hue
+}
+
+internal fun parseHexOrNull(value: String): Color? {
+  return try {
+    val hex = value.removePrefix("#")
+    if (hex.length == 6) Color(0xFF000000.toInt() or hex.toInt(16)) else null
+  } catch (_: Exception) {
+    null
+  }
+}
+
+private fun Color.toHexString(): String {
+  val r = (red * 255).roundToInt().coerceIn(0, 255)
+  val g = (green * 255).roundToInt().coerceIn(0, 255)
+  val b = (blue * 255).roundToInt().coerceIn(0, 255)
+  return String.format("#%02X%02X%02X", r, g, b)
+}
+
 @Composable
 fun AccentColorPicker(
   selectedColorName: String,
   onColorSelected: (String) -> Unit
 ) {
+  var showCustomColorDialog by remember { mutableStateOf(false) }
+
   Row(
     modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
-    horizontalArrangement = Arrangement.SpaceEvenly
+    horizontalArrangement = Arrangement.SpaceEvenly,
+    verticalAlignment = Alignment.CenterVertically
   ) {
-    val colors = listOf(
-      "Red" to androidx.compose.ui.graphics.Color(0xFFC01221),
-      "Blue" to androidx.compose.ui.graphics.Color(0xFF005AC1),
-      "Green" to androidx.compose.ui.graphics.Color(0xFF0F5223),
-      "Purple" to androidx.compose.ui.graphics.Color(0xFF7D00B8),
-      "Pink" to androidx.compose.ui.graphics.Color(0xFFD81B60),
-      "Yellow" to androidx.compose.ui.graphics.Color(0xFFF5B300)
-    )
     val haptic = LocalHapticFeedback.current
+
+    // Pen / Colorize button at the start (first item before "Red")
+    val isCustomSelected = selectedColorName.startsWith("#")
+    val customParsedColor = if (isCustomSelected) parseHexOrNull(selectedColorName) else null
+    val customBg = if (isCustomSelected) (customParsedColor ?: MaterialTheme.colorScheme.surfaceVariant) else MaterialTheme.colorScheme.surfaceVariant
+    val customTint = if (isCustomSelected && customParsedColor != null) {
+      val isLight = (0.299 * customParsedColor.red + 0.587 * customParsedColor.green + 0.114 * customParsedColor.blue) > 0.5
+      if (isLight) Color.Black else Color.White
+    } else {
+      MaterialTheme.colorScheme.onSurfaceVariant
+    }
+
+    Box(
+      modifier = Modifier
+        .size(44.dp)
+        .clip(CircleShape)
+        .clickable {
+          haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+          showCustomColorDialog = true
+        }
+        .then(
+          if (isCustomSelected) Modifier.border(3.dp, MaterialTheme.colorScheme.onSurface, CircleShape)
+          else Modifier
+        )
+        .padding(if (isCustomSelected) 6.dp else 0.dp)
+        .clip(CircleShape)
+        .background(customBg),
+      contentAlignment = Alignment.Center
+    ) {
+      Icon(
+        imageVector = Icons.Rounded.Colorize,
+        contentDescription = "Custom Accent Color",
+        tint = customTint,
+        modifier = Modifier.size(20.dp)
+      )
+    }
+
+    val colors = listOf(
+      "Red" to Color(0xFFC01221),
+      "Blue" to Color(0xFF005AC1),
+      "Green" to Color(0xFF0F5223),
+      "Purple" to Color(0xFF7D00B8),
+      "Yellow" to Color(0xFFF5B300)
+    )
+
     colors.forEach { (name, color) ->
       val isSelected = name == selectedColorName
       Box(
         modifier = Modifier
           .size(44.dp)
-          .clip(androidx.compose.foundation.shape.CircleShape)
+          .clip(CircleShape)
           .clickable { 
-              haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-              onColorSelected(name) 
+            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+            onColorSelected(name) 
           }
           .then(
-              if (isSelected) Modifier.border(3.dp, MaterialTheme.colorScheme.onSurface, androidx.compose.foundation.shape.CircleShape)
-              else Modifier
+            if (isSelected) Modifier.border(3.dp, MaterialTheme.colorScheme.onSurface, CircleShape)
+            else Modifier
           )
           .padding(if (isSelected) 6.dp else 0.dp)
-          .clip(androidx.compose.foundation.shape.CircleShape)
+          .clip(CircleShape)
           .background(color)
       )
     }
   }
+
+  if (showCustomColorDialog) {
+    CustomColorPickerDialog(
+      initialColorHex = if (selectedColorName.startsWith("#")) selectedColorName else "#C01221",
+      onDismiss = { showCustomColorDialog = false },
+      onColorConfirmed = { hex ->
+        showCustomColorDialog = false
+        onColorSelected(hex)
+      }
+    )
+  }
+}
+
+@Composable
+fun CustomColorPickerDialog(
+  initialColorHex: String,
+  onDismiss: () -> Unit,
+  onColorConfirmed: (String) -> Unit
+) {
+  var hexInput by remember { mutableStateOf(initialColorHex.uppercase()) }
+  val initialColor = parseHexOrNull(initialColorHex) ?: Color(0xFFC01221)
+  var currentColor by remember { mutableStateOf(initialColor) }
+  var hue by remember { mutableFloatStateOf(colorToHue(initialColor)) }
+
+  val formattedHex = if (hexInput.startsWith("#")) hexInput else "#$hexInput"
+  val isValidHex = parseHexOrNull(formattedHex) != null
+
+  AlertDialog(
+    onDismissRequest = onDismiss,
+    title = {
+      Text(
+        text = "Custom Accent Color",
+        style = MaterialTheme.typography.titleLarge,
+        fontWeight = FontWeight.Bold
+      )
+    },
+    text = {
+      Column(
+        modifier = Modifier
+          .fillMaxWidth()
+          .verticalScroll(rememberScrollState()),
+        horizontalAlignment = Alignment.CenterHorizontally
+      ) {
+        // Preview Swatch
+        Box(
+          modifier = Modifier
+            .fillMaxWidth()
+            .height(56.dp)
+            .clip(RoundedCornerShape(12.dp))
+            .background(currentColor)
+            .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(12.dp)),
+          contentAlignment = Alignment.Center
+        ) {
+          val isLight = (0.299 * currentColor.red + 0.587 * currentColor.green + 0.114 * currentColor.blue) > 0.5
+          Text(
+            text = currentColor.toHexString(),
+            color = if (isLight) Color.Black else Color.White,
+            fontWeight = FontWeight.Bold,
+            style = MaterialTheme.typography.titleMedium
+          )
+        }
+
+        Spacer(modifier = Modifier.height(20.dp))
+
+        // Hue Slider
+        Text(
+          text = "Hue",
+          style = MaterialTheme.typography.labelMedium,
+          fontWeight = FontWeight.SemiBold,
+          color = MaterialTheme.colorScheme.onSurfaceVariant,
+          modifier = Modifier.fillMaxWidth()
+        )
+
+        Spacer(modifier = Modifier.height(6.dp))
+
+        val rainbowBrush = remember {
+          Brush.horizontalGradient(
+            (0..360 step 30).map { hslToColor(it.toFloat()) }
+          )
+        }
+
+        Box(
+          modifier = Modifier
+            .fillMaxWidth()
+            .height(14.dp)
+            .clip(RoundedCornerShape(7.dp))
+            .background(rainbowBrush)
+        )
+
+        Slider(
+          value = hue,
+          onValueChange = { newHue ->
+            hue = newHue
+            val newCol = hslToColor(newHue)
+            currentColor = newCol
+            hexInput = newCol.toHexString()
+          },
+          valueRange = 0f..360f,
+          modifier = Modifier.fillMaxWidth()
+        )
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        // Hex input
+        OutlinedTextField(
+          value = hexInput,
+          onValueChange = { input ->
+            val filtered = input.filter { it.isDigit() || it in 'a'..'f' || it in 'A'..'F' || it == '#' }.take(7)
+            hexInput = filtered.uppercase()
+            val candidate = if (filtered.startsWith("#")) filtered else "#$filtered"
+            parseHexOrNull(candidate)?.let { parsed ->
+              currentColor = parsed
+              hue = colorToHue(parsed)
+            }
+          },
+          label = { Text("Hex Code") },
+          placeholder = { Text("#FF5722") },
+          singleLine = true,
+          isError = hexInput.isNotEmpty() && !isValidHex,
+          supportingText = if (hexInput.isNotEmpty() && !isValidHex) {
+            { Text("Enter valid 6-digit hex (e.g. #FF5722)") }
+          } else null,
+          modifier = Modifier.fillMaxWidth(),
+          shape = RoundedCornerShape(12.dp)
+        )
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        // Preset Swatches
+        Text(
+          text = "Quick Presets",
+          style = MaterialTheme.typography.labelMedium,
+          fontWeight = FontWeight.SemiBold,
+          color = MaterialTheme.colorScheme.onSurfaceVariant,
+          modifier = Modifier.fillMaxWidth()
+        )
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        val quickPresets = listOf(
+          Color(0xFFFF5722), // Deep Orange
+          Color(0xFF009688), // Teal
+          Color(0xFF3F51B5), // Indigo
+          Color(0xFF00BCD4), // Cyan
+          Color(0xFFFF9800), // Orange
+          Color(0xFFE91E63)  // Pink
+        )
+
+        Row(
+          modifier = Modifier.fillMaxWidth(),
+          horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+          quickPresets.forEach { presetColor ->
+            Box(
+              modifier = Modifier
+                .size(36.dp)
+                .clip(CircleShape)
+                .background(presetColor)
+                .clickable {
+                  currentColor = presetColor
+                  hexInput = presetColor.toHexString()
+                  hue = colorToHue(presetColor)
+                }
+            )
+          }
+        }
+      }
+    },
+    confirmButton = {
+      Button(
+        onClick = {
+          if (isValidHex) {
+            onColorConfirmed(formattedHex)
+          }
+        },
+        enabled = isValidHex
+      ) {
+        Text("Apply")
+      }
+    },
+    dismissButton = {
+      OutlinedButton(onClick = onDismiss) {
+        Text("Cancel")
+      }
+    }
+  )
 }
 
 @Composable

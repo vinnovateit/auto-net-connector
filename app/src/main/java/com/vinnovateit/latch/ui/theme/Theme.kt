@@ -34,6 +34,7 @@ fun LatchTheme(
     val useDynamicColors by SettingsManager.useDynamicColors.collectAsStateWithLifecycle() // Read the new setting
     val useMonochrome by SettingsManager.useMonochrome.collectAsStateWithLifecycle()
     val accentColor by SettingsManager.accentColor.collectAsStateWithLifecycle()
+    val paletteStyle by SettingsManager.paletteStyle.collectAsStateWithLifecycle()
     val systemIsDark = isSystemInDarkTheme()
     val supportsDynamic = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
 
@@ -44,13 +45,26 @@ fun LatchTheme(
         else -> systemIsDark
     }
 
+    val parsedColor = if (accentColor.startsWith("#")) {
+        try {
+            val hex = accentColor.removePrefix("#")
+            if (hex.length == 6) Color(0xFF000000.toInt() or hex.toInt(16)) else null
+        } catch (_: Exception) { null }
+    } else null
+
     val seedColor = when (accentColor) {
+        "Red" -> Color(0xFFC01221)
         "Blue" -> Color(0xFF005AC1)
         "Green" -> Color(0xFF0F5223)
         "Purple" -> Color(0xFF7D00B8)
-        "Pink" -> Color(0xFFD81B60)
         "Yellow" -> Color(0xFFF5B300)
-        else -> Color(0xFFC01221) // Red
+        else -> parsedColor ?: Color(0xFFC01221) // Red fallback
+    }
+
+    val currentStyle = try {
+        PaletteStyle.valueOf(paletteStyle)
+    } catch (_: Exception) {
+        PaletteStyle.TonalSpot
     }
 
     val baseColorScheme = when {
@@ -70,7 +84,8 @@ fun LatchTheme(
         else -> {
             dynamicColorScheme(
                 seedColor = seedColor,
-                isDark = darkTheme
+                isDark = darkTheme,
+                style = currentStyle
             )
         }
     }
