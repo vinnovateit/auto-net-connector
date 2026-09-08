@@ -14,6 +14,7 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.snapping.rememberSnapFlingBehavior
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
@@ -58,6 +59,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -79,8 +81,6 @@ import com.vinnovateit.latch.common.util.formatDate
 import com.vinnovateit.latch.core.model.DataUsage
 import com.vinnovateit.latch.ui.theme.ColorGraphDownload
 import com.vinnovateit.latch.ui.theme.ColorGraphUpload
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -309,13 +309,12 @@ private fun HistoryBarChartContent(chartItems: List<HistoryChartItem>) {
                     }
                 }
             }
-            val floor = (globalMax / 10L).coerceAtLeast(100_000_000L)
-            maxOf(maxBytes, floor)
+            if (maxBytes > 0L) maxBytes else globalMax
         }
     }
 
     val animatedMaxUsage by animateFloatAsState(
-        targetValue = visibleMaxDailyUsage.toFloat() * 1.25f,
+        targetValue = (visibleMaxDailyUsage.toFloat() * 1.15f).coerceAtLeast(1f),
         animationSpec = spring(
             dampingRatio = Spring.DampingRatioNoBouncy,
             stiffness = Spring.StiffnessMediumLow
@@ -332,6 +331,27 @@ private fun HistoryBarChartContent(chartItems: List<HistoryChartItem>) {
         }
     }
 
+    var lastCenteredIndex by remember { mutableIntStateOf(-1) }
+    LaunchedEffect(chartItems) {
+        snapshotFlow {
+            val layoutInfo = lazyListState.layoutInfo
+            val viewportCenter = (layoutInfo.viewportStartOffset + layoutInfo.viewportEndOffset) / 2
+            val visibleItems = layoutInfo.visibleItemsInfo
+            if (visibleItems.isEmpty()) return@snapshotFlow -1
+            visibleItems.minByOrNull { item ->
+                val itemCenter = item.offset + item.size / 2
+                kotlin.math.abs(itemCenter - viewportCenter)
+            }?.index ?: -1
+        }.collect { centerIdx ->
+            if (centerIdx != -1 && centerIdx != lastCenteredIndex) {
+                if (lazyListState.isScrollInProgress) {
+                    haptic.performHapticFeedback(HapticFeedbackType.KeyboardTap)
+                }
+                lastCenteredIndex = centerIdx
+            }
+        }
+    }
+
     val chartPalette by SettingsManager.chartPalette.collectAsStateWithLifecycle()
     val (dlColor, ulColor) = StatsColorPalettes.resolveColors(chartPalette)
 
@@ -340,12 +360,13 @@ private fun HistoryBarChartContent(chartItems: List<HistoryChartItem>) {
             val barWidth = 16.dp
             val rowHeight = 165.dp
             val barAreaHeight = 160.dp
-            val horizontalPadding = 16.dp
+            val centerPadding = ((maxWidth - barWidth) / 2).coerceAtLeast(16.dp)
 
             LazyRow(
                 state = lazyListState,
                 modifier = Modifier.height(rowHeight),
-                contentPadding = PaddingValues(horizontal = horizontalPadding),
+                contentPadding = PaddingValues(horizontal = centerPadding),
+                flingBehavior = rememberSnapFlingBehavior(lazyListState = lazyListState),
                 horizontalArrangement = Arrangement.spacedBy(0.dp),
                 verticalAlignment = Alignment.Bottom
             ) {
@@ -460,8 +481,8 @@ private fun Bar(
     onTap: () -> Unit
 ) {
     val total = usage.rxBytes + usage.txBytes
-    val effectiveMax = maxOf(maxUsage, total.toFloat() * 1.25f)
-    val totalFrac = (total.toFloat() / effectiveMax).coerceIn(0.04f, 0.82f)
+    val effectiveMax = maxOf(maxUsage, total.toFloat() * 1.15f)
+    val totalFrac = (total.toFloat() / effectiveMax).coerceIn(0.04f, 0.88f)
 
     val uploadFrac = if (total > 0) usage.txBytes.toFloat() / total.toFloat() else 0f
     val downloadFrac = 1f - uploadFrac
