@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -408,7 +409,7 @@ private fun Bar(
         } else {
             androidx.compose.animation.core.tween(
                 durationMillis = (280 * animScale).toInt().coerceAtLeast(1),
-                delayMillis = ((index % 12) * 18 * animScale).toInt(),
+                delayMillis = ((index % 12) * 12 * animScale).toInt(),
                 easing = androidx.compose.animation.core.FastOutSlowInEasing
             )
         },
@@ -417,10 +418,6 @@ private fun Bar(
 
     val uploadFrac = if (total > 0) usage.txBytes.toFloat() / total.toFloat() else 0f
     val downloadFrac = 1f - uploadFrac
-    val density = LocalDensity.current
-    val barHeightInDp = with(density) {
-        if (total > 0) (barAreaHeight.toPx() * animatedFrac).toDp().coerceAtLeast(6.dp) else 4.dp
-    }
 
     Column(
         modifier = modifier
@@ -443,18 +440,20 @@ private fun Bar(
         ) {
             val emptyColor = if (isAmoled) Color(0xFF262626) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f)
             Canvas(
-                modifier = Modifier
-                    .width(barWidth)
-                    .height(barHeightInDp)
+                modifier = Modifier.fillMaxSize()
             ) {
+                val currentFrac = animatedFrac
                 val cornerRadius = androidx.compose.ui.geometry.CornerRadius(4.dp.toPx(), 4.dp.toPx())
                 val strokeWidth = 1.5.dp.toPx()
                 val inset = if (isAmoled) strokeWidth / 2 else 0f
                 val drawWidth = (size.width - inset * 2).coerceAtLeast(0f)
-                val drawHeight = (size.height - inset * 2).coerceAtLeast(0f)
-                val topLeftOffset = Offset(inset, inset)
 
                 if (total > 0) {
+                    val rawBarHeight = (size.height * currentFrac).coerceAtLeast(6.dp.toPx())
+                    val drawHeight = (rawBarHeight - inset * 2).coerceAtLeast(0f)
+                    val startY = size.height - rawBarHeight + inset
+                    val topLeftOffset = Offset(inset, startY)
+
                     val gapPx = if (downloadFrac > 0.05f && uploadFrac > 0.05f) 2.dp.toPx() else 0f
                     val availableHeight = (drawHeight - gapPx).coerceAtLeast(0f)
                     val ulH = if (uploadFrac > 0f) (availableHeight * uploadFrac).coerceAtLeast(2.dp.toPx()) else 0f
@@ -501,6 +500,10 @@ private fun Bar(
                         }
                     }
                 } else {
+                    val rawBarHeight = 4.dp.toPx()
+                    val drawHeight = (rawBarHeight - inset * 2).coerceAtLeast(0f)
+                    val startY = size.height - rawBarHeight + inset
+                    val topLeftOffset = Offset(inset, startY)
                     drawRoundRect(
                         color = emptyColor,
                         topLeft = topLeftOffset,

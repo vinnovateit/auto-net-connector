@@ -55,7 +55,7 @@ fun RollingNumberText(
             val char = value[i]
             if (char in '0'..'9') {
                 val idx = digitIndex++
-                key("digit_${idx}_$char") {
+                key("digit_$idx") {
                     DigitRoller(
                         digit = char.digitToInt(),
                         textStyle = styledText,
@@ -87,14 +87,16 @@ private fun DigitRoller(
     var currentDigit by remember { mutableIntStateOf(0) }
 
     LaunchedEffect(digit) {
-        if (digit == 0) {
-            currentDigit = 0
-            return@LaunchedEffect
-        }
-        delay(colIndex * 40L)
-        val stepDelay = (500L / digit).coerceIn(40L, 100L)
-        for (d in 1..digit) {
+        if (currentDigit == digit) return@LaunchedEffect
+        delay(colIndex * 30L)
+        val diff = kotlin.math.abs(digit - currentDigit)
+        if (diff == 0) return@LaunchedEffect
+        val stepDelay = (360L / diff).coerceIn(50L, 90L)
+        val step = if (digit > currentDigit) 1 else -1
+        var d = currentDigit
+        while (d != digit) {
             delay(stepDelay)
+            d += step
             currentDigit = d
         }
     }
@@ -102,13 +104,15 @@ private fun DigitRoller(
     AnimatedContent(
         targetState = currentDigit,
         transitionSpec = {
+            val isFinal = targetState == digit
+            val duration = if (isFinal) 140 else 75
             (slideInVertically(
-                animationSpec = tween(durationMillis = 150, easing = LinearOutSlowInEasing)
-            ) { height -> height } + fadeIn(tween(150))).togetherWith(
+                animationSpec = tween(durationMillis = duration, easing = if (isFinal) LinearOutSlowInEasing else androidx.compose.animation.core.LinearEasing)
+            ) { height -> height } + fadeIn(tween(duration))).togetherWith(
                 slideOutVertically(
-                    animationSpec = tween(durationMillis = 150, easing = FastOutLinearInEasing)
-                ) { height -> -height } + fadeOut(tween(150))
-            )
+                    animationSpec = tween(durationMillis = duration, easing = if (isFinal) FastOutLinearInEasing else androidx.compose.animation.core.LinearEasing)
+                ) { height -> -height } + fadeOut(tween(duration))
+            ).using(androidx.compose.animation.SizeTransform(clip = false))
         },
         label = "DigitRoll_$colIndex"
     ) { d ->

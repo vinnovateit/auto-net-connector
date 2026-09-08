@@ -23,6 +23,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -34,7 +35,7 @@ import com.vinnovateit.latch.ui.theme.LocalIsDarkTheme
 @Composable
 fun rememberShimmerBrush(): Brush {
     val transition = rememberInfiniteTransition(label = "shimmerTransition")
-    val translateAnim by transition.animateFloat(
+    val translateAnim = transition.animateFloat(
         initialValue = -600f,
         targetValue = 1800f,
         animationSpec = infiniteRepeatable(
@@ -56,11 +57,18 @@ fun rememberShimmerBrush(): Brush {
         MaterialTheme.colorScheme.surface.copy(alpha = 0.9f)
     }
 
-    return Brush.linearGradient(
-        colors = listOf(baseColor, highlightColor, baseColor),
-        start = Offset(translateAnim, translateAnim),
-        end = Offset(translateAnim + 400f, translateAnim + 400f)
-    )
+    return remember(baseColor, highlightColor) {
+        object : androidx.compose.ui.graphics.ShaderBrush() {
+            override fun createShader(size: androidx.compose.ui.geometry.Size): androidx.compose.ui.graphics.Shader {
+                val t = translateAnim.value
+                return androidx.compose.ui.graphics.LinearGradientShader(
+                    from = Offset(t, t),
+                    to = Offset(t + 400f, t + 400f),
+                    colors = listOf(baseColor, highlightColor, baseColor)
+                )
+            }
+        }
+    }
 }
 
 @Composable
