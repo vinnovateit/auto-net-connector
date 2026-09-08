@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -39,6 +40,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.vinnovateit.latch.common.util.NoDataCard
 import com.vinnovateit.latch.common.util.formatBytes
@@ -75,19 +77,12 @@ fun SessionHistoryScreen(
         topBar = {
             TopAppBar(
                 title = {
-                    Column {
-                        Text(
-                            text = "Session History",
-                            style = MaterialTheme.typography.titleLarge,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onBackground
-                        )
-                        Text(
-                            text = "${olderDayRecords.size} days • $totalSessions sessions",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
+                    Text(
+                        text = "Session History",
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onBackground
+                    )
                 },
                 navigationIcon = {
                     IconButton(onClick = onBackPressed) {
@@ -133,7 +128,8 @@ fun SessionHistoryScreen(
                         SummaryMiniTile(
                             icon = Icons.Rounded.DataUsage,
                             title = "Total Data",
-                            value = "${totalFormatted.first} ${totalFormatted.second}",
+                            value = totalFormatted.first,
+                            unit = totalFormatted.second,
                             modifier = Modifier.weight(1f)
                         )
                         SummaryMiniTile(
@@ -171,11 +167,12 @@ private fun SummaryMiniTile(
     icon: ImageVector,
     title: String,
     value: String,
+    unit: String = "",
     modifier: Modifier = Modifier
 ) {
     Surface(
         modifier = modifier,
-        shape = RoundedCornerShape(12.dp),
+        shape = RoundedCornerShape(14.dp),
         color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
     ) {
         Column(modifier = Modifier.padding(10.dp)) {
@@ -184,22 +181,37 @@ private fun SummaryMiniTile(
                     imageVector = icon,
                     contentDescription = null,
                     tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(16.dp)
+                    modifier = Modifier.size(14.dp)
                 )
                 Spacer(Modifier.padding(horizontal = 2.dp))
                 Text(
-                    text = title,
+                    text = title.uppercase(),
                     style = MaterialTheme.typography.labelSmall,
+                    fontSize = 10.sp,
+                    letterSpacing = 0.6.sp,
+                    fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
             Spacer(Modifier.height(4.dp))
-            Text(
-                text = value,
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onSurface
-            )
+            Row(verticalAlignment = Alignment.Bottom) {
+                Text(
+                    text = value,
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Black,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                if (unit.isNotEmpty()) {
+                    Spacer(Modifier.width(3.dp))
+                    Text(
+                        text = unit,
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.padding(bottom = 2.dp)
+                    )
+                }
+            }
         }
     }
 }

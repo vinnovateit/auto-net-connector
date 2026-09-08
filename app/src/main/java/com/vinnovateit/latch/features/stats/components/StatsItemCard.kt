@@ -2,9 +2,11 @@ package com.vinnovateit.latch.features.stats.components
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -131,53 +133,65 @@ fun DayAggregateListItem(
 ) {
   val usePureBlack by SettingsManager.usePureBlack.collectAsStateWithLifecycle()
   val isAmoled = usePureBlack && com.vinnovateit.latch.ui.theme.LocalIsDarkTheme.current
+  val chartPalette by SettingsManager.chartPalette.collectAsStateWithLifecycle()
+  val (dlColor, ulColor) = com.vinnovateit.latch.common.util.StatsColorPalettes.resolveColors(chartPalette)
 
   Surface(
     modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
     shape = shape,
-    color = MaterialTheme.colorScheme.surfaceVariant,
-    border = if (isAmoled) androidx.compose.foundation.BorderStroke(2.dp, MaterialTheme.colorScheme.primary) else null
+    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+    border = if (isAmoled) androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant) else null
   ) {
-    val sessionLabel = if (record.sessionCount == 1) "1 session" else "${record.sessionCount} sessions"
-
-    ListItem(
-      headlineContent = {
+    Row(
+      modifier = Modifier
+        .fillMaxWidth()
+        .padding(horizontal = 14.dp, vertical = 10.dp),
+      verticalAlignment = Alignment.CenterVertically,
+      horizontalArrangement = Arrangement.SpaceBetween
+    ) {
+      Column(modifier = Modifier.weight(1f)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
           Text(
             text = record.dateFormatted,
-            style = MaterialTheme.typography.titleSmall,
+            style = MaterialTheme.typography.bodyMedium,
             fontWeight = FontWeight.Bold,
             color = MaterialTheme.colorScheme.onSurface
           )
-          Spacer(modifier = Modifier.width(8.dp))
+          Spacer(modifier = Modifier.width(6.dp))
           Surface(
-            shape = RoundedCornerShape(6.dp),
-            color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.7f)
+            shape = RoundedCornerShape(4.dp),
+            color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.6f)
           ) {
             Text(
-              text = sessionLabel,
+              text = if (record.sessionCount == 1) "1 sess" else "${record.sessionCount} sess",
               style = MaterialTheme.typography.labelSmall,
               color = MaterialTheme.colorScheme.onSecondaryContainer,
-              modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+              modifier = Modifier.padding(horizontal = 5.dp, vertical = 1.dp)
             )
           }
         }
-      },
-      supportingContent = {
+        Spacer(modifier = Modifier.height(2.dp))
         Row(
-          modifier = Modifier.padding(top = 4.dp),
           verticalAlignment = Alignment.CenterVertically,
           horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
           Row(verticalAlignment = Alignment.CenterVertically) {
-            Icon(Icons.Rounded.ArrowDownward, null, tint = ColorGraphDownload, modifier = Modifier.size(14.dp))
+            Icon(Icons.Rounded.ArrowDownward, null, tint = dlColor, modifier = Modifier.size(13.dp))
             Spacer(modifier = Modifier.width(2.dp))
-            Text("${record.downloadFormatted.first} ${record.downloadFormatted.second}", style = MaterialTheme.typography.labelSmall)
+            Text(
+              "${record.downloadFormatted.first} ${record.downloadFormatted.second}",
+              style = MaterialTheme.typography.labelSmall,
+              color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
           }
           Row(verticalAlignment = Alignment.CenterVertically) {
-            Icon(Icons.Rounded.ArrowUpward, null, tint = ColorGraphUpload, modifier = Modifier.size(14.dp))
+            Icon(Icons.Rounded.ArrowUpward, null, tint = ulColor, modifier = Modifier.size(13.dp))
             Spacer(modifier = Modifier.width(2.dp))
-            Text("${record.uploadFormatted.first} ${record.uploadFormatted.second}", style = MaterialTheme.typography.labelSmall)
+            Text(
+              "${record.uploadFormatted.first} ${record.uploadFormatted.second}",
+              style = MaterialTheme.typography.labelSmall,
+              color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
           }
           if (record.durationFormatted.isNotBlank()) {
             Text(
@@ -187,17 +201,25 @@ fun DayAggregateListItem(
             )
           }
         }
-      },
-      trailingContent = {
+      }
+
+      Row(verticalAlignment = Alignment.Bottom) {
         Text(
-          text = "${record.totalFormatted.first} ${record.totalFormatted.second}",
+          text = record.totalFormatted.first,
           style = MaterialTheme.typography.titleMedium,
-          fontWeight = FontWeight.Bold,
+          fontWeight = FontWeight.Black,
           color = MaterialTheme.colorScheme.onSurface
         )
-      },
-      colors = ListItemDefaults.colors(containerColor = Color.Transparent)
-    )
+        Spacer(modifier = Modifier.width(3.dp))
+        Text(
+          text = record.totalFormatted.second,
+          style = MaterialTheme.typography.labelSmall,
+          fontWeight = FontWeight.Bold,
+          color = MaterialTheme.colorScheme.primary,
+          modifier = Modifier.padding(bottom = 1.dp)
+        )
+      }
+    }
   }
 }
 
