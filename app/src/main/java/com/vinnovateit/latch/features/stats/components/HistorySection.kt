@@ -53,7 +53,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
-import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -77,13 +76,10 @@ import com.vinnovateit.latch.ui.theme.ColorGraphDownload
 import com.vinnovateit.latch.ui.theme.ColorGraphUpload
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.flow.distinctUntilChanged
-import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
-import kotlin.math.abs
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.vinnovateit.latch.features.settings.manager.SettingsManager
 
@@ -251,10 +247,7 @@ private fun HistoryBarChartContent(chartItems: List<HistoryChartItem>) {
         }
         if (exact != -1) exact else chartItems.indexOfLast { it is HistoryChartItem.BarData }
     }
-    var selectedIndex by remember { mutableIntStateOf(todayIdx) }
-
-    // Track if programmatic scroll is happening
-    var isAutoScrolling by remember { mutableStateOf(false) }
+    var selectedIndex by remember { mutableIntStateOf(-1) }
 
     val lazyListState = rememberLazyListState()
     val coroutineScope = rememberCoroutineScope()
@@ -276,46 +269,14 @@ private fun HistoryBarChartContent(chartItems: List<HistoryChartItem>) {
             ?.coerceAtLeast(1L) ?: 1L
     }
 
-    // Scroll synchronization: update center item only when scroll settles, avoiding per-pixel overhead
-    LaunchedEffect(lazyListState) {
-        snapshotFlow { lazyListState.isScrollInProgress }
-            .distinctUntilChanged()
-            .collect { isScrolling ->
-                if (!isScrolling && !isAutoScrolling) {
-                    val layoutInfo = lazyListState.layoutInfo
-                    val viewportCenter = (layoutInfo.viewportStartOffset + layoutInfo.viewportEndOffset) / 2
-                    val centerIndex = layoutInfo.visibleItemsInfo.minByOrNull {
-                        val itemCenter = it.offset + it.size / 2
-                        abs(itemCenter - viewportCenter)
-                    }?.index ?: -1
-
-                    if (centerIndex != -1 && selectedIndex != centerIndex) {
-                        val item = chartItems.getOrNull(centerIndex) ?: return@collect
-                        if (item is HistoryChartItem.BarData) {
-                            selectedIndex = centerIndex
-                            val formattedDate = item.formattedDate.ifBlank { dateFormatter.format(Date(item.timestamp)) }
-                            displayedData = item.usage to formattedDate
-                            revertJob?.cancel()
-                            revertJob = coroutineScope.launch {
-                                delay(7000)
-                                displayedData = totalUsageData to totalUsageLabel
-                            }
-                        }
-                    }
-                }
-            }
-    }
-
     // Reset selection and scroll position safely when chartItems change
     LaunchedEffect(chartItems) {
-        if (todayIdx in chartItems.indices) {
-            selectedIndex = todayIdx
-            lazyListState.scrollToItem(todayIdx)
-        } else {
-            selectedIndex = -1
-        }
+        selectedIndex = -1
         revertJob?.cancel()
         displayedData = totalUsageData to totalUsageLabel
+        if (todayIdx in chartItems.indices) {
+            lazyListState.scrollToItem(todayIdx)
+        }
     }
 
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -334,7 +295,7 @@ private fun HistoryBarChartContent(chartItems: List<HistoryChartItem>) {
             ) {
                 itemsIndexed(chartItems, key = { index, item ->
                     when (item) {
-                        is HistoryChartItem.BarData -> "bar_${item.timestamp}"
+                        is HistoryChartItem.BarData -> "bar_${item.timestamp}_$index"
                         is HistoryChartItem.MonthSeparator -> "month_${item.monthName}_$index"
                     }
                 }) { idx, item ->
@@ -352,20 +313,23 @@ private fun HistoryBarChartContent(chartItems: List<HistoryChartItem>) {
                                 barAreaHeight = barAreaHeight,
                                 onTap = {
                                     val clickedItem = chartItems.getOrNull(idx) as? HistoryChartItem.BarData ?: return@Bar
-                                    if (selectedIndex != idx) {
-                                        haptic.performHapticFeedback(HapticFeedbackType.KeyboardTap)
-                                        isAutoScrolling = true
+                                    haptic.performHapticFeedback(HapticFeedbackType.KeyboardTap)
+                                    if (selectedIndex == idx) {
+                                        selectedIndex = -1
+                                        revertJob?.cancel()
+                                        displayedData = totalUsageData to totalUsageLabel
+                                    } else {
                                         selectedIndex = idx
                                         val formattedDate = clickedItem.formattedDate.ifBlank { dateFormatter.format(Date(clickedItem.timestamp)) }
                                         displayedData = clickedItem.usage to formattedDate
                                         revertJob?.cancel()
                                         revertJob = coroutineScope.launch {
                                             delay(7000)
+                                            selectedIndex = -1
                                             displayedData = totalUsageData to totalUsageLabel
                                         }
                                         coroutineScope.launch {
                                             lazyListState.animateScrollToItem(idx)
-                                            isAutoScrolling = false
                                         }
                                     }
                                 }

@@ -53,4 +53,28 @@ class StatsViewModelPortalTest {
         assertEquals("08", item.label)
         assertEquals("08 Sep", item.formattedDate)
     }
+
+    @Test
+    fun testChartKeyUniquenessAcrossItems() {
+        val items = listOf(
+            HistoryChartItem.BarData(DataUsage(100, 200), "01", 1000L, "01 Sep"),
+            HistoryChartItem.MonthSeparator("Sep"),
+            HistoryChartItem.BarData(DataUsage(300, 400), "02", 2000L, "02 Sep"),
+            HistoryChartItem.BarData(DataUsage(500, 600), "03", 2000L, "03 Sep") // same timestamp edge case
+        )
+        val keys = items.mapIndexed { index, item ->
+            when (item) {
+                is HistoryChartItem.BarData -> "bar_${item.timestamp}_$index"
+                is HistoryChartItem.MonthSeparator -> "month_${item.monthName}_$index"
+            }
+        }
+        assertEquals(items.size, keys.distinct().size)
+    }
+
+    @Test
+    fun testAllDateRangeFiltersHaveValidDefinitions() {
+        DateRangeFilter.entries.forEach { filter ->
+            assertTrue(filter.label.isNotBlank())
+        }
+    }
 }

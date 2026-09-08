@@ -9,6 +9,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.BarChart
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -40,7 +41,7 @@ private fun StatsTopBar(
   headerHeight: Dp,
   onBackPressed: () -> Unit,
   onSaveReport: () -> Unit,
-  onResyncHistory: () -> Unit,
+  onResyncHistory: () -> Unit = {},
 ) {
   val surfaceColor = MaterialTheme.colorScheme.surface
   val haptic = LocalHapticFeedback.current
@@ -97,7 +98,7 @@ private fun StatsTopBar(
           }
         ) {
           Icon(
-            imageVector = androidx.compose.material.icons.Icons.Rounded.MoreVert,
+            imageVector = Icons.Default.MoreVert,
             contentDescription = "More Options",
             tint = MaterialTheme.colorScheme.primary
           )
@@ -213,6 +214,7 @@ fun StatsScreen(
             headerHeight = maxTopBarHeight,
             onBackPressed = onBackPressed,
             onSaveReport = onSaveReport,
+            onResyncHistory = { statsViewModel.refreshHistory() },
           )
         }
       ) { innerPadding ->

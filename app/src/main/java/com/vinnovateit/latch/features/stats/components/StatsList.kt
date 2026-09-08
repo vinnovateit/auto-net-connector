@@ -66,14 +66,10 @@ fun StatsList(
   statsViewModel: StatsViewModel
 ) {
   val overviewMetrics by statsViewModel.overviewMetrics.collectAsStateWithLifecycle()
+  val statsInsights by statsViewModel.statsInsights.collectAsStateWithLifecycle()
   val chartItems by statsViewModel.chartItems.collectAsStateWithLifecycle()
   val selectedFilter by statsViewModel.selectedFilter.collectAsStateWithLifecycle()
   val todaySessions by statsViewModel.todaySessions.collectAsStateWithLifecycle()
-  val olderDayRecords by statsViewModel.olderDayRecords.collectAsStateWithLifecycle()
-  var displayedOlderDaysCount by remember { mutableIntStateOf(30) }
-  val visibleOlderDays = remember(olderDayRecords, displayedOlderDaysCount) {
-    olderDayRecords.take(displayedOlderDaysCount)
-  }
   val layoutDirection = LocalLayoutDirection.current
 
   LazyColumn(
@@ -121,6 +117,11 @@ fun StatsList(
       }
     }
 
+    item {
+      UsageInsightsCards(insights = statsInsights)
+      Spacer(modifier = Modifier.height(15.dp))
+    }
+
     if (todaySessions.isNotEmpty()) {
       item {
         Text(
@@ -139,34 +140,6 @@ fun StatsList(
         TodaySessionListItem(
           session = session,
           shape = groupedItemShape(index, todaySessions.size)
-        )
-      }
-    }
-
-    if (olderDayRecords.isNotEmpty()) {
-      item {
-        Spacer(modifier = Modifier.height(12.dp))
-        Text(
-          text = "Previous Days",
-          style = MaterialTheme.typography.titleMedium,
-          fontWeight = FontWeight.Bold,
-          color = MaterialTheme.colorScheme.onBackground,
-          textAlign = TextAlign.Left,
-          modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 8.dp)
-        )
-      }
-
-      itemsIndexed(visibleOlderDays, key = { _, record -> "day_${record.dayTimestamp}" }) { index, record ->
-        if (index >= visibleOlderDays.size - 5 && displayedOlderDaysCount < olderDayRecords.size) {
-          LaunchedEffect(Unit) {
-            displayedOlderDaysCount = (displayedOlderDaysCount + 30).coerceAtMost(olderDayRecords.size)
-          }
-        }
-        DayAggregateListItem(
-          record = record,
-          shape = groupedItemShape(index, visibleOlderDays.size)
         )
       }
     }

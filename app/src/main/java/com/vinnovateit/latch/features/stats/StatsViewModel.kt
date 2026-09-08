@@ -257,8 +257,6 @@ class StatsViewModel(application: Application) : AndroidViewModel(application) {
         }
         DateRangeFilter.THIS_YEAR -> {
           startCal.set(Calendar.DAY_OF_YEAR, 1)
-          endCal.set(Calendar.MONTH, Calendar.DECEMBER)
-          endCal.set(Calendar.DAY_OF_MONTH, 31)
         }
         DateRangeFilter.YTD -> {
           startCal.set(Calendar.DAY_OF_YEAR, 1)
@@ -271,8 +269,10 @@ class StatsViewModel(application: Application) : AndroidViewModel(application) {
           endCal.set(Calendar.DAY_OF_MONTH, 31)
         }
         DateRangeFilter.ALL_TIME -> {
-          val earliest = records.minOfOrNull { it.loginTime } ?: (System.currentTimeMillis() - 30L * 86400000L)
-          startCal.timeInMillis = earliest
+          val validRecords = records.filter { it.loginTime > 0 }
+          val earliest = validRecords.minOfOrNull { it.loginTime } ?: (System.currentTimeMillis() - 30L * 86400000L)
+          val minAllowed = Calendar.getInstance().apply { set(2020, Calendar.JANUARY, 1) }.timeInMillis
+          startCal.timeInMillis = maxOf(earliest, minAllowed)
           startCal.set(Calendar.DAY_OF_MONTH, 1)
         }
       }
@@ -281,8 +281,9 @@ class StatsViewModel(application: Application) : AndroidViewModel(application) {
       val items = mutableListOf<HistoryChartItem>()
       var lastMonth = -1
 
+      val maxEnd = if (endCal.after(now)) now else endCal
       val cursor = startCal.clone() as Calendar
-      while (!cursor.after(endCal)) {
+      while (!cursor.after(maxEnd)) {
         val dayTimestamp = cursor.timeInMillis
         val currentMonth = cursor.get(Calendar.MONTH)
         val itemYear = cursor.get(Calendar.YEAR)
@@ -303,6 +304,16 @@ class StatsViewModel(application: Application) : AndroidViewModel(application) {
       items.distinct()
     }.flowOn(Dispatchers.Default)
       .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+  val statsInsights: StateFlow<com.vinnovateit.latch.core.stats.StatsInsights> =
+    nonZeroPortalHistory.map { sessions ->
+      com.vinnovateit.latch.core.stats.computeStatsInsights(sessions)
+    }.flowOn(Dispatchers.Default)
+      .stateIn(
+        viewModelScope,
+        SharingStarted.WhileSubscribed(5000),
+        com.vinnovateit.latch.core.stats.computeStatsInsights(emptyList())
+      )
 
 
 
