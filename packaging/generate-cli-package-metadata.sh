@@ -36,7 +36,8 @@ linux_sha=$(sha256sum "$linux_archive" | awk '{print $1}')
 windows_sha=$(sha256sum "$windows_archive" | awk '{print toupper($1)}')
 aur_dir="$output_dir/aur"
 winget_dir="$output_dir/winget/VinnovateIT.LatchCLI/$version"
-mkdir -p "$aur_dir" "$winget_dir"
+choco_dir="$output_dir/chocolatey"
+mkdir -p "$aur_dir" "$winget_dir" "$choco_dir/tools"
 
 cat > "$aur_dir/PKGBUILD" <<EOF
 # Maintainer: VinnovateIT
@@ -136,4 +137,76 @@ ManifestType: defaultLocale
 ManifestVersion: 1.10.0
 EOF
 
-echo "Generated AUR and winget metadata for v$version in $output_dir"
+# Chocolatey downloads the same Windows ZIP the winget manifest points at, and
+# verifies it against the same checksum. Nothing is embedded in the .nupkg, so
+# the package stays small and there is one artifact to trust.
+cat > "$choco_dir/latch-cli.nuspec" <<EOF
+<?xml version="1.0" encoding="utf-8"?>
+<package xmlns="http://schemas.microsoft.com/packaging/2015/06/nuspec.xsd">
+  <metadata>
+    <id>latch-cli</id>
+    <version>$version</version>
+    <packageSourceUrl>https://github.com/vinnovateit/latch/tree/main/packaging</packageSourceUrl>
+    <owners>VinnovateIT</owners>
+    <title>Latch CLI</title>
+    <authors>VinnovateIT</authors>
+    <projectUrl>https://github.com/vinnovateit/latch</projectUrl>
+    <projectSourceUrl>https://github.com/vinnovateit/latch</projectSourceUrl>
+    <bugTrackerUrl>https://github.com/vinnovateit/latch/issues</bugTrackerUrl>
+    <licenseUrl>https://github.com/vinnovateit/latch/blob/main/LICENSE</licenseUrl>
+    <requireLicenseAcceptance>false</requireLicenseAcceptance>
+    <tags>latch cli wifi vit network captive-portal</tags>
+    <summary>Automatic VIT hostel Wi-Fi login from the terminal</summary>
+    <description>Latch CLI detects VIT hostel Wi-Fi networks, stores credentials securely, logs in automatically, and can share one active engine with the Latch Desktop app. The package bundles its own trimmed Java runtime, so Java does not need to be installed separately.</description>
+    <releaseNotes>https://github.com/vinnovateit/latch/releases/tag/v$version</releaseNotes>
+  </metadata>
+  <files>
+    <file src="tools\\**" target="tools" />
+  </files>
+</package>
+EOF
+
+cat > "$choco_dir/tools/chocolateyInstall.ps1" <<EOF
+\$ErrorActionPreference = 'Stop'
+
+\$toolsDir = Split-Path -Parent \$MyInvocation.MyCommand.Definition
+
+# Unzipping into the tools directory is what gets latch-cli.exe shimmed onto
+# PATH; Chocolatey shims every executable it finds there.
+Install-ChocolateyZipPackage \`
+  -PackageName 'latch-cli' \`
+  -Url 'https://github.com/vinnovateit/latch/releases/download/v$version/latch-cli-$version-windows-x64.zip' \`
+  -UnzipLocation \$toolsDir \`
+  -Checksum '$windows_sha' \`
+  -ChecksumType 'sha256'
+EOF
+
+cat > "$choco_dir/tools/chocolateyUninstall.ps1" <<'EOF'
+$ErrorActionPreference = 'Stop'
+
+# Install-ChocolateyZipPackage records what it extracted, so removing the
+# package directory is enough; the shim goes with it.
+Uninstall-ChocolateyZipPackage -PackageName 'latch-cli' -ZipFileName 'latch-cli-windows-x64.zip'
+EOF
+
+# Chocolatey moderation requires this for any package that fetches a binary.
+cat > "$choco_dir/tools/VERIFICATION.txt" <<EOF
+VERIFICATION
+
+This package downloads the official Latch CLI archive published by VinnovateIT:
+
+  https://github.com/vinnovateit/latch/releases/download/v$version/latch-cli-$version-windows-x64.zip
+
+Its SHA256 checksum is pinned in tools/chocolateyInstall.ps1 as:
+
+  $windows_sha
+
+To verify, download the archive from the URL above and compare:
+
+  Get-FileHash latch-cli-$version-windows-x64.zip -Algorithm SHA256
+
+The archive is built from tag v$version by the release workflow in
+https://github.com/vinnovateit/latch/blob/main/.github/workflows/release.yml
+EOF
+
+echo "Generated AUR, winget and chocolatey metadata for v$version in $output_dir"
