@@ -289,3 +289,30 @@ jobs:
           fi
           git commit -m "Publish Latch $TAG to the APT and DNF repositories"
           git push origin gh-pages
+
+  submit-winget:
+    name: Submit to winget
+    needs: [prepare, release]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Fetch the generated manifests
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ needs.prepare.outputs.tag }}
+          VERSION: ${{ needs.prepare.outputs.version }}
+        run: |
+          gh release download "$TAG" --pattern '*-package-metadata.zip' --dir .
+          unzip -q "latch-cli-$VERSION-package-metadata.zip" -d package-metadata
+
+      # A repository-scoped token cannot push to a fork in another org, so this
+      # needs a PAT with public_repo rather than GITHUB_TOKEN.
+      - name: Open the winget pull request
+        env:
+          GH_TOKEN: ${{ secrets.WINGET_TOKEN }}
+          VERSION: ${{ needs.prepare.outputs.version }}
+        run: |
+          packaging/submit-winget.sh "$VERSION" \
+            "package-metadata/winget/VinnovateIT.LatchCLI/$VERSION"
