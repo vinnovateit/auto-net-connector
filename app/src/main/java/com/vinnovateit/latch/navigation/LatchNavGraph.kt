@@ -100,6 +100,16 @@ fun LatchNavGraph(
         }
     }
 
+    val statsContent: @Composable () -> Unit = {
+        val statsViewModel: StatsViewModel = viewModel()
+        StatsScreen(
+            onSaveReport = {},
+            onBackPressed = {},
+            onNavigateToHistory = {},
+            statsViewModel = statsViewModel
+        )
+    }
+
     NavHost(
         navController = navController,
         startDestination = startDestination,
@@ -233,7 +243,7 @@ fun LatchNavGraph(
             val statsViewModel: StatsViewModel = viewModel()
             PredictiveSlideBackContainer(
                 onBackPressed = { navController.popBackStack() },
-                backgroundContent = homeContent
+                backgroundContent = statsContent
             ) { triggerBack ->
                 com.vinnovateit.latch.features.stats.SessionHistoryScreen(
                     onBackPressed = triggerBack,
