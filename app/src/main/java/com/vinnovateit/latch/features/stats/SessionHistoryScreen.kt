@@ -61,13 +61,13 @@ import com.vinnovateit.latch.features.stats.components.groupedItemShape
 import com.vinnovateit.latch.ui.theme.LocalIsDarkTheme
 import java.util.Calendar
 
-enum class HistoryFilterOption(val label: String) {
-    ALL_TIME("All Time"),
-    THIS_MONTH("This Month"),
-    LAST_30_DAYS("Last 30"),
-    THIS_YEAR("This Year"),
-    LAST_YEAR("Last Year")
-}
+val historyFilters = listOf(
+    DateRangeFilter.ALL_TIME,
+    DateRangeFilter.THIS_MONTH,
+    DateRangeFilter.LAST_30_DAYS,
+    DateRangeFilter.THIS_YEAR,
+    DateRangeFilter.LAST_YEAR
+)
 
 enum class HistorySortOption(val label: String) {
     NEWEST("Newest first"),
@@ -91,7 +91,7 @@ fun SessionHistoryScreen(
     val (dlColor, ulColor) = com.vinnovateit.latch.common.util.StatsColorPalettes.resolveColors(chartPalette)
     val haptic = LocalHapticFeedback.current
 
-    var selectedFilter by remember { mutableStateOf(HistoryFilterOption.ALL_TIME) }
+    var selectedFilter by remember { mutableStateOf(DateRangeFilter.ALL_TIME) }
     var selectedSort by remember { mutableStateOf(HistorySortOption.NEWEST) }
     var showSortMenu by remember { mutableStateOf(false) }
 
@@ -103,23 +103,23 @@ fun SessionHistoryScreen(
         val tempCal = Calendar.getInstance()
 
         val filtered = when (selectedFilter) {
-            HistoryFilterOption.ALL_TIME -> allDayRecords
-            HistoryFilterOption.THIS_MONTH -> allDayRecords.filter {
+            DateRangeFilter.ALL_TIME -> allDayRecords
+            DateRangeFilter.THIS_MONTH -> allDayRecords.filter {
                 tempCal.timeInMillis = it.dayTimestamp
                 tempCal.get(Calendar.YEAR) == curYear && tempCal.get(Calendar.MONTH) == curMonth
             }
-            HistoryFilterOption.LAST_30_DAYS -> {
-                val cutoff = now - 30L * 86400000L
-                allDayRecords.filter { it.dayTimestamp >= cutoff }
+            DateRangeFilter.LAST_30_DAYS -> allDayRecords.filter {
+                it.dayTimestamp >= (now - 30L * 86_400_000L)
             }
-            HistoryFilterOption.THIS_YEAR -> allDayRecords.filter {
+            DateRangeFilter.THIS_YEAR, DateRangeFilter.YTD -> allDayRecords.filter {
                 tempCal.timeInMillis = it.dayTimestamp
                 tempCal.get(Calendar.YEAR) == curYear
             }
-            HistoryFilterOption.LAST_YEAR -> allDayRecords.filter {
+            DateRangeFilter.LAST_YEAR -> allDayRecords.filter {
                 tempCal.timeInMillis = it.dayTimestamp
                 tempCal.get(Calendar.YEAR) == curYear - 1
             }
+            else -> allDayRecords
         }
 
         when (selectedSort) {
@@ -227,7 +227,7 @@ fun SessionHistoryScreen(
                 horizontalArrangement = Arrangement.spacedBy(ButtonGroupDefaults.ConnectedSpaceBetween),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                val filters = HistoryFilterOption.entries
+                val filters = historyFilters
                 filters.forEachIndexed { index, filter ->
                     ToggleButton(
                         checked = (filter == selectedFilter),

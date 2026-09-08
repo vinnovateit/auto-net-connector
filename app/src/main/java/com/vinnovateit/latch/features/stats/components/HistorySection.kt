@@ -106,6 +106,15 @@ data class ChartDetailState(
     val durationFormatted: String = ""
 )
 
+private val quickFilters = listOf(
+    com.vinnovateit.latch.features.stats.DateRangeFilter.LAST_30_DAYS,
+    com.vinnovateit.latch.features.stats.DateRangeFilter.LAST_60_DAYS,
+    com.vinnovateit.latch.features.stats.DateRangeFilter.LAST_90_DAYS,
+    com.vinnovateit.latch.features.stats.DateRangeFilter.THIS_MONTH,
+    com.vinnovateit.latch.features.stats.DateRangeFilter.THIS_YEAR,
+    com.vinnovateit.latch.features.stats.DateRangeFilter.YTD
+)
+
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun HistoryBarChart(
@@ -117,25 +126,12 @@ fun HistoryBarChart(
     val headerTitle = remember(history, selectedFilter) {
         val lastTimestamp = history.filterIsInstance<HistoryChartItem.BarData>().lastOrNull()?.timestamp
             ?: System.currentTimeMillis()
-        val cal = java.util.Calendar.getInstance().apply { timeInMillis = lastTimestamp }
-        if (cal.get(java.util.Calendar.YEAR) == currentYear) {
-            SimpleDateFormat("MMMM", Locale.getDefault()).format(cal.time)
-        } else {
-            SimpleDateFormat("MMMM yyyy", Locale.getDefault()).format(cal.time)
-        }
+        val year = formatDate(lastTimestamp, "yyyy").toIntOrNull() ?: currentYear
+        val pattern = if (year == currentYear) "MMMM" else "MMMM yyyy"
+        formatDate(lastTimestamp, pattern)
     }
 
     var showAdvancedSheet by remember { mutableStateOf(false) }
-    val quickFilters = remember {
-        listOf(
-            com.vinnovateit.latch.features.stats.DateRangeFilter.LAST_30_DAYS,
-            com.vinnovateit.latch.features.stats.DateRangeFilter.LAST_60_DAYS,
-            com.vinnovateit.latch.features.stats.DateRangeFilter.LAST_90_DAYS,
-            com.vinnovateit.latch.features.stats.DateRangeFilter.THIS_MONTH,
-            com.vinnovateit.latch.features.stats.DateRangeFilter.THIS_YEAR,
-            com.vinnovateit.latch.features.stats.DateRangeFilter.YTD
-        )
-    }
 
     Column(
         modifier = Modifier.fillMaxWidth(),
@@ -245,7 +241,6 @@ private fun HistoryBarChartContent(chartItems: List<HistoryChartItem>) {
     val lazyListState = rememberLazyListState()
     val coroutineScope = rememberCoroutineScope()
     val haptic = LocalHapticFeedback.current
-    val dateFormatter = remember { SimpleDateFormat("dd MMM", Locale.getDefault()) }
 
     val totalUsageData = remember(chartItems) {
         val totalRx = chartItems.filterIsInstance<HistoryChartItem.BarData>().sumOf { it.usage.rxBytes }
@@ -348,6 +343,18 @@ private fun HistoryBarChartContent(chartItems: List<HistoryChartItem>) {
 
     val chartPalette by SettingsManager.chartPalette.collectAsStateWithLifecycle()
     val (dlColor, ulColor) = StatsColorPalettes.resolveColors(chartPalette)
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val animScale = remember {
+        try {
+            android.provider.Settings.Global.getFloat(
+                context.contentResolver,
+                android.provider.Settings.Global.ANIMATOR_DURATION_SCALE,
+                1.0f
+            )
+        } catch (e: Exception) {
+            1.0f
+        }
+    }
 
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
         BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
@@ -386,6 +393,7 @@ private fun HistoryBarChartContent(chartItems: List<HistoryChartItem>) {
                                 dlColor = dlColor,
                                 ulColor = ulColor,
                                 index = idx,
+                                animScale = animScale,
                                 onTap = {
                                     haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                                     coroutineScope.launch {
@@ -458,25 +466,13 @@ private fun Bar(
     dlColor: Color,
     ulColor: Color,
     index: Int = 0,
+    animScale: Float = 1.0f,
     onTap: () -> Unit
 ) {
     val total = usage.rxBytes + usage.txBytes
     val targetFrac = if (maxUsage > 0L && total > 0L) {
         (total.toFloat() / maxUsage.toFloat()).coerceIn(0.04f, 0.96f)
     } else 0.04f
-
-    val context = androidx.compose.ui.platform.LocalContext.current
-    val animScale = remember {
-        try {
-            android.provider.Settings.Global.getFloat(
-                context.contentResolver,
-                android.provider.Settings.Global.ANIMATOR_DURATION_SCALE,
-                1.0f
-            )
-        } catch (e: Exception) {
-            1.0f
-        }
-    }
 
     val animatedFrac by androidx.compose.animation.core.animateFloatAsState(
         targetValue = targetFrac,

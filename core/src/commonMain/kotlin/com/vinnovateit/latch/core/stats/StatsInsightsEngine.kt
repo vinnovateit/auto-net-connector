@@ -12,8 +12,6 @@ data class StatsInsights(
     val highestUsageDayBytes: Long,
     val dailyAverageBytes: Long,
     val dailyAverageFormatted: Pair<String, String>,
-    val weeklyAverageBytes: Long,
-    val weeklyAverageFormatted: Pair<String, String>,
     val mostActiveSessionDurationFormatted: String,
     val mostActiveSessionBytes: Long,
     val mostActiveSessionFormatted: Pair<String, String>,
@@ -22,10 +20,7 @@ data class StatsInsights(
     val longestStreakDays: Int = 0,
     val nightOwlBytes: Long = 0L,
     val nightOwlPercentage: Int = 0,
-    val nightOwlFormatted: Pair<String, String> = Pair("0", "B"),
-    val downloadUploadRatioFormatted: String = "N/A",
-    val primaryBadge: String = "Network Rookie",
-    val badgeDescription: String = "Getting started on campus Wi-Fi"
+    val nightOwlFormatted: Pair<String, String> = Pair("0", "B")
 )
 
 fun formatInsightDate(timestamp: Long, nowMillis: Long = System.currentTimeMillis()): String {
@@ -63,8 +58,6 @@ fun computeStatsInsights(
             highestUsageDayBytes = 0L,
             dailyAverageBytes = 0L,
             dailyAverageFormatted = zeroPair,
-            weeklyAverageBytes = 0L,
-            weeklyAverageFormatted = zeroPair,
             mostActiveSessionDurationFormatted = "0m",
             mostActiveSessionBytes = 0L,
             mostActiveSessionFormatted = zeroPair,
@@ -73,10 +66,7 @@ fun computeStatsInsights(
             longestStreakDays = 0,
             nightOwlBytes = 0L,
             nightOwlPercentage = 0,
-            nightOwlFormatted = zeroPair,
-            downloadUploadRatioFormatted = "N/A",
-            primaryBadge = "Network Rookie",
-            badgeDescription = "Connect to Wi-Fi to start earning stats"
+            nightOwlFormatted = zeroPair
         )
     }
 
@@ -133,11 +123,10 @@ fun computeStatsInsights(
     val highestDayDate = if (highestDayTimestamp > 0) formatInsightDate(highestDayTimestamp, nowMillis) else "N/A"
     val highestUsageFormatted = formatBytes(highestDayBytes)
 
-    // 3. Daily & Weekly Averages
+    // 3. Daily Average
     val totalBytesAll = nonZero.sumOf { it.totalBytes.coerceAtLeast(it.downloadBytes + it.uploadBytes) }
     val activeDays = dayGroups.size.coerceAtLeast(1)
     val dailyAverageBytes = totalBytesAll / activeDays
-    val weeklyAverageBytes = dailyAverageBytes * 7L
 
     // 4. Most active session
     val topSession = nonZero.maxByOrNull { it.totalBytes.coerceAtLeast(it.downloadBytes + it.uploadBytes) }
@@ -181,38 +170,6 @@ fun computeStatsInsights(
     val nightOwlPercentage = if (totalBytesAll > 0) ((nightOwlBytes * 100L) / totalBytesAll).toInt() else 0
     val nightOwlFormatted = formatBytes(nightOwlBytes)
 
-    // 7. Download / Upload Ratio
-    val totalDownload = nonZero.sumOf { it.downloadBytes }
-    val totalUpload = nonZero.sumOf { it.uploadBytes }
-    val downloadUploadRatioFormatted = when {
-        totalUpload == 0L && totalDownload > 0L -> "∞ : 1"
-        totalUpload == 0L -> "1 : 1"
-        else -> {
-            val r = totalDownload.toDouble() / totalUpload.toDouble()
-            String.format(Locale.US, "%.1f : 1", r)
-        }
-    }
-
-    // 8. Gamer Badge & Title
-    val (primaryBadge, badgeDescription) = when {
-        nightOwlPercentage >= 40 && nightOwlBytes >= 1_000_000_000L ->
-            "Night Owl" to "$nightOwlPercentage% of traffic between 12 AM - 6 AM"
-        longestStreak >= 14 || currentStreak >= 7 ->
-            "Streak Master" to "$longestStreak consecutive active days"
-        totalBytesAll >= 100_000_000_000L ->
-            "Data Titan" to "Over 100 GB network traffic"
-        totalBytesAll >= 50_000_000_000L ->
-            "Bandwidth Beast" to "Over 50 GB network traffic"
-        totalUpload > 0 && (totalDownload.toDouble() / totalUpload.toDouble()) >= 15.0 ->
-            "Stream Demon" to "Download-heavy power user"
-        totalUpload > 0 && (totalDownload.toDouble() / totalUpload.toDouble()) <= 2.0 && totalUpload >= 2_000_000_000L ->
-            "Seeder Elite" to "High upload contributor"
-        activeDays >= 7 ->
-            "Campus Regular" to "$activeDays days on network"
-        else ->
-            "Network Rookie" to "Getting started on campus Wi-Fi"
-    }
-
     return StatsInsights(
         peakUsageTimeWindow = peakUsageTimeWindow,
         highestUsageDayFormatted = "${highestUsageFormatted.first} ${highestUsageFormatted.second}",
@@ -220,8 +177,6 @@ fun computeStatsInsights(
         highestUsageDayBytes = highestDayBytes,
         dailyAverageBytes = dailyAverageBytes,
         dailyAverageFormatted = formatBytes(dailyAverageBytes),
-        weeklyAverageBytes = weeklyAverageBytes,
-        weeklyAverageFormatted = formatBytes(weeklyAverageBytes),
         mostActiveSessionDurationFormatted = formatDurationDynamic(topSession.durationMillis),
         mostActiveSessionBytes = topSessionBytes,
         mostActiveSessionFormatted = formatBytes(topSessionBytes),
@@ -230,9 +185,6 @@ fun computeStatsInsights(
         longestStreakDays = longestStreak,
         nightOwlBytes = nightOwlBytes,
         nightOwlPercentage = nightOwlPercentage,
-        nightOwlFormatted = nightOwlFormatted,
-        downloadUploadRatioFormatted = downloadUploadRatioFormatted,
-        primaryBadge = primaryBadge,
-        badgeDescription = badgeDescription,
+        nightOwlFormatted = nightOwlFormatted
     )
 }

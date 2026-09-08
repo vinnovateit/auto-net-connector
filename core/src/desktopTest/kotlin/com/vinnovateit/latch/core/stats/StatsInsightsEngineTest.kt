@@ -75,7 +75,6 @@ class StatsInsightsEngineTest {
         assertEquals(5_000_000_000L, insights.highestUsageDayBytes)
         assertEquals(2, insights.activeDaysCount)
         assertEquals(3_500_000_000L, insights.dailyAverageBytes) // (2GB + 5GB)/2
-        assertEquals(24_500_000_000L, insights.weeklyAverageBytes) // 3.5GB * 7
         assertEquals("6 - 9 PM", insights.peakUsageTimeWindow)
     }
 
@@ -88,8 +87,6 @@ class StatsInsightsEngineTest {
         assertEquals(0L, insights.highestUsageDayBytes)
         assertEquals(0L, insights.dailyAverageBytes)
         assertEquals("0" to "B", insights.dailyAverageFormatted)
-        assertEquals(0L, insights.weeklyAverageBytes)
-        assertEquals("0" to "B", insights.weeklyAverageFormatted)
         assertEquals("0m", insights.mostActiveSessionDurationFormatted)
         assertEquals(0L, insights.mostActiveSessionBytes)
         assertEquals("0" to "B", insights.mostActiveSessionFormatted)
@@ -97,12 +94,10 @@ class StatsInsightsEngineTest {
         assertEquals(0, insights.currentStreakDays)
         assertEquals(0, insights.longestStreakDays)
         assertEquals(0, insights.nightOwlPercentage)
-        assertEquals("N/A", insights.downloadUploadRatioFormatted)
-        assertEquals("Network Rookie", insights.primaryBadge)
     }
 
     @Test
-    fun testStreakNightOwlAndGamerBadge() {
+    fun testStreakAndNightOwl() {
         // Session 1: 2026-03-01 02:30 (Night owl: 2 AM), 3 GB DL, 1 GB UL
         val cal = Calendar.getInstance().apply { set(2026, Calendar.MARCH, 1, 2, 30, 0) }
         val session1 = PortalSessionRecord(
@@ -154,7 +149,5 @@ class StatsInsightsEngineTest {
         assertEquals(3, insights.longestStreakDays)
         assertEquals(16_000_000_000L, insights.nightOwlBytes) // 4GB + 12GB
         assertEquals(69, insights.nightOwlPercentage) // 16GB / 23GB = 69%
-        assertEquals("4.8 : 1", insights.downloadUploadRatioFormatted) // 19GB / 4GB
-        assertEquals("Night Owl", insights.primaryBadge)
     }
 }

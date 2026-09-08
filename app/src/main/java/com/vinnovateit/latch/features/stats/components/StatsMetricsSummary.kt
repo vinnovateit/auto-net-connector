@@ -34,29 +34,22 @@ data class StatsOverviewMetrics(
     val totalBytes: Long,
     val totalUploadBytes: Long,
     val totalDownloadBytes: Long,
-    val totalSessions: Int,
-    val averageDurationMs: Long,
-    val topLocation: String
+    val totalSessions: Int
 )
 
 fun computeMetrics(sessions: List<PortalSessionRecord>): StatsOverviewMetrics {
     if (sessions.isEmpty()) {
-        return StatsOverviewMetrics(0L, 0L, 0L, 0, 0L, "None")
+        return StatsOverviewMetrics(0L, 0L, 0L, 0)
     }
     val total = sessions.sumOf { it.totalBytes }
     val ul = sessions.sumOf { it.uploadBytes }
     val dl = sessions.sumOf { it.downloadBytes }
-    val avgDur = (sessions.map { it.durationMillis }.average()).toLong()
-    val topLoc = sessions.groupBy { it.location }
-        .maxByOrNull { it.value.size }?.key ?: "Unknown"
 
     return StatsOverviewMetrics(
         totalBytes = total,
         totalUploadBytes = ul,
         totalDownloadBytes = dl,
-        totalSessions = sessions.size,
-        averageDurationMs = avgDur,
-        topLocation = topLoc
+        totalSessions = sessions.size
     )
 }
 

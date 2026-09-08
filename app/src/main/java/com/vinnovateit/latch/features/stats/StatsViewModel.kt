@@ -7,10 +7,8 @@ import com.vinnovateit.latch.common.util.formatDate
 import com.vinnovateit.latch.core.model.DataUsage
 import com.vinnovateit.latch.core.model.PortalSessionRecord
 import com.vinnovateit.latch.core.model.SessionSummary
-import com.vinnovateit.latch.features.stats.components.DailyUsageTrend
 import com.vinnovateit.latch.features.stats.components.HistoryChartItem
 import com.vinnovateit.latch.features.stats.components.StatsOverviewMetrics
-import com.vinnovateit.latch.features.stats.components.aggregateDailyUsage
 import com.vinnovateit.latch.features.stats.components.computeMetrics
 import com.vinnovateit.latch.platform.LatchAppGraph
 import kotlinx.coroutines.Dispatchers
@@ -113,19 +111,11 @@ class StatsViewModel(application: Application) : AndroidViewModel(application) {
     }.flowOn(Dispatchers.Default)
       .stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
 
-  val olderDayRecords: StateFlow<List<AggregatedDayRecord>> = allDayRecords
-
   val overviewMetrics: StateFlow<StatsOverviewMetrics> =
     nonZeroPortalHistory.map { sessions ->
       computeMetrics(sessions)
     }.flowOn(Dispatchers.Default)
       .stateIn(viewModelScope, SharingStarted.Lazily, computeMetrics(emptyList()))
-
-  val usageTrends: StateFlow<List<DailyUsageTrend>> =
-    nonZeroPortalHistory.map { sessions ->
-      aggregateDailyUsage(sessions)
-    }.flowOn(Dispatchers.Default)
-      .stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
 
   init {
     refreshHistory()
