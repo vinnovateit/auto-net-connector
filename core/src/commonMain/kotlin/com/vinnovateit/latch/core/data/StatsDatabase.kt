@@ -48,6 +48,20 @@ data class Session(
     val maxTxBps: Long,
 )
 
+@Entity(tableName = "portal_sessions")
+data class PortalSessionEntity(
+    @PrimaryKey(autoGenerate = true) val id: Int = 0,
+    val location: String,
+    val macAddress: String,
+    val loginTime: Long,
+    val logoutTime: Long,
+    val durationFormatted: String,
+    val durationMillis: Long,
+    val uploadBytes: Long,
+    val downloadBytes: Long,
+    val totalBytes: Long,
+)
+
 @Dao
 interface StatsDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
@@ -58,9 +72,18 @@ interface StatsDao {
 
     @Query("DELETE FROM sessions")
     suspend fun clearAllSessions()
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertAllPortalSessions(sessions: List<PortalSessionEntity>)
+
+    @Query("SELECT * FROM portal_sessions ORDER BY loginTime DESC")
+    fun getAllPortalSessions(): Flow<List<PortalSessionEntity>>
+
+    @Query("DELETE FROM portal_sessions")
+    suspend fun clearAllPortalSessions()
 }
 
-@Database(entities = [Session::class], version = 3, exportSchema = false)
+@Database(entities = [Session::class, PortalSessionEntity::class], version = 4, exportSchema = false)
 @ConstructedBy(LatchDatabaseConstructor::class)
 abstract class LatchDatabase : RoomDatabase() {
     abstract fun statsDao(): StatsDao

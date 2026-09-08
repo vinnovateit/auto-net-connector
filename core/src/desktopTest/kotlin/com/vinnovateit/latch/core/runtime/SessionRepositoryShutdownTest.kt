@@ -1,5 +1,6 @@
 package com.vinnovateit.latch.core.runtime
 
+import com.vinnovateit.latch.core.data.PortalSessionEntity
 import com.vinnovateit.latch.core.data.Session
 import com.vinnovateit.latch.core.data.StatsDao
 import com.vinnovateit.latch.core.domain.SessionRepository
@@ -11,6 +12,7 @@ import kotlin.test.assertTrue
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.runBlocking
 
 class SessionRepositoryShutdownTest {
@@ -52,4 +54,10 @@ private class RecordingStatsDao : StatsDao {
     override suspend fun clearAllSessions() {
         sessions.value = emptyList()
     }
+
+    override suspend fun insertAllPortalSessions(sessions: List<PortalSessionEntity>) {}
+
+    override fun getAllPortalSessions(): Flow<List<PortalSessionEntity>> = emptyFlow()
+
+    override suspend fun clearAllPortalSessions() {}
 }
