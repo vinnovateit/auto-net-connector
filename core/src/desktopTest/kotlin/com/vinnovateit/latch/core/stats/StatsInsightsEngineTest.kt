@@ -76,7 +76,7 @@ class StatsInsightsEngineTest {
         assertEquals(2, insights.activeDaysCount)
         assertEquals(3_500_000_000L, insights.dailyAverageBytes) // (2GB + 5GB)/2
         assertEquals(24_500_000_000L, insights.weeklyAverageBytes) // 3.5GB * 7
-        assertTrue(insights.peakUsageTimeWindow.contains("PM"))
+        assertEquals("6 - 9 PM", insights.peakUsageTimeWindow)
     }
 
     @Test

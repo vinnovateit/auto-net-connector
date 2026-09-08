@@ -37,7 +37,7 @@ fun UsageInsightsCards(
             label = "Night owl traffic",
             value = insights.nightOwlFormatted.first,
             unit = insights.nightOwlFormatted.second,
-            sublabel = if (insights.nightOwlPercentage > 0) "${insights.nightOwlPercentage}% after midnight (12–6 AM)" else "12 AM – 6 AM"
+            sublabel = if (insights.nightOwlPercentage > 0) "${insights.nightOwlPercentage}% after midnight (12 - 6 AM)" else "12 AM - 6 AM"
         )
         GameStatRow(
             label = "DL : UL ratio",

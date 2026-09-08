@@ -104,15 +104,20 @@ fun computeStatsInsights(
     }
     val startHour = bestWindowIdx * 3
     val endHour = startHour + 3
-    fun formatHour(h: Int): String {
-        val ampm = if (h < 12 || h == 24) "AM" else "PM"
-        val h12 = when (val mod = h % 12) {
-            0 -> 12
-            else -> mod
-        }
-        return String.format(Locale.US, "%02d:00 %s", h12, ampm)
+    fun hour12(h: Int): Int = when (val mod = h % 12) {
+        0 -> 12
+        else -> mod
     }
-    val peakUsageTimeWindow = "${formatHour(startHour)} – ${formatHour(endHour)}"
+    fun ampm(h: Int): String = if (h < 12 || h == 24) "AM" else "PM"
+    val start12 = hour12(startHour)
+    val end12 = hour12(endHour)
+    val startAmPm = ampm(startHour)
+    val endAmPm = ampm(endHour)
+    val peakUsageTimeWindow = if (startAmPm == endAmPm) {
+        "$start12 - $end12 $endAmPm"
+    } else {
+        "$start12 $startAmPm - $end12 $endAmPm"
+    }
 
     // 2. Highest Usage Day
     val dayGroups = nonZero.groupBy { formatDate(it.loginTime, "yyyy-MM-dd") }

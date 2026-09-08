@@ -35,6 +35,7 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.ArrowDownward
 import androidx.compose.material.icons.rounded.ArrowDropDown
@@ -159,19 +160,27 @@ fun HistoryBarChart(
 
         if (onFilterSelected != null) {
             val quickFilterScrollState = rememberScrollState()
+            val totalChips = quickFilters.size + 1
+            fun chipShape(index: Int) = when (index) {
+                0 -> RoundedCornerShape(topStart = 24.dp, bottomStart = 24.dp, topEnd = 4.dp, bottomEnd = 4.dp)
+                totalChips - 1 -> RoundedCornerShape(topStart = 4.dp, bottomStart = 4.dp, topEnd = 24.dp, bottomEnd = 24.dp)
+                else -> RoundedCornerShape(4.dp)
+            }
+
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
                     .horizontalScroll(quickFilterScrollState)
                     .padding(horizontal = 16.dp, vertical = 4.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                horizontalArrangement = Arrangement.spacedBy(0.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                quickFilters.forEach { filter ->
+                quickFilters.forEachIndexed { index, filter ->
                     val isSelected = filter == selectedFilter
                     FilterChip(
                         selected = isSelected,
                         onClick = { onFilterSelected(filter) },
+                        shape = chipShape(index),
                         label = {
                             Text(
                                 text = filter.label,
@@ -196,6 +205,7 @@ fun HistoryBarChart(
                 FilterChip(
                     selected = isAdvancedSelected,
                     onClick = { showAdvancedSheet = true },
+                    shape = chipShape(totalChips - 1),
                     label = {
                         Text(
                             text = if (isAdvancedSelected) selectedFilter.label else "Advanced...",
