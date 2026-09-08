@@ -10,6 +10,7 @@ import androidx.room.PrimaryKey
 import androidx.room.Query
 import androidx.room.RoomDatabase
 import androidx.room.RoomDatabaseConstructor
+import androidx.sqlite.execSQL
 import kotlinx.coroutines.flow.Flow
 
 /**
@@ -61,6 +62,25 @@ data class PortalSessionEntity(
     val downloadBytes: Long,
     val totalBytes: Long,
 )
+
+val MIGRATION_3_TO_4 = object : androidx.room.migration.Migration(3, 4) {
+    override fun migrate(connection: androidx.sqlite.SQLiteConnection) {
+        connection.execSQL("""
+            CREATE TABLE IF NOT EXISTS `portal_sessions` (
+                `id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                `location` TEXT NOT NULL,
+                `macAddress` TEXT NOT NULL,
+                `loginTime` INTEGER NOT NULL,
+                `logoutTime` INTEGER NOT NULL,
+                `durationFormatted` TEXT NOT NULL,
+                `durationMillis` INTEGER NOT NULL,
+                `uploadBytes` INTEGER NOT NULL,
+                `downloadBytes` INTEGER NOT NULL,
+                `totalBytes` INTEGER NOT NULL
+            )
+        """.trimIndent())
+    }
+}
 
 @Dao
 interface StatsDao {

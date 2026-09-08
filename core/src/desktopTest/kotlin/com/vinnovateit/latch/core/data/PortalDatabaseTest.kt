@@ -2,6 +2,7 @@ package com.vinnovateit.latch.core.data
 
 import androidx.room.Room
 import androidx.sqlite.driver.bundled.BundledSQLiteDriver
+import androidx.sqlite.execSQL
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import kotlin.test.AfterTest
@@ -50,4 +51,38 @@ class PortalDatabaseTest {
         val empty = dao.getAllPortalSessions().first()
         assertEquals(0, empty.size)
     }
+
+    @Test
+    fun testMigration3To4() {
+        val driver = BundledSQLiteDriver()
+        val connection = driver.open(":memory:")
+        try {
+            // Create version 3 schema with sessions table
+            connection.execSQL("""
+                CREATE TABLE IF NOT EXISTS `sessions` (
+                    `id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                    `startTime` INTEGER NOT NULL,
+                    `endTime` INTEGER NOT NULL,
+                    `rxBytes` INTEGER NOT NULL,
+                    `txBytes` INTEGER NOT NULL,
+                    `maxRxBps` INTEGER NOT NULL,
+                    `maxTxBps` INTEGER NOT NULL
+                )
+            """.trimIndent())
+
+            // Run migration 3 to 4
+            MIGRATION_3_TO_4.migrate(connection)
+
+            // Verify portal_sessions table exists by inserting into it
+            connection.execSQL("""
+                INSERT INTO `portal_sessions` (
+                    `location`, `macAddress`, `loginTime`, `logoutTime`, `durationFormatted`,
+                    `durationMillis`, `uploadBytes`, `downloadBytes`, `totalBytes`
+                ) VALUES ('Hostel', 'mac', 10, 20, '10s', 10, 100, 200, 300)
+            """.trimIndent())
+        } finally {
+            connection.close()
+        }
+    }
 }
+
