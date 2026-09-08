@@ -63,6 +63,9 @@ class SessionRepository(
     private val _portalHistory = MutableStateFlow<List<PortalSessionRecord>>(emptyList())
     val portalHistory: StateFlow<List<PortalSessionRecord>> = _portalHistory.asStateFlow()
 
+    private val _isHistoryLoaded = MutableStateFlow(false)
+    val isHistoryLoaded: StateFlow<Boolean> = _isHistoryLoaded.asStateFlow()
+
     private val _isSyncing = MutableStateFlow(false)
     val isSyncing: StateFlow<Boolean> = _isSyncing.asStateFlow()
 
@@ -106,6 +109,7 @@ class SessionRepository(
                 }
                 .collect { records ->
                     _portalHistory.value = records
+                    _isHistoryLoaded.value = true
                 }
         }
     }

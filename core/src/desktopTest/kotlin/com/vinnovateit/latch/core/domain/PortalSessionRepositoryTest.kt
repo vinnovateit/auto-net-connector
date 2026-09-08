@@ -168,4 +168,17 @@ class PortalSessionRepositoryTest {
         assertEquals("VIT-Initial", history2[0].location)
         repo.close()
     }
+
+    @Test
+    fun testIsHistoryLoadedFlag() = runBlocking {
+        val repo = SessionRepository(
+            statsDao = db.statsDao(),
+            throughput = ThroughputMonitor(StubCounters()),
+            portalClient = null
+        )
+        repo.initialize()
+        val loaded = repo.isHistoryLoaded.first { it }
+        assertTrue(loaded)
+        repo.close()
+    }
 }

@@ -32,6 +32,7 @@ class StatsViewModel(application: Application) : AndroidViewModel(application) {
   private val sessionHistory = LatchAppGraph.sessions.sessionSummaries
 
   val portalHistory: StateFlow<List<PortalSessionRecord>> = LatchAppGraph.sessions.portalHistory
+  val isHistoryLoaded: StateFlow<Boolean> = LatchAppGraph.sessions.isHistoryLoaded
   val isSyncing: StateFlow<Boolean> = LatchAppGraph.sessions.isSyncing
 
   val nonZeroPortalHistory: StateFlow<List<PortalSessionRecord>> =

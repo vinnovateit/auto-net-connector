@@ -147,41 +147,7 @@ fun StatsSkeletonLoader(
         }
 
         // Bar Chart Placeholder Card with simulated bars
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(200.dp)
-                .clip(RoundedCornerShape(20.dp))
-                .background(MaterialTheme.colorScheme.surfaceContainer)
-                .padding(16.dp)
-        ) {
-            Column(modifier = Modifier.fillMaxSize()) {
-                Box(
-                    modifier = Modifier
-                        .width(120.dp)
-                        .height(18.dp)
-                        .clip(RoundedCornerShape(6.dp))
-                        .background(shimmerBrush)
-                )
-                Spacer(modifier = Modifier.weight(1f))
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.Bottom
-                ) {
-                    val barFractions = listOf(0.4f, 0.7f, 0.3f, 0.9f, 0.5f, 0.8f, 0.2f, 0.6f, 0.4f, 0.75f)
-                    barFractions.forEach { frac ->
-                        Box(
-                            modifier = Modifier
-                                .width(12.dp)
-                                .height((120 * frac).dp)
-                                .clip(RoundedCornerShape(topStart = 4.dp, topEnd = 4.dp))
-                                .background(shimmerBrush)
-                        )
-                    }
-                }
-            }
-        }
+        HistoryBarChartSkeleton()
 
         // Today's Sessions Placeholder
         Column(
@@ -252,6 +218,48 @@ fun SessionHistorySkeletonLoader(
                     .clip(RoundedCornerShape(16.dp))
                     .background(shimmerBrush)
             )
+        }
+    }
+}
+
+@Composable
+fun HistoryBarChartSkeleton(
+    modifier: Modifier = Modifier
+) {
+    val shimmerBrush = rememberShimmerBrush()
+    Box(
+        modifier = modifier
+            .fillMaxWidth()
+            .height(200.dp)
+            .clip(RoundedCornerShape(20.dp))
+            .background(MaterialTheme.colorScheme.surfaceContainer)
+            .padding(16.dp)
+    ) {
+        Column(modifier = Modifier.fillMaxSize()) {
+            Box(
+                modifier = Modifier
+                    .width(120.dp)
+                    .height(18.dp)
+                    .clip(RoundedCornerShape(6.dp))
+                    .background(shimmerBrush)
+            )
+            Spacer(modifier = Modifier.weight(1f))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.Bottom
+            ) {
+                val barFractions = listOf(0.4f, 0.7f, 0.3f, 0.9f, 0.5f, 0.8f, 0.2f, 0.6f, 0.4f, 0.75f)
+                barFractions.forEach { frac ->
+                    Box(
+                        modifier = Modifier
+                            .width(12.dp)
+                            .height((120 * frac).dp)
+                            .clip(RoundedCornerShape(topStart = 4.dp, topEnd = 4.dp))
+                            .background(shimmerBrush)
+                    )
+                }
+            }
         }
     }
 }

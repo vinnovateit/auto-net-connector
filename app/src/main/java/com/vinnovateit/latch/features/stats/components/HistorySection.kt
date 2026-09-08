@@ -87,10 +87,13 @@ data class ChartDetailState(
 
 @Composable
 fun HistoryBarChart(
-    history: List<HistoryChartItem>
+    history: List<HistoryChartItem>,
+    isLoaded: Boolean = true
 ) {
-    if (history.isNotEmpty()) {
-        HistoryBarChartContent(chartItems = history)
+    if (!isLoaded) {
+        HistoryBarChartSkeleton()
+    } else if (history.isNotEmpty()) {
+        HistoryBarChartContent(chartItems = history, isLoaded = isLoaded)
     } else {
         NoDataCard("No stats available. Connect to Wi-Fi to start tracking your usage.")
     }
@@ -98,9 +101,9 @@ fun HistoryBarChart(
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun HistoryBarChartContent(chartItems: List<HistoryChartItem>) {
+private fun HistoryBarChartContent(chartItems: List<HistoryChartItem>, isLoaded: Boolean = true) {
 
-    if (chartItems.filterIsInstance<HistoryChartItem.BarData>().all { it.usage.rxBytes + it.usage.txBytes == 0L }) {
+    if (isLoaded && chartItems.filterIsInstance<HistoryChartItem.BarData>().all { it.usage.rxBytes + it.usage.txBytes == 0L }) {
         NoDataCard("No stats available. Connect to Wi-Fi to start tracking your usage.")
         return
     }
