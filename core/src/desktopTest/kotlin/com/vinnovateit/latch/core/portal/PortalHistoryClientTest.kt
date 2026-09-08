@@ -34,10 +34,23 @@ class PortalHistoryClientTest {
             return when {
                 "Main.jsp" in urlStr -> FakeHttpConnection(url, mainHtml, "JSESSIONID=test-session-id; path=/registration")
                 "chooseAuth.do" in urlStr -> FakeHttpConnection(url, loginHtml)
-                "CustomerSessionHistory.jsp" in urlStr -> FakeHttpConnection(url, historyHtml)
+                "customerSessionHistory.do" in urlStr || "CustomerSessionHistory.jsp" in urlStr -> FakeHttpConnection(url, historyHtml)
                 else -> FakeHttpConnection(url, "")
             }
         }
+    }
+
+    @Test
+    fun testComputeDateFilter() {
+        val client = PortalHistoryClient(FakeHttpTransport("", "", ""))
+        val filter24 = client.computeDateFilter("24BDS0155")
+        assertEquals("2024", filter24.startYear)
+        assertEquals("00", filter24.startMonth)
+        assertEquals("01", filter24.startDay)
+
+        val filterInvalid = client.computeDateFilter("unknown_user")
+        assertEquals("2024", filterInvalid.startYear)
+        assertEquals("00", filterInvalid.startMonth)
     }
 
     @Test

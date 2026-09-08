@@ -86,47 +86,19 @@ fun StatsScreen(
     val speedUnit by SettingsManager.speedUnits.collectAsStateWithLifecycle()
     val scope = rememberCoroutineScope()
 
-    Column(modifier = Modifier.fillMaxSize()) {
-        // Header row with title + sync button
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(64.dp)
-                .padding(end = 12.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            LatchDetailHeader(
-                title = stringResource(Res.string.stats_title),
-                onBack = onBack,
-                modifier = Modifier.weight(1f),
-            )
-            IconButton(
-                onClick = {
-                    val userId = platform.credentials.userId()
-                    val password = platform.credentials.password()
-                    if (!userId.isNullOrBlank() && !password.isNullOrBlank()) {
-                        scope.launch { sessions.syncPortalHistory(userId, password) }
-                    }
-                },
-                enabled = !isSyncing,
-                modifier = Modifier.size(40.dp),
-            ) {
-                if (isSyncing) {
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(20.dp),
-                        strokeWidth = 2.dp,
-                        color = MaterialTheme.colorScheme.primary,
-                    )
-                } else {
-                    Icon(
-                        imageVector = LatchIcons.Refresh,
-                        contentDescription = "Sync from Portal",
-                        tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(20.dp),
-                    )
-                }
-            }
+    LaunchedEffect(Unit) {
+        val userId = platform.credentials.userId()
+        val password = platform.credentials.password()
+        if (!userId.isNullOrBlank() && !password.isNullOrBlank()) {
+            sessions.syncPortalHistory(userId, password)
         }
+    }
+
+    Column(modifier = Modifier.fillMaxSize()) {
+        LatchDetailHeader(
+            title = stringResource(Res.string.stats_title),
+            onBack = onBack,
+        )
 
         LazyColumn(
             modifier = Modifier.fillMaxWidth().weight(1f),
@@ -166,12 +138,20 @@ fun StatsScreen(
                         modifier = Modifier.fillMaxWidth().height(160.dp),
                         contentAlignment = Alignment.Center,
                     ) {
-                        Text(
-                            text = if (isSyncing) "Syncing…" else stringResource(Res.string.stats_empty_message),
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            textAlign = TextAlign.Center,
-                        )
+                        if (isSyncing) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(24.dp),
+                                strokeWidth = 2.dp,
+                                color = MaterialTheme.colorScheme.primary,
+                            )
+                        } else {
+                            Text(
+                                text = stringResource(Res.string.stats_empty_message),
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                textAlign = TextAlign.Center,
+                            )
+                        }
                     }
                 }
             } else {

@@ -45,6 +45,10 @@ class StatsViewModel(application: Application) : AndroidViewModel(application) {
     }.flowOn(Dispatchers.Default)
       .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
+  init {
+    refreshHistory()
+  }
+
   fun refreshHistory() {
     val platform = LatchAppGraph.platform
     if (platform.credentials.exists()) {

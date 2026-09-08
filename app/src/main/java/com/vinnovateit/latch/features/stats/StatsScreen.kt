@@ -38,10 +38,8 @@ import com.vinnovateit.latch.features.stats.components.StatsList
 private fun StatsTopBar(
   collapseFraction: Float,
   headerHeight: Dp,
-  isSyncing: Boolean,
   onBackPressed: () -> Unit,
   onSaveReport: () -> Unit,
-  onSync: () -> Unit,
 ) {
   val surfaceColor = MaterialTheme.colorScheme.surface
   val haptic = LocalHapticFeedback.current
@@ -91,30 +89,6 @@ private fun StatsTopBar(
           .padding(end = 12.dp, top = 4.dp),
         verticalAlignment = Alignment.CenterVertically
       ) {
-        TooltipHint(tooltipText = if (isSyncing) "Syncing..." else "Sync from Portal") {
-          IconButton(
-            onClick = {
-              haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-              onSync()
-            },
-            enabled = !isSyncing
-          ) {
-            if (isSyncing) {
-              CircularProgressIndicator(
-                modifier = Modifier.size(20.dp),
-                strokeWidth = 2.dp,
-                color = MaterialTheme.colorScheme.primary
-              )
-            } else {
-              Icon(
-                imageVector = Icons.Rounded.Refresh,
-                contentDescription = "Sync from Portal",
-                tint = MaterialTheme.colorScheme.primary
-              )
-            }
-          }
-        }
-
         TooltipHint(tooltipText = "Export Report") {
           IconButton(
             onClick = {
@@ -192,23 +166,23 @@ fun StatsScreen(
     val currentTopBarHeightDp = with(density) { topBarHeightPx.toDp() }
     val collapseFraction = 1f - ((topBarHeightPx - minTopBarHeightPx) / (maxTopBarHeightPx - minTopBarHeightPx)).coerceIn(0f, 1f)
 
-    if (!isLive && portalHistory.isEmpty()) {
+    LaunchedEffect(Unit) {
+      statsViewModel.refreshHistory()
+    }
+
+    if (!isLive && portalHistory.isEmpty() && historyToShow.isEmpty()) {
       Scaffold(
-        containerColor = MaterialTheme.colorScheme.background,
         topBar = {
           StatsTopBar(
             collapseFraction = 0f,
             headerHeight = maxTopBarHeight,
-            isSyncing = isSyncing,
             onBackPressed = onBackPressed,
             onSaveReport = onSaveReport,
-            onSync = { statsViewModel.refreshHistory() }
           )
         }
       ) { innerPadding ->
         EmptyStatsView(
           isSyncing = isSyncing,
-          onSync = { statsViewModel.refreshHistory() },
           modifier = Modifier.padding(innerPadding).fillMaxSize()
         )
       }
@@ -224,10 +198,8 @@ fun StatsScreen(
             StatsTopBar(
               collapseFraction = 1f,
               headerHeight = minTopBarHeight,
-              isSyncing = isSyncing,
               onBackPressed = onBackPressed,
               onSaveReport = onSaveReport,
-              onSync = { statsViewModel.refreshHistory() }
             )
             Box(
               modifier = Modifier.padding(horizontal = 24.dp, vertical = 16.dp).fillMaxSize(),
@@ -278,10 +250,8 @@ fun StatsScreen(
           StatsTopBar(
             collapseFraction = collapseFraction,
             headerHeight = currentTopBarHeightDp,
-            isSyncing = isSyncing,
             onBackPressed = onBackPressed,
             onSaveReport = onSaveReport,
-            onSync = { statsViewModel.refreshHistory() }
           )
         }
       }
@@ -292,7 +262,6 @@ fun StatsScreen(
 @Composable
 private fun EmptyStatsView(
   isSyncing: Boolean,
-  onSync: () -> Unit,
   modifier: Modifier = Modifier
 ) {
   Box(modifier = modifier, contentAlignment = Alignment.Center) {
@@ -309,41 +278,25 @@ private fun EmptyStatsView(
       )
       Spacer(modifier = Modifier.height(16.dp))
       Text(
-        text = "No portal history yet",
+        text = "No stats available",
         style = MaterialTheme.typography.titleMedium,
         fontWeight = FontWeight.Bold,
         textAlign = TextAlign.Center
       )
       Spacer(modifier = Modifier.height(8.dp))
       Text(
-        text = "Sync with the captive portal to view your historical sessions and usage trends.",
+        text = if (isSyncing) "Fetching session history from captive portal…" else "Connect to Wi-Fi to start tracking your data usage.",
         style = MaterialTheme.typography.bodyMedium,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
         textAlign = TextAlign.Center
       )
-      Spacer(modifier = Modifier.height(24.dp))
-      Button(
-        onClick = onSync,
-        enabled = !isSyncing,
-        shape = RoundedCornerShape(20.dp)
-      ) {
-        if (isSyncing) {
-          CircularProgressIndicator(
-            modifier = Modifier.size(18.dp),
-            strokeWidth = 2.dp,
-            color = MaterialTheme.colorScheme.onPrimary
-          )
-          Spacer(modifier = Modifier.width(8.dp))
-          Text("Syncing...")
-        } else {
-          Icon(
-            imageVector = Icons.Rounded.Refresh,
-            contentDescription = null,
-            modifier = Modifier.size(18.dp)
-          )
-          Spacer(modifier = Modifier.width(8.dp))
-          Text("Sync from Portal")
-        }
+      if (isSyncing) {
+        Spacer(modifier = Modifier.height(20.dp))
+        CircularProgressIndicator(
+          modifier = Modifier.size(24.dp),
+          strokeWidth = 2.5.dp,
+          color = MaterialTheme.colorScheme.primary
+        )
       }
     }
   }

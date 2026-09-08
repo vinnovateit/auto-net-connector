@@ -104,7 +104,7 @@ fun HistoryBarChart(history: List<HistoryChartItem>) {
         if (history.isNotEmpty()) {
             HistoryBarChartContent(chartItems = history)
         } else {
-            NoDataCard("No session history available.")
+            NoDataCard("No stats available. Connect to Wi-Fi to start tracking your usage.")
         }
     }
 }
@@ -114,7 +114,7 @@ fun HistoryBarChart(history: List<HistoryChartItem>) {
 private fun HistoryBarChartContent(chartItems: List<HistoryChartItem>) {
 
     if (chartItems.filterIsInstance<HistoryChartItem.BarData>().all { it.usage.rxBytes + it.usage.txBytes == 0L }) {
-        NoDataCard("No history data yet.")
+        NoDataCard("No stats available. Connect to Wi-Fi to start tracking your usage.")
         return
     }
 

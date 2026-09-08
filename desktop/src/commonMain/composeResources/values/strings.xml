@@ -32,7 +32,7 @@
     <string name="stats_report_saved_toast">Report saved successfully</string>
     <string name="stats_report_failed_toast">Failed to save report: %s</string>
     <string name="stats_report_filename">session_report.csv</string>
-    <string name="stats_empty_message">No stats to show yet. Connect to a network to get started!</string>
+    <string name="stats_empty_message">No stats available. Connect to Wi-Fi to start tracking your usage.</string>
     <string name="stats_reset_dialog_title">Reset Stats</string>
     <string name="stats_reset_dialog_message">Are you sure you want to delete all session history? This action cannot be undone.</string>
     <string name="stats_reset_dialog_confirm">Reset</string>

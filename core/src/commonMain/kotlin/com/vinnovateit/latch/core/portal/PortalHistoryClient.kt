@@ -16,6 +16,42 @@ class PortalHistoryClient(
         private const val READ_TIMEOUT_MS = 8000
     }
 
+    internal data class DateFilter(
+        val startYear: String,
+        val startMonth: String,
+        val startDay: String,
+        val endYear: String,
+        val endMonth: String,
+        val endDay: String,
+    )
+
+    internal fun computeDateFilter(userId: String): DateFilter {
+        val regYearMatch = Regex("^(\\d{2})").find(userId.trim())
+        val startYear = if (regYearMatch != null) {
+            val yr = regYearMatch.groupValues[1].toIntOrNull() ?: 24
+            val yearNum = 2000 + yr
+            if (yearNum < 2024) "2024" else yearNum.toString()
+        } else {
+            "2024" // Oldest year in filter dropdown
+        }
+        val startMonth = "00" // Jan (0-indexed)
+        val startDay = "01"
+
+        val cal = java.util.Calendar.getInstance()
+        val endYear = cal.get(java.util.Calendar.YEAR).toString()
+        val endMonth = String.format(java.util.Locale.US, "%02d", cal.get(java.util.Calendar.MONTH))
+        val endDay = String.format(java.util.Locale.US, "%02d", cal.get(java.util.Calendar.DAY_OF_MONTH))
+
+        return DateFilter(
+            startYear = startYear,
+            startMonth = startMonth,
+            startDay = startDay,
+            endYear = endYear,
+            endMonth = endMonth,
+            endDay = endDay,
+        )
+    }
+
     fun fetchHistory(
         userId: String,
         password: String,
@@ -66,20 +102,53 @@ class PortalHistoryClient(
             }
             conn2.inputStream.bufferedReader().use { it.readText() }
 
-            // Step 3: GET CustomerSessionHistory.jsp
-            val historyUrl = URL("http://$host/registration/main.do?content_key=%2FCustomerSessionHistory.jsp")
-            val conn3 = transport.open(historyUrl, handle)
-            conn3.requestMethod = "GET"
+            // Step 3: Query history with registration number date range
+            val dateFilter = computeDateFilter(userId)
+            val filterPostData = buildString {
+                append("location=").append(URLEncoder.encode("allLocations", "UTF-8"))
+                append("&parameter=").append(URLEncoder.encode("custom", "UTF-8"))
+                append("&customStartMonth=").append(URLEncoder.encode(dateFilter.startMonth, "UTF-8"))
+                append("&customStartDay=").append(URLEncoder.encode(dateFilter.startDay, "UTF-8"))
+                append("&customStartYear=").append(URLEncoder.encode(dateFilter.startYear, "UTF-8"))
+                append("&customEndMonth=").append(URLEncoder.encode(dateFilter.endMonth, "UTF-8"))
+                append("&customEndDay=").append(URLEncoder.encode(dateFilter.endDay, "UTF-8"))
+                append("&customEndYear=").append(URLEncoder.encode(dateFilter.endYear, "UTF-8"))
+                append("&button=").append(URLEncoder.encode("View", "UTF-8"))
+            }
+
+            val filterUrl = URL("http://$host/registration/customerSessionHistory.do")
+            val conn3 = transport.open(filterUrl, handle)
+            conn3.requestMethod = "POST"
+            conn3.doOutput = true
             conn3.instanceFollowRedirects = true
             conn3.connectTimeout = CONNECT_TIMEOUT_MS
             conn3.readTimeout = READ_TIMEOUT_MS
+            conn3.setRequestProperty("Content-Type", "application/x-www-form-urlencoded")
             conn3.setRequestProperty("User-Agent", "Mozilla/5.0 (Android)")
             if (cookie.isNotEmpty()) {
                 conn3.setRequestProperty("Cookie", cookie)
             }
 
-            val historyHtml = conn3.inputStream.bufferedReader().use { it.readText() }
-            val records = PortalHistoryParser.parse(historyHtml)
+            conn3.outputStream.bufferedWriter().use { it.write(filterPostData) }
+            var historyHtml = conn3.inputStream.bufferedReader().use { it.readText() }
+            var records = PortalHistoryParser.parse(historyHtml)
+
+            // Fallback to default GET if filtered request returns no records
+            if (records.isEmpty()) {
+                val fallbackUrl = URL("http://$host/registration/main.do?content_key=%2FCustomerSessionHistory.jsp")
+                val connFallback = transport.open(fallbackUrl, handle)
+                connFallback.requestMethod = "GET"
+                connFallback.instanceFollowRedirects = true
+                connFallback.connectTimeout = CONNECT_TIMEOUT_MS
+                connFallback.readTimeout = READ_TIMEOUT_MS
+                connFallback.setRequestProperty("User-Agent", "Mozilla/5.0 (Android)")
+                if (cookie.isNotEmpty()) {
+                    connFallback.setRequestProperty("Cookie", cookie)
+                }
+                historyHtml = connFallback.inputStream.bufferedReader().use { it.readText() }
+                records = PortalHistoryParser.parse(historyHtml)
+            }
+
             Result.success(records)
         } catch (e: Exception) {
             Result.failure(e)
