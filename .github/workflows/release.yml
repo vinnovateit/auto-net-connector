@@ -49,6 +49,12 @@ jobs:
           echo "version=$version" >> "$GITHUB_OUTPUT"
           echo "tag=$tag" >> "$GITHUB_OUTPUT"
 
+      # Fails here in seconds rather than after both build jobs have run.
+      - name: Require a changelog entry
+        env:
+          VERSION: ${{ steps.release.outputs.version }}
+        run: packaging/extract-release-notes.sh "$VERSION" >/dev/null
+
   build-linux:
     name: Build Linux artifacts
     needs: prepare
@@ -188,6 +194,13 @@ jobs:
         working-directory: release-assets
         run: sha256sum -- * > SHA256SUMS
 
+      # The body is maintained in CHANGELOG.md, so re-running this workflow
+      # republishes the same notes instead of overwriting them with boilerplate.
+      - name: Extract release notes
+        env:
+          VERSION: ${{ needs.prepare.outputs.version }}
+        run: packaging/extract-release-notes.sh "$VERSION" release-notes.md
+
       - name: Create GitHub release
         uses: softprops/action-gh-release@v2
         with:
@@ -196,10 +209,7 @@ jobs:
           draft: false
           prerelease: false
           make_latest: true
-          body: |
-            Latch Desktop and the standalone `latch-cli` now share one release version.
-
-            CLI downloads include portable Linux and Windows bundles, Debian and RPM packages, checksums, and submission-ready AUR/winget metadata.
+          body_path: release-notes.md
           files: release-assets/*
 
       - name: Clear build artifacts storage
