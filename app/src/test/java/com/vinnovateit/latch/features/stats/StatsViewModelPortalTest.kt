@@ -1,5 +1,6 @@
 package com.vinnovateit.latch.features.stats
 
+import com.vinnovateit.latch.core.model.AggregatedDayRecord
 import com.vinnovateit.latch.core.model.DataUsage
 import com.vinnovateit.latch.core.model.DateRangeFilter
 import com.vinnovateit.latch.core.model.HistoryChartItem
@@ -118,5 +119,75 @@ class StatsViewModelPortalTest {
         assertTrue(names.contains("Sunset & Violet"))
         assertTrue(names.contains("Neon Teal & Coral"))
         assertTrue(names.contains("Electric Cyan & Indigo"))
+    }
+
+    @Test
+    fun testFormatMonthHeaderTitleCurrentYear() {
+        val cal = Calendar.getInstance().apply {
+            set(2026, Calendar.SEPTEMBER, 8, 12, 0, 0)
+        }
+        val title = formatMonthHeaderTitle(cal.timeInMillis, currentYear = 2026)
+        assertEquals("September", title)
+    }
+
+    @Test
+    fun testFormatMonthHeaderTitlePastYear() {
+        val cal = Calendar.getInstance().apply {
+            set(2025, Calendar.SEPTEMBER, 8, 12, 0, 0)
+        }
+        val title = formatMonthHeaderTitle(cal.timeInMillis, currentYear = 2026)
+        assertEquals("September 2025", title)
+    }
+
+    @Test
+    fun testGroupRecordsByMonthSeparatesMonthsAndFormats() {
+        val calSep26 = Calendar.getInstance().apply { set(2026, Calendar.SEPTEMBER, 5, 10, 0, 0) }
+        val calAug26 = Calendar.getInstance().apply { set(2026, Calendar.AUGUST, 20, 10, 0, 0) }
+        val calSep25 = Calendar.getInstance().apply { set(2025, Calendar.SEPTEMBER, 15, 10, 0, 0) }
+
+        val r1 = createSampleRecord(calSep26.timeInMillis, 1_000_000L)
+        val r2 = createSampleRecord(calAug26.timeInMillis, 2_000_000L)
+        val r3 = createSampleRecord(calSep25.timeInMillis, 3_000_000L)
+
+        val grouped = groupRecordsByMonth(listOf(r1, r2, r3), currentYear = 2026)
+
+        assertEquals(listOf("September", "August", "September 2025"), grouped.keys.toList())
+        assertEquals(listOf(r1), grouped["September"])
+        assertEquals(listOf(r2), grouped["August"])
+        assertEquals(listOf(r3), grouped["September 2025"])
+    }
+
+    @Test
+    fun testGroupRecordsByMonthCombinesDaysInSameMonth() {
+        val cal1 = Calendar.getInstance().apply { set(2026, Calendar.SEPTEMBER, 8, 10, 0, 0) }
+        val cal2 = Calendar.getInstance().apply { set(2026, Calendar.SEPTEMBER, 7, 10, 0, 0) }
+        val cal3 = Calendar.getInstance().apply { set(2026, Calendar.SEPTEMBER, 1, 10, 0, 0) }
+
+        val r1 = createSampleRecord(cal1.timeInMillis, 100L)
+        val r2 = createSampleRecord(cal2.timeInMillis, 200L)
+        val r3 = createSampleRecord(cal3.timeInMillis, 300L)
+
+        val grouped = groupRecordsByMonth(listOf(r1, r2, r3), currentYear = 2026)
+
+        assertEquals(1, grouped.size)
+        assertEquals(3, grouped["September"]?.size)
+        assertEquals(listOf(r1, r2, r3), grouped["September"])
+    }
+
+    private fun createSampleRecord(timestamp: Long, totalBytes: Long): AggregatedDayRecord {
+        return AggregatedDayRecord(
+            dayTimestamp = timestamp,
+            dateFormatted = "Sample Date",
+            downloadBytes = totalBytes / 2,
+            uploadBytes = totalBytes / 2,
+            totalBytes = totalBytes,
+            downloadFormatted = "0.5 MB" to "MB",
+            uploadFormatted = "0.5 MB" to "MB",
+            totalFormatted = "1.0 MB" to "MB",
+            sessionCount = 1,
+            totalDurationMillis = 60000L,
+            durationFormatted = "1m",
+            isToday = false
+        )
     }
 }

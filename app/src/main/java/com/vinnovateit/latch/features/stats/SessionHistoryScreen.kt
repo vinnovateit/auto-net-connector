@@ -56,6 +56,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.vinnovateit.latch.common.util.NoDataCard
 import com.vinnovateit.latch.common.util.formatBytes
+import com.vinnovateit.latch.common.util.formatDate
 import com.vinnovateit.latch.core.model.DateRangeFilter
 import com.vinnovateit.latch.features.settings.manager.SettingsManager
 import com.vinnovateit.latch.features.stats.components.DayAggregateListItem
@@ -78,6 +79,25 @@ enum class HistorySortOption(val label: String) {
     HIGHEST_USAGE("Highest data"),
     LONGEST_DURATION("Longest duration"),
     MOST_SESSIONS("Most sessions")
+}
+
+fun formatMonthHeaderTitle(timestamp: Long, currentYear: Int = Calendar.getInstance().get(Calendar.YEAR)): String {
+    val cal = Calendar.getInstance().apply { timeInMillis = timestamp }
+    val year = cal.get(Calendar.YEAR)
+    val pattern = if (year == currentYear) "MMMM" else "MMMM yyyy"
+    return formatDate(timestamp, pattern)
+}
+
+fun groupRecordsByMonth(
+    records: List<AggregatedDayRecord>,
+    currentYear: Int = Calendar.getInstance().get(Calendar.YEAR)
+): Map<String, List<AggregatedDayRecord>> {
+    val map = linkedMapOf<String, MutableList<AggregatedDayRecord>>()
+    for (record in records) {
+        val title = formatMonthHeaderTitle(record.dayTimestamp, currentYear)
+        map.getOrPut(title) { mutableListOf() }.add(record)
+    }
+    return map
 }
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
@@ -135,15 +155,8 @@ fun SessionHistoryScreen(
         }
     }
 
-    val groupedByYear = remember(filteredSortedRecords) {
-        val map = linkedMapOf<Int, MutableList<AggregatedDayRecord>>()
-        val cal = Calendar.getInstance()
-        for (record in filteredSortedRecords) {
-            cal.timeInMillis = record.dayTimestamp
-            val year = cal.get(Calendar.YEAR)
-            map.getOrPut(year) { mutableListOf() }.add(record)
-        }
-        map
+    val groupedByMonth = remember(filteredSortedRecords) {
+        groupRecordsByMonth(filteredSortedRecords)
     }
 
     val totalBytes = remember(filteredSortedRecords) {
@@ -299,8 +312,8 @@ fun SessionHistoryScreen(
                         Spacer(Modifier.height(8.dp))
                     }
 
-                    groupedByYear.forEach { (year, yearRecords) ->
-                        item(key = "year_header_$year") {
+                    groupedByMonth.forEach { (monthTitle, monthRecords) ->
+                        item(key = "month_header_$monthTitle") {
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
@@ -309,15 +322,15 @@ fun SessionHistoryScreen(
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Text(
-                                    text = "$year",
+                                    text = monthTitle,
                                     style = MaterialTheme.typography.titleMedium,
                                     fontWeight = FontWeight.Bold,
                                     color = MaterialTheme.colorScheme.primary
                                 )
-                                val yearTotalBytes = yearRecords.sumOf { it.totalBytes }
-                                val (yrVal, yrUnit) = formatBytes(yearTotalBytes)
+                                val monthTotalBytes = monthRecords.sumOf { it.totalBytes }
+                                val (monthVal, monthUnit) = formatBytes(monthTotalBytes)
                                 Text(
-                                    text = "$yrVal $yrUnit · ${yearRecords.size} ${if (yearRecords.size == 1) "day" else "days"}",
+                                    text = "$monthVal $monthUnit · ${monthRecords.size} ${if (monthRecords.size == 1) "day" else "days"}",
                                     style = MaterialTheme.typography.labelMedium,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
@@ -325,12 +338,12 @@ fun SessionHistoryScreen(
                         }
 
                         itemsIndexed(
-                            items = yearRecords,
+                            items = monthRecords,
                             key = { _, record -> "day_${record.dayTimestamp}" }
                         ) { index, record ->
                             DayAggregateListItem(
                                 record = record,
-                                shape = groupedItemShape(index, yearRecords.size),
+                                shape = groupedItemShape(index, monthRecords.size),
                                 isAmoled = isAmoled,
                                 dlColor = dlColor,
                                 ulColor = ulColor
