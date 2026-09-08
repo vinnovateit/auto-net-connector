@@ -85,12 +85,24 @@ private fun DigitRoller(
     colIndex: Int
 ) {
     var currentDigit by remember { mutableIntStateOf(0) }
+    var hasAnimated by remember { androidx.compose.runtime.mutableStateOf(false) }
+    val haptic = androidx.compose.ui.platform.LocalHapticFeedback.current
 
     LaunchedEffect(digit) {
-        if (currentDigit == digit) return@LaunchedEffect
+        if (hasAnimated) {
+            currentDigit = digit
+            return@LaunchedEffect
+        }
+        if (currentDigit == digit) {
+            hasAnimated = true
+            return@LaunchedEffect
+        }
         delay(120L + colIndex * 25L)
         val diff = kotlin.math.abs(digit - currentDigit)
-        if (diff == 0) return@LaunchedEffect
+        if (diff == 0) {
+            hasAnimated = true
+            return@LaunchedEffect
+        }
         val stepSize = if (diff > 5) kotlin.math.ceil(diff / 5.0).toInt() else 1
         val direction = if (digit > currentDigit) 1 else -1
         val totalSteps = (diff + stepSize - 1) / stepSize
@@ -103,8 +115,10 @@ private fun DigitRoller(
             } else {
                 (d - stepSize).coerceAtLeast(digit)
             }
+            haptic.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.TextHandleMove)
             currentDigit = d
         }
+        hasAnimated = true
     }
 
     AnimatedContent(
