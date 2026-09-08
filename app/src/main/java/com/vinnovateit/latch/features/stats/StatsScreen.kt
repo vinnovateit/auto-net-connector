@@ -11,7 +11,6 @@ import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.BarChart
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.rounded.History
-import androidx.compose.material.icons.rounded.OpenInBrowser
 import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -46,8 +45,7 @@ private fun StatsTopBar(
   onBackPressed: () -> Unit,
   onSaveReport: () -> Unit,
   onResyncHistory: () -> Unit = {},
-  onNavigateToHistory: () -> Unit = {},
-  onOpenManageAccount: () -> Unit = {},
+  onNavigateToHistory: () -> Unit = {}
 ) {
   val surfaceColor = MaterialTheme.colorScheme.surface
   val haptic = LocalHapticFeedback.current
@@ -159,21 +157,6 @@ private fun StatsTopBar(
               )
             }
           )
-          DropdownMenuItem(
-            text = { Text("Manage Account") },
-            onClick = {
-              menuExpanded = false
-              haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-              onOpenManageAccount()
-            },
-            leadingIcon = {
-              Icon(
-                imageVector = Icons.Rounded.OpenInBrowser,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.primary
-              )
-            }
-          )
         }
       }
     }
@@ -249,8 +232,7 @@ fun StatsScreen(
             onBackPressed = onBackPressed,
             onSaveReport = onSaveReport,
             onResyncHistory = { statsViewModel.refreshHistory() },
-            onNavigateToHistory = onNavigateToHistory,
-            onOpenManageAccount = onNavigateToPortalAccount,
+            onNavigateToHistory = onNavigateToHistory
           )
         }
       ) { innerPadding ->
@@ -283,8 +265,7 @@ fun StatsScreen(
               onBackPressed = onBackPressed,
               onSaveReport = onSaveReport,
               onResyncHistory = { statsViewModel.refreshHistory() },
-              onNavigateToHistory = onNavigateToHistory,
-              onOpenManageAccount = onNavigateToPortalAccount,
+              onNavigateToHistory = onNavigateToHistory
             )
             Box(
               modifier = Modifier.padding(horizontal = 24.dp, vertical = 16.dp).fillMaxSize(),
@@ -340,8 +321,7 @@ fun StatsScreen(
             onBackPressed = onBackPressed,
             onSaveReport = onSaveReport,
             onResyncHistory = { statsViewModel.refreshHistory() },
-            onNavigateToHistory = onNavigateToHistory,
-            onOpenManageAccount = onNavigateToPortalAccount,
+            onNavigateToHistory = onNavigateToHistory
           )
         }
       }
