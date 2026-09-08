@@ -332,12 +332,28 @@ private fun HistoryBarChartContent(chartItems: List<HistoryChartItem>) {
         label = "BarChartMaxUsageSpring"
     )
 
-    // Reset selection and scroll position safely when chartItems change
+    // Center today's bar and select it initially when chartItems change
     LaunchedEffect(chartItems) {
-        selectedIndex = -1
-        displayedData = totalUsageDetail
         if (todayIdx in chartItems.indices) {
             lazyListState.scrollToItem(todayIdx)
+            val todayItem = chartItems.getOrNull(todayIdx) as? HistoryChartItem.BarData
+            if (todayItem != null) {
+                selectedIndex = todayIdx
+                displayedData = ChartDetailState(
+                    usage = todayItem.usage,
+                    label = todayItem.formattedDate.ifBlank {
+                        com.vinnovateit.latch.common.util.formatDisplayDate(todayItem.timestamp)
+                    },
+                    sessionCount = todayItem.sessionCount,
+                    durationFormatted = todayItem.durationFormatted
+                )
+            } else {
+                selectedIndex = -1
+                displayedData = totalUsageDetail
+            }
+        } else {
+            selectedIndex = -1
+            displayedData = totalUsageDetail
         }
     }
 
@@ -358,6 +374,19 @@ private fun HistoryBarChartContent(chartItems: List<HistoryChartItem>) {
                     haptic.performHapticFeedback(HapticFeedbackType.KeyboardTap)
                 }
                 lastCenteredIndex = centerIdx
+                val item = chartItems.getOrNull(centerIdx)
+                if (item is HistoryChartItem.BarData) {
+                    selectedIndex = centerIdx
+                    val formattedDate = item.formattedDate.ifBlank {
+                        com.vinnovateit.latch.common.util.formatDisplayDate(item.timestamp)
+                    }
+                    displayedData = ChartDetailState(
+                        usage = item.usage,
+                        label = formattedDate,
+                        sessionCount = item.sessionCount,
+                        durationFormatted = item.durationFormatted
+                    )
+                }
             }
         }
     }
@@ -368,7 +397,7 @@ private fun HistoryBarChartContent(chartItems: List<HistoryChartItem>) {
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
         BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
             val barWidth = 16.dp
-            val rowHeight = 165.dp
+            val rowHeight = 172.dp
             val barAreaHeight = 160.dp
             val centerPadding = ((maxWidth - barWidth) / 2).coerceAtLeast(16.dp)
 
@@ -395,32 +424,15 @@ private fun HistoryBarChartContent(chartItems: List<HistoryChartItem>) {
                                 usage = item.usage,
                                 maxUsage = animatedMaxUsage,
                                 isSelected = (idx == selectedIndex),
-                                hasSelection = (selectedIndex != -1),
                                 isAmoled = isAmoled,
                                 barWidth = barWidth,
                                 barAreaHeight = barAreaHeight,
                                 dlColor = dlColor,
                                 ulColor = ulColor,
                                 onTap = {
-                                    val clickedItem = chartItems.getOrNull(idx) as? HistoryChartItem.BarData ?: return@Bar
                                     haptic.performHapticFeedback(HapticFeedbackType.KeyboardTap)
-                                    if (selectedIndex == idx) {
-                                        selectedIndex = -1
-                                        displayedData = totalUsageDetail
-                                    } else {
-                                        selectedIndex = idx
-                                        val formattedDate = clickedItem.formattedDate.ifBlank {
-                                            com.vinnovateit.latch.common.util.formatDisplayDate(clickedItem.timestamp)
-                                        }
-                                        displayedData = ChartDetailState(
-                                            usage = clickedItem.usage,
-                                            label = formattedDate,
-                                            sessionCount = clickedItem.sessionCount,
-                                            durationFormatted = clickedItem.durationFormatted
-                                        )
-                                        coroutineScope.launch {
-                                            lazyListState.animateScrollToItem(idx)
-                                        }
+                                    coroutineScope.launch {
+                                        lazyListState.animateScrollToItem(idx)
                                     }
                                 }
                             )
@@ -482,7 +494,6 @@ private fun Bar(
     usage: DataUsage,
     maxUsage: Float,
     isSelected: Boolean,
-    hasSelection: Boolean,
     isAmoled: Boolean = false,
     barWidth: Dp,
     barAreaHeight: Dp,
@@ -501,14 +512,22 @@ private fun Bar(
         if (total > 0) (barAreaHeight.toPx() * totalFrac).toDp().coerceAtLeast(6.dp) else 4.dp
     }
 
-    val barAlpha by animateFloatAsState(
-        targetValue = if (isSelected) 1f else if (hasSelection) 0.55f else 1f,
-        label = "BarAlpha"
+    val scale by animateFloatAsState(
+        targetValue = if (isSelected) 1.08f else 1f,
+        animationSpec = spring(
+            dampingRatio = Spring.DampingRatioNoBouncy,
+            stiffness = Spring.StiffnessMediumLow
+        ),
+        label = "BarScale"
     )
 
     Column(
         modifier = modifier
-            .graphicsLayer { alpha = barAlpha }
+            .graphicsLayer {
+                scaleX = scale
+                scaleY = scale
+                transformOrigin = androidx.compose.ui.graphics.TransformOrigin(0.5f, 1f)
+            }
             .clickable(
                 interactionSource = remember { MutableInteractionSource() },
                 indication = null,
@@ -582,16 +601,6 @@ private fun Bar(
                             )
                         }
                     }
-
-                    // Selected highlight cap
-                    if (isSelected) {
-                        drawRoundRect(
-                            color = Color.White.copy(alpha = 0.85f),
-                            topLeft = Offset(topLeftOffset.x, 0f),
-                            size = Size(drawWidth, 3.dp.toPx()),
-                            cornerRadius = androidx.compose.ui.geometry.CornerRadius(2.dp.toPx(), 2.dp.toPx())
-                        )
-                    }
                 } else {
                     drawRoundRect(
                         color = emptyColor,
@@ -602,6 +611,17 @@ private fun Bar(
                 }
             }
         }
+
+        Spacer(Modifier.height(4.dp))
+
+        Box(
+            modifier = Modifier
+                .size(4.dp)
+                .background(
+                    color = if (isSelected) MaterialTheme.colorScheme.primary else Color.Transparent,
+                    shape = CircleShape
+                )
+        )
     }
 }
 
