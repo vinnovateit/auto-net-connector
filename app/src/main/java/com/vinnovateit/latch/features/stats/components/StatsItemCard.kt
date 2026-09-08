@@ -155,7 +155,7 @@ fun DayAggregateListItem(
             text = record.dateFormatted,
             style = MaterialTheme.typography.bodyMedium,
             fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.onSurface
+            color = if (record.isToday) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
           )
           Spacer(modifier = Modifier.width(6.dp))
           Surface(

@@ -1,6 +1,8 @@
 package com.vinnovateit.latch.features.stats
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -16,38 +18,58 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
-import androidx.compose.material.icons.rounded.CalendarMonth
-import androidx.compose.material.icons.rounded.DataUsage
-import androidx.compose.material.icons.rounded.History
+import androidx.compose.material.icons.automirrored.rounded.Sort
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.vinnovateit.latch.common.util.NoDataCard
 import com.vinnovateit.latch.common.util.formatBytes
 import com.vinnovateit.latch.features.settings.manager.SettingsManager
 import com.vinnovateit.latch.features.stats.components.DayAggregateListItem
+import com.vinnovateit.latch.features.stats.components.GameStatRow
 import com.vinnovateit.latch.features.stats.components.groupedItemShape
 import com.vinnovateit.latch.ui.theme.LocalIsDarkTheme
+import java.util.Calendar
+
+enum class HistoryFilterOption(val label: String) {
+    ALL_TIME("All Time"),
+    THIS_MONTH("This Month"),
+    LAST_30_DAYS("Last 30"),
+    THIS_YEAR("This Year"),
+    LAST_YEAR("Last Year")
+}
+
+enum class HistorySortOption(val label: String) {
+    NEWEST("Newest first"),
+    OLDEST("Oldest first"),
+    HIGHEST_USAGE("Highest data"),
+    LONGEST_DURATION("Longest duration"),
+    MOST_SESSIONS("Most sessions")
+}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -55,16 +77,67 @@ fun SessionHistoryScreen(
     onBackPressed: () -> Unit,
     statsViewModel: StatsViewModel
 ) {
-    val olderDayRecords by statsViewModel.olderDayRecords.collectAsStateWithLifecycle()
+    val allDayRecords by statsViewModel.allDayRecords.collectAsStateWithLifecycle()
     val usePureBlack by SettingsManager.usePureBlack.collectAsStateWithLifecycle()
     val isAmoled = usePureBlack && LocalIsDarkTheme.current
     val backgroundColor = if (isAmoled) Color.Black else MaterialTheme.colorScheme.background
 
-    val totalBytes = remember(olderDayRecords) {
-        olderDayRecords.sumOf { it.totalBytes }
+    var selectedFilter by remember { mutableStateOf(HistoryFilterOption.ALL_TIME) }
+    var selectedSort by remember { mutableStateOf(HistorySortOption.NEWEST) }
+    var showSortMenu by remember { mutableStateOf(false) }
+
+    val filteredSortedRecords = remember(allDayRecords, selectedFilter, selectedSort) {
+        val now = System.currentTimeMillis()
+        val nowCal = Calendar.getInstance().apply { timeInMillis = now }
+        val curYear = nowCal.get(Calendar.YEAR)
+        val curMonth = nowCal.get(Calendar.MONTH)
+        val tempCal = Calendar.getInstance()
+
+        val filtered = when (selectedFilter) {
+            HistoryFilterOption.ALL_TIME -> allDayRecords
+            HistoryFilterOption.THIS_MONTH -> allDayRecords.filter {
+                tempCal.timeInMillis = it.dayTimestamp
+                tempCal.get(Calendar.YEAR) == curYear && tempCal.get(Calendar.MONTH) == curMonth
+            }
+            HistoryFilterOption.LAST_30_DAYS -> {
+                val cutoff = now - 30L * 86400000L
+                allDayRecords.filter { it.dayTimestamp >= cutoff }
+            }
+            HistoryFilterOption.THIS_YEAR -> allDayRecords.filter {
+                tempCal.timeInMillis = it.dayTimestamp
+                tempCal.get(Calendar.YEAR) == curYear
+            }
+            HistoryFilterOption.LAST_YEAR -> allDayRecords.filter {
+                tempCal.timeInMillis = it.dayTimestamp
+                tempCal.get(Calendar.YEAR) == curYear - 1
+            }
+        }
+
+        when (selectedSort) {
+            HistorySortOption.NEWEST -> filtered.sortedByDescending { it.dayTimestamp }
+            HistorySortOption.OLDEST -> filtered.sortedBy { it.dayTimestamp }
+            HistorySortOption.HIGHEST_USAGE -> filtered.sortedByDescending { it.totalBytes }
+            HistorySortOption.LONGEST_DURATION -> filtered.sortedByDescending { it.totalDurationMillis }
+            HistorySortOption.MOST_SESSIONS -> filtered.sortedByDescending { it.sessionCount }
+        }
     }
-    val totalSessions = remember(olderDayRecords) {
-        olderDayRecords.sumOf { it.sessionCount }
+
+    val groupedByYear = remember(filteredSortedRecords) {
+        val map = linkedMapOf<Int, MutableList<AggregatedDayRecord>>()
+        val cal = Calendar.getInstance()
+        for (record in filteredSortedRecords) {
+            cal.timeInMillis = record.dayTimestamp
+            val year = cal.get(Calendar.YEAR)
+            map.getOrPut(year) { mutableListOf() }.add(record)
+        }
+        map
+    }
+
+    val totalBytes = remember(filteredSortedRecords) {
+        filteredSortedRecords.sumOf { it.totalBytes }
+    }
+    val totalSessions = remember(filteredSortedRecords) {
+        filteredSortedRecords.sumOf { it.sessionCount }
     }
     val totalFormatted = remember(totalBytes) {
         formatBytes(totalBytes)
@@ -93,63 +166,168 @@ fun SessionHistoryScreen(
                         )
                     }
                 },
+                actions = {
+                    Box {
+                        IconButton(onClick = { showSortMenu = true }) {
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Rounded.Sort,
+                                contentDescription = "Sort sessions",
+                                tint = MaterialTheme.colorScheme.primary
+                            )
+                        }
+                        DropdownMenu(
+                            expanded = showSortMenu,
+                            onDismissRequest = { showSortMenu = false }
+                        ) {
+                            HistorySortOption.entries.forEach { sort ->
+                                DropdownMenuItem(
+                                    text = {
+                                        Text(
+                                            text = sort.label,
+                                            fontWeight = if (sort == selectedSort) FontWeight.Bold else FontWeight.Normal,
+                                            color = if (sort == selectedSort) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
+                                        )
+                                    },
+                                    onClick = {
+                                        selectedSort = sort
+                                        showSortMenu = false
+                                    }
+                                )
+                            }
+                        }
+                    }
+                },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = backgroundColor
                 )
             )
         }
     ) { innerPadding ->
-        if (olderDayRecords.isEmpty()) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(innerPadding)
-                    .padding(16.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                NoDataCard("No past session history recorded yet.")
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(innerPadding)
+        ) {
+            val filterScrollState = rememberScrollState()
+            val totalFilters = HistoryFilterOption.entries.size
+            fun filterChipShape(index: Int) = when (index) {
+                0 -> RoundedCornerShape(topStart = 24.dp, bottomStart = 24.dp, topEnd = 4.dp, bottomEnd = 4.dp)
+                totalFilters - 1 -> RoundedCornerShape(topStart = 4.dp, bottomStart = 4.dp, topEnd = 24.dp, bottomEnd = 24.dp)
+                else -> RoundedCornerShape(4.dp)
             }
-        } else {
-            LazyColumn(
-                state = lazyListState,
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(innerPadding),
-                contentPadding = PaddingValues(bottom = 32.dp),
-                verticalArrangement = Arrangement.spacedBy(2.dp)
-            ) {
-                item {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(vertical = 4.dp)
-                    ) {
-                        com.vinnovateit.latch.features.stats.components.GameStatRow(
-                            label = "Total data",
-                            value = totalFormatted.first,
-                            unit = totalFormatted.second
-                        )
-                        com.vinnovateit.latch.features.stats.components.GameStatRow(
-                            label = "Portal sessions",
-                            value = "$totalSessions"
-                        )
-                        com.vinnovateit.latch.features.stats.components.GameStatRow(
-                            label = "Active days",
-                            value = "${olderDayRecords.size}",
-                            unit = "days"
-                        )
-                    }
-                    Spacer(Modifier.height(8.dp))
-                }
 
-                itemsIndexed(
-                    items = olderDayRecords,
-                    key = { index, record -> "day_${record.dayTimestamp}_$index" }
-                ) { index, record ->
-                    DayAggregateListItem(
-                        record = record,
-                        shape = groupedItemShape(index, olderDayRecords.size)
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .horizontalScroll(filterScrollState)
+                    .padding(horizontal = 16.dp, vertical = 4.dp),
+                horizontalArrangement = Arrangement.spacedBy(0.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                HistoryFilterOption.entries.forEachIndexed { index, filter ->
+                    val isSelected = filter == selectedFilter
+                    FilterChip(
+                        selected = isSelected,
+                        onClick = { selectedFilter = filter },
+                        shape = filterChipShape(index),
+                        label = {
+                            Text(
+                                text = filter.label,
+                                style = MaterialTheme.typography.labelMedium,
+                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
+                            )
+                        },
+                        colors = FilterChipDefaults.filterChipColors(
+                            containerColor = Color.Transparent,
+                            selectedContainerColor = Color.Transparent,
+                            labelColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                            selectedLabelColor = MaterialTheme.colorScheme.primary
+                        ),
+                        border = BorderStroke(
+                            1.dp,
+                            if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant
+                        )
                     )
+                }
+            }
+
+            Spacer(Modifier.height(4.dp))
+
+            if (filteredSortedRecords.isEmpty()) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(16.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    NoDataCard("No session history for the selected filter.")
+                }
+            } else {
+                LazyColumn(
+                    state = lazyListState,
+                    modifier = Modifier.fillMaxSize(),
+                    contentPadding = PaddingValues(bottom = 32.dp),
+                    verticalArrangement = Arrangement.spacedBy(2.dp)
+                ) {
+                    item {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 4.dp)
+                        ) {
+                            GameStatRow(
+                                label = "Total data",
+                                value = totalFormatted.first,
+                                unit = totalFormatted.second
+                            )
+                            GameStatRow(
+                                label = "Portal sessions",
+                                value = "$totalSessions"
+                            )
+                            GameStatRow(
+                                label = "Active days",
+                                value = "${filteredSortedRecords.size}",
+                                unit = "days"
+                            )
+                        }
+                        Spacer(Modifier.height(8.dp))
+                    }
+
+                    groupedByYear.forEach { (year, yearRecords) ->
+                        item(key = "year_header_$year") {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 20.dp, vertical = 8.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = "$year",
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.primary
+                                )
+                                val yearTotalBytes = yearRecords.sumOf { it.totalBytes }
+                                val (yrVal, yrUnit) = formatBytes(yearTotalBytes)
+                                Text(
+                                    text = "$yrVal $yrUnit · ${yearRecords.size} ${if (yearRecords.size == 1) "day" else "days"}",
+                                    style = MaterialTheme.typography.labelMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+
+                        itemsIndexed(
+                            items = yearRecords,
+                            key = { _, record -> "day_${record.dayTimestamp}" }
+                        ) { index, record ->
+                            DayAggregateListItem(
+                                record = record,
+                                shape = groupedItemShape(index, yearRecords.size)
+                            )
+                        }
+                    }
                 }
             }
         }

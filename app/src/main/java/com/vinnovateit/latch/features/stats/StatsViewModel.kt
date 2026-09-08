@@ -48,6 +48,7 @@ data class AggregatedDayRecord(
   val sessionCount: Int,
   val totalDurationMillis: Long,
   val durationFormatted: String,
+  val isToday: Boolean = false,
 )
 
 class StatsViewModel(application: Application) : AndroidViewModel(application) {
@@ -79,21 +80,23 @@ class StatsViewModel(application: Application) : AndroidViewModel(application) {
     }.flowOn(Dispatchers.Default)
       .stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
 
-  val olderDayRecords: StateFlow<List<AggregatedDayRecord>> =
+  val allDayRecords: StateFlow<List<AggregatedDayRecord>> =
     nonZeroPortalHistory.map { list ->
       val todayKey = formatDate(System.currentTimeMillis(), "yyyy-MM-dd")
       list
-        .filter { it.loginTime > 0 && formatDate(it.loginTime, "yyyy-MM-dd") != todayKey }
+        .filter { it.loginTime > 0 }
         .groupBy { formatDate(it.loginTime, "yyyy-MM-dd") }
-        .map { (_, daySessions) ->
+        .map { (key, daySessions) ->
           val first = daySessions.first()
           val dl = daySessions.sumOf { it.downloadBytes }
           val ul = daySessions.sumOf { it.uploadBytes }
           val total = daySessions.sumOf { it.totalBytes.coerceAtLeast(it.downloadBytes + it.uploadBytes) }
           val totalDur = daySessions.sumOf { it.durationMillis }
+          val isToday = (key == todayKey)
           AggregatedDayRecord(
             dayTimestamp = first.loginTime,
-            dateFormatted = com.vinnovateit.latch.common.util.formatDisplayDate(first.loginTime),
+            dateFormatted = if (isToday) "Today, ${com.vinnovateit.latch.common.util.formatDisplayDate(first.loginTime)}"
+            else com.vinnovateit.latch.common.util.formatDisplayDate(first.loginTime),
             downloadBytes = dl,
             uploadBytes = ul,
             totalBytes = total,
@@ -102,12 +105,15 @@ class StatsViewModel(application: Application) : AndroidViewModel(application) {
             totalFormatted = com.vinnovateit.latch.common.util.formatBytes(total),
             sessionCount = daySessions.size,
             totalDurationMillis = totalDur,
-            durationFormatted = com.vinnovateit.latch.common.util.formatDurationDynamic(totalDur)
+            durationFormatted = com.vinnovateit.latch.common.util.formatDurationDynamic(totalDur),
+            isToday = isToday
           )
         }
         .sortedByDescending { it.dayTimestamp }
     }.flowOn(Dispatchers.Default)
       .stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
+
+  val olderDayRecords: StateFlow<List<AggregatedDayRecord>> = allDayRecords
 
   val overviewMetrics: StateFlow<StatsOverviewMetrics> =
     nonZeroPortalHistory.map { sessions ->
