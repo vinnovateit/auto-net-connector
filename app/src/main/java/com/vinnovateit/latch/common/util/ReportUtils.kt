@@ -4,6 +4,7 @@ import com.vinnovateit.latch.core.model.PortalSessionRecord
 import com.vinnovateit.latch.core.model.SessionSummary
 import java.io.OutputStream
 import java.text.SimpleDateFormat
+import java.util.Calendar
 import java.util.Date
 import java.util.Locale
 
@@ -42,7 +43,7 @@ fun generateHtmlReport(
 }
 
 /**
- * Generates a modern dashboard-styled HTML report from captive portal session records.
+ * Generates a clean light-themed monospace outline HTML report matching Session History layout.
  */
 fun generatePortalHtmlReport(
     sessions: List<PortalSessionRecord>,
@@ -52,6 +53,8 @@ fun generatePortalHtmlReport(
 ) {
     val writer = outputStream.bufferedWriter()
     val dateFormat = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.US)
+    val dayKeyFormat = SimpleDateFormat("yyyy-MM-dd", Locale.US)
+    val dayDisplayFormat = SimpleDateFormat("dd MMM, EEE", Locale.US)
     val generatedAt = dateFormat.format(Date())
 
     val totalBytes = sessions.sumOf { if (it.totalBytes > 0) it.totalBytes else (it.uploadBytes + it.downloadBytes) }
@@ -59,6 +62,7 @@ fun generatePortalHtmlReport(
     val totalDownload = sessions.sumOf { it.downloadBytes }
     val totalDurationMillis = sessions.sumOf { it.durationMillis }
     val sessionCount = sessions.size
+    val sessionUnit = if (sessionCount == 1) "session" else "sessions"
 
     val topLocation = if (sessions.isEmpty()) {
         "N/A"
@@ -72,435 +76,564 @@ fun generatePortalHtmlReport(
 
     val totalDurationFormatted = formatReportDuration(totalDurationMillis)
 
-    val html = buildString {
-        appendLine("<!DOCTYPE html>")
-        appendLine("<html lang=\"en\">")
-        appendLine("<head>")
-        appendLine("    <meta charset=\"UTF-8\">")
-        appendLine("    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">")
-        appendLine("    <title>Latch Session Report</title>")
-        appendLine("    <style>")
-        appendLine("        :root {")
-        appendLine("            --bg: #0f172a;")
-        appendLine("            --surface: #1e293b;")
-        appendLine("            --surface-hover: #26354a;")
-        appendLine("            --border: #334155;")
-        appendLine("            --text-primary: #f8fafc;")
-        appendLine("            --text-secondary: #94a3b8;")
-        appendLine("            --text-muted: #64748b;")
-        appendLine("            --accent-blue: #0ea5e9;")
-        appendLine("            --accent-green: #10b981;")
-        appendLine("            --radius-lg: 14px;")
-        appendLine("            --radius-md: 8px;")
-        appendLine("            --radius-sm: 6px;")
-        appendLine("        }")
-        appendLine("        * {")
-        appendLine("            box-sizing: border-box;")
-        appendLine("            margin: 0;")
-        appendLine("            padding: 0;")
-        appendLine("        }")
-        appendLine("        body {")
-        appendLine("            font-family: -apple-system, BlinkMacSystemFont, \"Segoe UI\", Roboto, Helvetica, Arial, sans-serif;")
-        appendLine("            background-color: var(--bg);")
-        appendLine("            color: var(--text-primary);")
-        appendLine("            line-height: 1.5;")
-        appendLine("            padding: 32px 24px;")
-        appendLine("            -webkit-font-smoothing: antialiased;")
-        appendLine("        }")
-        appendLine("        .container {")
-        appendLine("            max-width: 1200px;")
-        appendLine("            margin: 0 auto;")
-        appendLine("        }")
-        appendLine("        /* Header */")
-        appendLine("        .header {")
-        appendLine("            display: flex;")
-        appendLine("            justify-content: space-between;")
-        appendLine("            align-items: flex-start;")
-        appendLine("            flex-wrap: wrap;")
-        appendLine("            gap: 16px;")
-        appendLine("            margin-bottom: 28px;")
-        appendLine("            padding-bottom: 20px;")
-        appendLine("            border-bottom: 1px solid var(--border);")
-        appendLine("        }")
-        appendLine("        .header-title-group h1 {")
-        appendLine("            font-size: 26px;")
-        appendLine("            font-weight: 700;")
-        appendLine("            color: var(--text-primary);")
-        appendLine("            letter-spacing: -0.02em;")
-        appendLine("        }")
-        appendLine("        .header-title-group .subtitle {")
-        appendLine("            color: var(--text-secondary);")
-        appendLine("            font-size: 14px;")
-        appendLine("            margin-top: 4px;")
-        appendLine("        }")
-        appendLine("        .meta-tags {")
-        appendLine("            display: flex;")
-        appendLine("            flex-wrap: wrap;")
-        appendLine("            gap: 8px;")
-        appendLine("            align-items: center;")
-        appendLine("        }")
-        appendLine("        .meta-badge {")
-        appendLine("            display: inline-flex;")
-        appendLine("            align-items: center;")
-        appendLine("            padding: 5px 12px;")
-        appendLine("            border-radius: var(--radius-sm);")
-        appendLine("            font-size: 12px;")
-        appendLine("            font-weight: 500;")
-        appendLine("            background: var(--surface);")
-        appendLine("            border: 1px solid var(--border);")
-        appendLine("            color: var(--text-secondary);")
-        appendLine("        }")
-        appendLine("        .meta-badge strong {")
-        appendLine("            color: var(--text-primary);")
-        appendLine("            margin-left: 4px;")
-        appendLine("        }")
-        appendLine("        .meta-badge.user-badge {")
-        appendLine("            background: rgba(14, 165, 233, 0.12);")
-        appendLine("            border-color: rgba(14, 165, 233, 0.3);")
-        appendLine("            color: var(--accent-blue);")
-        appendLine("        }")
-        appendLine("        .meta-badge.user-badge strong {")
-        appendLine("            color: var(--accent-blue);")
-        appendLine("        }")
-        appendLine("        /* KPI Stat Cards */")
-        appendLine("        .stats-grid {")
-        appendLine("            display: grid;")
-        appendLine("            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));")
-        appendLine("            gap: 20px;")
-        appendLine("            margin-bottom: 28px;")
-        appendLine("        }")
-        appendLine("        .card {")
-        appendLine("            background-color: var(--surface);")
-        appendLine("            border: 1px solid var(--border);")
-        appendLine("            border-radius: var(--radius-lg);")
-        appendLine("            padding: 20px;")
-        appendLine("            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.2), 0 2px 4px -2px rgba(0, 0, 0, 0.1);")
-        appendLine("            display: flex;")
-        appendLine("            flex-direction: column;")
-        appendLine("            justify-content: space-between;")
-        appendLine("        }")
-        appendLine("        .card-label {")
-        appendLine("            font-size: 12px;")
-        appendLine("            font-weight: 600;")
-        appendLine("            color: var(--text-secondary);")
-        appendLine("            text-transform: uppercase;")
-        appendLine("            letter-spacing: 0.05em;")
-        appendLine("            margin-bottom: 8px;")
-        appendLine("        }")
-        appendLine("        .card-value {")
-        appendLine("            font-size: 26px;")
-        appendLine("            font-weight: 700;")
-        appendLine("            color: var(--text-primary);")
-        appendLine("            letter-spacing: -0.02em;")
-        appendLine("        }")
-        appendLine("        .card-caption {")
-        appendLine("            font-size: 12px;")
-        appendLine("            color: var(--text-muted);")
-        appendLine("            margin-top: 8px;")
-        appendLine("        }")
-        appendLine("        .sub-pills {")
-        appendLine("            display: flex;")
-        appendLine("            gap: 8px;")
-        appendLine("            margin-top: 10px;")
-        appendLine("            flex-wrap: wrap;")
-        appendLine("        }")
-        appendLine("        .sub-pill {")
-        appendLine("            display: inline-flex;")
-        appendLine("            align-items: center;")
-        appendLine("            gap: 4px;")
-        appendLine("            font-size: 11px;")
-        appendLine("            font-weight: 600;")
-        appendLine("            padding: 3px 8px;")
-        appendLine("            border-radius: 6px;")
-        appendLine("        }")
-        appendLine("        .sub-pill.upload {")
-        appendLine("            background: rgba(14, 165, 233, 0.15);")
-        appendLine("            color: var(--accent-blue);")
-        appendLine("        }")
-        appendLine("        .sub-pill.download {")
-        appendLine("            background: rgba(16, 185, 129, 0.15);")
-        appendLine("            color: var(--accent-green);")
-        appendLine("        }")
-        appendLine("        /* Data Table */")
-        appendLine("        .table-container {")
-        appendLine("            background-color: var(--surface);")
-        appendLine("            border: 1px solid var(--border);")
-        appendLine("            border-radius: var(--radius-lg);")
-        appendLine("            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.2), 0 2px 4px -2px rgba(0, 0, 0, 0.1);")
-        appendLine("            overflow: hidden;")
-        appendLine("            margin-bottom: 28px;")
-        appendLine("        }")
-        appendLine("        .table-header-bar {")
-        appendLine("            padding: 16px 20px;")
-        appendLine("            border-bottom: 1px solid var(--border);")
-        appendLine("            display: flex;")
-        appendLine("            justify-content: space-between;")
-        appendLine("            align-items: center;")
-        appendLine("        }")
-        appendLine("        .table-header-bar h2 {")
-        appendLine("            font-size: 15px;")
-        appendLine("            font-weight: 600;")
-        appendLine("            color: var(--text-primary);")
-        appendLine("        }")
-        appendLine("        .table-wrapper {")
-        appendLine("            overflow-x: auto;")
-        appendLine("        }")
-        appendLine("        table {")
-        appendLine("            width: 100%;")
-        appendLine("            border-collapse: collapse;")
-        appendLine("            font-size: 13px;")
-        appendLine("            text-align: left;")
-        appendLine("        }")
-        appendLine("        thead {")
-        appendLine("            background-color: rgba(15, 23, 42, 0.5);")
-        appendLine("            border-bottom: 1px solid var(--border);")
-        appendLine("        }")
-        appendLine("        th {")
-        appendLine("            padding: 12px 16px;")
-        appendLine("            font-size: 11px;")
-        appendLine("            font-weight: 700;")
-        appendLine("            text-transform: uppercase;")
-        appendLine("            letter-spacing: 0.05em;")
-        appendLine("            color: var(--text-secondary);")
-        appendLine("            white-space: nowrap;")
-        appendLine("        }")
-        appendLine("        td {")
-        appendLine("            padding: 14px 16px;")
-        appendLine("            border-bottom: 1px solid rgba(51, 65, 85, 0.5);")
-        appendLine("            color: var(--text-primary);")
-        appendLine("            vertical-align: middle;")
-        appendLine("            white-space: nowrap;")
-        appendLine("        }")
-        appendLine("        tbody tr {")
-        appendLine("            transition: background-color 0.15s ease;")
-        appendLine("        }")
-        appendLine("        tbody tr:hover {")
-        appendLine("            background-color: var(--surface-hover);")
-        appendLine("        }")
-        appendLine("        tbody tr:last-child td {")
-        appendLine("            border-bottom: none;")
-        appendLine("        }")
-        appendLine("        .num-col {")
-        appendLine("            color: var(--text-muted);")
-        appendLine("            width: 32px;")
-        appendLine("            font-weight: 500;")
-        appendLine("        }")
-        appendLine("        .badge {")
-        appendLine("            display: inline-flex;")
-        appendLine("            align-items: center;")
-        appendLine("            padding: 3px 8px;")
-        appendLine("            border-radius: var(--radius-sm);")
-        appendLine("            font-size: 12px;")
-        appendLine("            font-weight: 600;")
-        appendLine("        }")
-        appendLine("        .badge-location {")
-        appendLine("            background-color: rgba(14, 165, 233, 0.12);")
-        appendLine("            color: #38bdf8;")
-        appendLine("            border: 1px solid rgba(14, 165, 233, 0.25);")
-        appendLine("        }")
-        appendLine("        .badge-duration {")
-        appendLine("            background-color: rgba(148, 163, 184, 0.12);")
-        appendLine("            color: #cbd5e1;")
-        appendLine("        }")
-        appendLine("        .bytes-cell {")
-        appendLine("            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;")
-        appendLine("            font-size: 12px;")
-        appendLine("        }")
-        appendLine("        .empty-row {")
-        appendLine("            text-align: center;")
-        appendLine("            padding: 36px 16px;")
-        appendLine("            color: var(--text-muted);")
-        appendLine("        }")
-        appendLine("        /* Footer */")
-        appendLine("        .footer {")
-        appendLine("            text-align: center;")
-        appendLine("            font-size: 12px;")
-        appendLine("            color: var(--text-muted);")
-        appendLine("            padding-top: 12px;")
-        appendLine("        }")
-        appendLine("        /* Print Styles */")
-        appendLine("        @media print {")
-        appendLine("            body {")
-        appendLine("                background-color: #ffffff !important;")
-        appendLine("                color: #0f172a !important;")
-        appendLine("                padding: 12px !important;")
-        appendLine("            }")
-        appendLine("            .header {")
-        appendLine("                border-bottom: 2px solid #e2e8f0 !important;")
-        appendLine("            }")
-        appendLine("            .header-title-group h1 {")
-        appendLine("                color: #0f172a !important;")
-        appendLine("            }")
-        appendLine("            .card {")
-        appendLine("                background-color: #f8fafc !important;")
-        appendLine("                border: 1px solid #cbd5e1 !important;")
-        appendLine("                box-shadow: none !important;")
-        appendLine("                page-break-inside: avoid;")
-        appendLine("            }")
-        appendLine("            .card-label {")
-        appendLine("                color: #475569 !important;")
-        appendLine("            }")
-        appendLine("            .card-value {")
-        appendLine("                color: #0f172a !important;")
-        appendLine("            }")
-        appendLine("            .table-container {")
-        appendLine("                background-color: #ffffff !important;")
-        appendLine("                border: 1px solid #cbd5e1 !important;")
-        appendLine("                box-shadow: none !important;")
-        appendLine("            }")
-        appendLine("            .table-header-bar {")
-        appendLine("                background-color: #f8fafc !important;")
-        appendLine("            }")
-        appendLine("            .table-header-bar h2 {")
-        appendLine("                color: #0f172a !important;")
-        appendLine("            }")
-        appendLine("            thead {")
-        appendLine("                background-color: #f1f5f9 !important;")
-        appendLine("                border-bottom: 2px solid #cbd5e1 !important;")
-        appendLine("                display: table-header-group;")
-        appendLine("            }")
-        appendLine("            th {")
-        appendLine("                color: #334155 !important;")
-        appendLine("            }")
-        appendLine("            td {")
-        appendLine("                color: #0f172a !important;")
-        appendLine("                border-bottom: 1px solid #e2e8f0 !important;")
-        appendLine("            }")
-        appendLine("            tbody tr {")
-        appendLine("                page-break-inside: avoid;")
-        appendLine("            }")
-        appendLine("            .badge-location {")
-        appendLine("                background-color: #f1f5f9 !important;")
-        appendLine("                color: #0284c7 !important;")
-        appendLine("                border-color: #cbd5e1 !important;")
-        appendLine("            }")
-        appendLine("            .badge-duration {")
-        appendLine("                background-color: #f1f5f9 !important;")
-        appendLine("                color: #334155 !important;")
-        appendLine("            }")
-        appendLine("            .meta-badge {")
-        appendLine("                background: #f1f5f9 !important;")
-        appendLine("                border-color: #cbd5e1 !important;")
-        appendLine("                color: #334155 !important;")
-        appendLine("            }")
-        appendLine("            .sub-pill.upload {")
-        appendLine("                background: #e0f2fe !important;")
-        appendLine("                color: #0369a1 !important;")
-        appendLine("            }")
-        appendLine("            .sub-pill.download {")
-        appendLine("                background: #dcfce7 !important;")
-        appendLine("                color: #15803d !important;")
-        appendLine("            }")
-        appendLine("            .footer {")
-        appendLine("                color: #64748b !important;")
-        appendLine("            }")
-        appendLine("        }")
-        appendLine("    </style>")
-        appendLine("</head>")
-        appendLine("<body>")
-        appendLine("    <div class=\"container\">")
-        appendLine("        <header class=\"header\">")
-        appendLine("            <div class=\"header-title-group\">")
-        appendLine("                <h1>Latch Session Report</h1>")
-        appendLine("                <p class=\"subtitle\">Network diagnostics and captive portal usage overview</p>")
-        appendLine("            </div>")
-        appendLine("            <div class=\"meta-tags\">")
-        if (!userId.isNullOrBlank()) {
-            appendLine("                <div class=\"meta-badge user-badge\">User: <strong>${escapeHtml(userId)}</strong></div>")
+    // Compute day aggregates grouped by month matching Session History
+    val currentYear = Calendar.getInstance().get(Calendar.YEAR)
+    data class DaySummary(
+        val timestamp: Long,
+        val dateFormatted: String,
+        val downloadBytes: Long,
+        val uploadBytes: Long,
+        val totalBytes: Long,
+        val durationFormatted: String,
+        val sessionCount: Int
+    )
+
+    val daysMap = linkedMapOf<String, MutableList<PortalSessionRecord>>()
+    for (s in sessions) {
+        if (s.loginTime > 0) {
+            val key = dayKeyFormat.format(Date(s.loginTime))
+            daysMap.getOrPut(key) { mutableListOf() }.add(s)
         }
-        appendLine("                <div class=\"meta-badge\">Version: <strong>v${escapeHtml(appVersion)}</strong></div>")
-        appendLine("                <div class=\"meta-badge\">Generated: <strong>${escapeHtml(generatedAt)}</strong></div>")
-        appendLine("            </div>")
-        appendLine("        </header>")
-        appendLine("")
-        appendLine("        <section class=\"stats-grid\">")
-        appendLine("            <div class=\"card\">")
-        appendLine("                <div>")
-        appendLine("                    <div class=\"card-label\">Total Data Transfer</div>")
-        appendLine("                    <div class=\"card-value\">${formatBytes(totalBytes)}</div>")
-        appendLine("                </div>")
-        appendLine("                <div class=\"sub-pills\">")
-        appendLine("                    <span class=\"sub-pill upload\">↑ ${formatBytes(totalUpload)}</span>")
-        appendLine("                    <span class=\"sub-pill download\">↓ ${formatBytes(totalDownload)}</span>")
-        appendLine("                </div>")
-        appendLine("            </div>")
-        appendLine("            <div class=\"card\">")
-        appendLine("                <div>")
-        appendLine("                    <div class=\"card-label\">Total Active Duration</div>")
-        appendLine("                    <div class=\"card-value\">$totalDurationFormatted</div>")
-        appendLine("                </div>")
-        appendLine("                <div class=\"card-caption\">Cumulative connected time</div>")
-        appendLine("            </div>")
-        appendLine("            <div class=\"card\">")
-        appendLine("                <div>")
-        appendLine("                    <div class=\"card-label\">Total Sessions Logged</div>")
-        appendLine("                    <div class=\"card-value\">$sessionCount ${if (sessionCount == 1) "session" else "sessions"}</div>")
-        appendLine("                </div>")
-        appendLine("                <div class=\"card-caption\">Historical portal connections</div>")
-        appendLine("            </div>")
-        appendLine("            <div class=\"card\">")
-        appendLine("                <div>")
-        appendLine("                    <div class=\"card-label\">Top Location</div>")
-        appendLine("                    <div class=\"card-value\">${escapeHtml(topLocation)}</div>")
-        appendLine("                </div>")
-        appendLine("                <div class=\"card-caption\">Most frequented portal network</div>")
-        appendLine("            </div>")
-        appendLine("        </section>")
-        appendLine("")
-        appendLine("        <section class=\"table-container\">")
-        appendLine("            <div class=\"table-header-bar\">")
-        appendLine("                <h2>Session Details</h2>")
-        appendLine("            </div>")
-        appendLine("            <div class=\"table-wrapper\">")
-        appendLine("                <table>")
-        appendLine("                    <thead>")
-        appendLine("                        <tr>")
-        appendLine("                            <th class=\"num-col\">#</th>")
-        appendLine("                            <th>Location</th>")
-        appendLine("                            <th>Login Time</th>")
-        appendLine("                            <th>Logout Time</th>")
-        appendLine("                            <th>Duration</th>")
-        appendLine("                            <th>Upload</th>")
-        appendLine("                            <th>Download</th>")
-        appendLine("                            <th>Total Data</th>")
-        appendLine("                        </tr>")
-        appendLine("                    </thead>")
-        appendLine("                    <tbody>")
+    }
+
+    val daySummaries = daysMap.map { (_, daySessions) ->
+        val dayTimestamp = daySessions.minOf { it.loginTime }
+        val dl = daySessions.sumOf { it.downloadBytes }
+        val ul = daySessions.sumOf { it.uploadBytes }
+        val tot = daySessions.sumOf { if (it.totalBytes > 0) it.totalBytes else (it.uploadBytes + it.downloadBytes) }
+        val durMs = daySessions.sumOf { it.durationMillis }
+        DaySummary(
+            timestamp = dayTimestamp,
+            dateFormatted = dayDisplayFormat.format(Date(dayTimestamp)),
+            downloadBytes = dl,
+            uploadBytes = ul,
+            totalBytes = tot,
+            durationFormatted = formatReportDuration(durMs),
+            sessionCount = daySessions.size
+        )
+    }.sortedByDescending { it.timestamp }
+
+    val monthGroups = linkedMapOf<String, MutableList<DaySummary>>()
+    val cal = Calendar.getInstance()
+    for (day in daySummaries) {
+        cal.timeInMillis = day.timestamp
+        val year = cal.get(Calendar.YEAR)
+        val monthPattern = if (year == currentYear) "MMMM" else "MMMM yyyy"
+        val monthTitle = SimpleDateFormat(monthPattern, Locale.US).format(Date(day.timestamp))
+        monthGroups.getOrPut(monthTitle) { mutableListOf() }.add(day)
+    }
+
+    val userBadgeHtml = if (!userId.isNullOrBlank()) {
+        """<div class="meta-badge user-badge">User: <strong>${escapeHtml(userId)}</strong></div>"""
+    } else ""
+
+    val monthGroupsHtml = buildString {
+        if (monthGroups.isNotEmpty()) {
+            appendLine("""        <section class="history-section">""")
+            appendLine("""            <div class="history-title">Session History</div>""")
+            monthGroups.forEach { (monthTitle, days) ->
+                val monthTotal = formatBytes(days.sumOf { it.totalBytes })
+                val dayCount = days.size
+                val dayUnit = if (dayCount == 1) "day" else "days"
+                appendLine("""            <div class="month-group">""")
+                appendLine("""                <div class="month-header">""")
+                appendLine("""                    <span class="month-title">${escapeHtml(monthTitle)}</span>""")
+                appendLine("""                    <span class="month-meta">$monthTotal · $dayCount $dayUnit</span>""")
+                appendLine("""                </div>""")
+                appendLine("""                <div class="day-list">""")
+                days.forEach { day ->
+                    appendLine("""                    <div class="day-card">""")
+                    appendLine("""                        <div class="day-info">""")
+                    appendLine("""                            <div class="day-title-row">""")
+                    appendLine("""                                <span class="day-date">${escapeHtml(day.dateFormatted)}</span>""")
+                    appendLine("""                                <span class="sess-pill">${day.sessionCount} sess</span>""")
+                    appendLine("""                            </div>""")
+                    appendLine("""                            <div class="day-sub-row">""")
+                    appendLine("""                                <span class="dl">↓ ${formatBytes(day.downloadBytes)}</span>""")
+                    appendLine("""                                <span class="ul">↑ ${formatBytes(day.uploadBytes)}</span>""")
+                    if (day.durationFormatted.isNotBlank()) {
+                        appendLine("""                                <span class="dur">${escapeHtml(day.durationFormatted)}</span>""")
+                    }
+                    appendLine("""                            </div>""")
+                    appendLine("""                        </div>""")
+                    appendLine("""                        <div class="day-total">${formatBytes(day.totalBytes)}</div>""")
+                    appendLine("""                    </div>""")
+                }
+                appendLine("""                </div>""")
+                appendLine("""            </div>""")
+            }
+            appendLine("""        </section>""")
+        }
+    }
+
+    val rowsHtml = buildString {
         if (sessions.isEmpty()) {
-            appendLine("                        <tr>")
-            appendLine("                            <td colspan=\"8\" class=\"empty-row\">No session data available.</td>")
-            appendLine("                        </tr>")
+            appendLine("""                        <tr><td colspan="8" class="empty-row">No session data available.</td></tr>""")
         } else {
             sessions.forEachIndexed { index, session ->
                 val loginTimeStr = if (session.loginTime > 0) dateFormat.format(Date(session.loginTime)) else "-"
                 val logoutTimeStr = if (session.logoutTime > 0) dateFormat.format(Date(session.logoutTime)) else "-"
                 val durationStr = session.durationFormatted.ifBlank { formatReportDuration(session.durationMillis) }
                 val rowTotal = if (session.totalBytes > 0) session.totalBytes else (session.uploadBytes + session.downloadBytes)
-
-                appendLine("                        <tr>")
-                appendLine("                            <td class=\"num-col\">${index + 1}</td>")
-                appendLine("                            <td><span class=\"badge badge-location\">${escapeHtml(session.location.ifBlank { "Unknown" })}</span></td>")
-                appendLine("                            <td>${escapeHtml(loginTimeStr)}</td>")
-                appendLine("                            <td>${escapeHtml(logoutTimeStr)}</td>")
-                appendLine("                            <td><span class=\"badge badge-duration\">${escapeHtml(durationStr)}</span></td>")
-                appendLine("                            <td class=\"bytes-cell\">${formatBytes(session.uploadBytes)}</td>")
-                appendLine("                            <td class=\"bytes-cell\">${formatBytes(session.downloadBytes)}</td>")
-                appendLine("                            <td class=\"bytes-cell\">${formatBytes(rowTotal)}</td>")
-                appendLine("                        </tr>")
+                val loc = session.location.ifBlank { "Unknown" }
+                appendLine("""                        <tr>""")
+                appendLine("""                            <td class="num-col">${index + 1}</td>""")
+                appendLine("""                            <td><span class="badge badge-location">${escapeHtml(loc)}</span></td>""")
+                appendLine("""                            <td>${escapeHtml(loginTimeStr)}</td>""")
+                appendLine("""                            <td>${escapeHtml(logoutTimeStr)}</td>""")
+                appendLine("""                            <td><span class="badge badge-duration">${escapeHtml(durationStr)}</span></td>""")
+                appendLine("""                            <td class="bytes-cell">${formatBytes(session.uploadBytes)}</td>""")
+                appendLine("""                            <td class="bytes-cell">${formatBytes(session.downloadBytes)}</td>""")
+                appendLine("""                            <td class="bytes-cell">${formatBytes(rowTotal)}</td>""")
+                appendLine("""                        </tr>""")
             }
         }
-        appendLine("                    </tbody>")
-        appendLine("                </table>")
-        appendLine("            </div>")
-        appendLine("        </section>")
-        appendLine("")
-        appendLine("        <footer class=\"footer\">")
-        appendLine("            Generated automatically by Latch v${escapeHtml(appVersion)}")
-        appendLine("        </footer>")
-        appendLine("    </div>")
-        appendLine("</body>")
-        appendLine("</html>")
     }
+
+    val html = """
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Latch Session Report</title>
+    <style>
+        :root {
+            --bg: #ffffff;
+            --text-primary: #111827;
+            --text-secondary: #4b5563;
+            --text-muted: #6b7280;
+            --border: #e5e7eb;
+            --border-strong: #d1d5db;
+            --accent-blue: #2563eb;
+            --accent-green: #16a34a;
+            --radius-lg: 12px;
+            --radius-md: 8px;
+            --radius-sm: 6px;
+        }
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+        body {
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+            background-color: var(--bg);
+            color: var(--text-primary);
+            line-height: 1.5;
+            padding: 32px 24px;
+            -webkit-font-smoothing: antialiased;
+        }
+        .container {
+            max-width: 960px;
+            margin: 0 auto;
+        }
+        /* Header */
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            flex-wrap: wrap;
+            gap: 16px;
+            margin-bottom: 24px;
+            padding-bottom: 16px;
+            border-bottom: 1px solid var(--border);
+        }
+        .header-title-group h1 {
+            font-size: 20px;
+            font-weight: 700;
+            letter-spacing: -0.01em;
+            color: var(--text-primary);
+        }
+        .header-title-group .subtitle {
+            color: var(--text-secondary);
+            font-size: 13px;
+            margin-top: 4px;
+        }
+        .meta-tags {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            align-items: center;
+        }
+        .meta-badge {
+            display: inline-flex;
+            align-items: center;
+            padding: 4px 10px;
+            border-radius: var(--radius-sm);
+            font-size: 12px;
+            background: transparent;
+            border: 1px solid var(--border-strong);
+            color: var(--text-secondary);
+        }
+        .meta-badge strong {
+            color: var(--text-primary);
+            margin-left: 4px;
+        }
+        .meta-badge.user-badge {
+            border-color: var(--accent-blue);
+            color: var(--accent-blue);
+        }
+        .meta-badge.user-badge strong {
+            color: var(--accent-blue);
+        }
+        /* KPI Stat Cards (Borders only, no fill, no shadows) */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 16px;
+            margin-bottom: 28px;
+        }
+        .card {
+            background: transparent;
+            border: 1px solid var(--border);
+            border-radius: var(--radius-lg);
+            padding: 16px;
+            box-shadow: none;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+        }
+        .card-label {
+            font-size: 11px;
+            font-weight: 700;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: 6px;
+        }
+        .card-value {
+            font-size: 22px;
+            font-weight: 800;
+            color: var(--text-primary);
+        }
+        .card-caption {
+            font-size: 11px;
+            color: var(--text-muted);
+            margin-top: 6px;
+        }
+        .sub-pills {
+            display: flex;
+            gap: 8px;
+            margin-top: 8px;
+            flex-wrap: wrap;
+        }
+        .sub-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            font-size: 11px;
+            font-weight: 600;
+            padding: 2px 6px;
+            border-radius: var(--radius-sm);
+            background: transparent;
+            border: 1px solid var(--border);
+        }
+        .sub-pill.upload {
+            color: var(--accent-blue);
+            border-color: var(--accent-blue);
+        }
+        .sub-pill.download {
+            color: var(--accent-green);
+            border-color: var(--accent-green);
+        }
+        /* Session History Layout: Month Groups & Day Cards */
+        .history-section {
+            margin-bottom: 28px;
+        }
+        .history-title {
+            font-size: 13px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--text-secondary);
+            margin-bottom: 12px;
+        }
+        .month-group {
+            margin-bottom: 20px;
+        }
+        .month-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 4px;
+            margin-bottom: 8px;
+            border-bottom: 1px solid var(--border);
+        }
+        .month-title {
+            font-size: 14px;
+            font-weight: 700;
+            color: var(--text-primary);
+        }
+        .month-meta {
+            font-size: 12px;
+            color: var(--text-muted);
+        }
+        .day-list {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        .day-card {
+            background: transparent;
+            border: 1px solid var(--border);
+            border-radius: var(--radius-md);
+            padding: 12px 16px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 12px;
+        }
+        .day-info {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+        .day-title-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .day-date {
+            font-size: 13px;
+            font-weight: 700;
+            color: var(--text-primary);
+        }
+        .sess-pill {
+            display: inline-block;
+            font-size: 11px;
+            font-weight: 600;
+            padding: 1px 6px;
+            border-radius: var(--radius-sm);
+            background: transparent;
+            border: 1px solid var(--border-strong);
+            color: var(--text-secondary);
+        }
+        .day-sub-row {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-size: 12px;
+            color: var(--text-muted);
+            flex-wrap: wrap;
+        }
+        .day-sub-row .dl {
+            color: var(--accent-green);
+            font-weight: 600;
+        }
+        .day-sub-row .ul {
+            color: var(--accent-blue);
+            font-weight: 600;
+        }
+        .day-sub-row .dur {
+            color: var(--text-secondary);
+        }
+        .day-total {
+            text-align: right;
+            font-size: 15px;
+            font-weight: 800;
+            color: var(--text-primary);
+        }
+        /* Data Table (Borders only, no fill, no shadows) */
+        .table-container {
+            background: transparent;
+            border: 1px solid var(--border);
+            border-radius: var(--radius-lg);
+            overflow: hidden;
+            box-shadow: none;
+            margin-bottom: 28px;
+        }
+        .table-header-bar {
+            padding: 12px 16px;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .table-header-bar h2 {
+            font-size: 13px;
+            font-weight: 700;
+            color: var(--text-primary);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+        .table-wrapper {
+            overflow-x: auto;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 12px;
+            text-align: left;
+        }
+        thead {
+            background: transparent;
+            border-bottom: 1px solid var(--border);
+        }
+        th {
+            padding: 10px 14px;
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--text-secondary);
+            white-space: nowrap;
+        }
+        td {
+            padding: 10px 14px;
+            border-bottom: 1px solid var(--border);
+            color: var(--text-primary);
+            vertical-align: middle;
+            white-space: nowrap;
+        }
+        tbody tr:last-child td {
+            border-bottom: none;
+        }
+        .num-col {
+            color: var(--text-muted);
+            width: 28px;
+            font-weight: 500;
+        }
+        .badge {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 6px;
+            border-radius: var(--radius-sm);
+            font-size: 11px;
+            font-weight: 600;
+            background: transparent;
+            border: 1px solid var(--border);
+        }
+        .badge-location {
+            color: var(--text-primary);
+            border-color: var(--border-strong);
+        }
+        .badge-duration {
+            color: var(--text-secondary);
+        }
+        .bytes-cell {
+            font-size: 12px;
+        }
+        .empty-row {
+            text-align: center;
+            padding: 32px 16px;
+            color: var(--text-muted);
+        }
+        /* Footer */
+        .footer {
+            text-align: center;
+            font-size: 11px;
+            color: var(--text-muted);
+            padding-top: 12px;
+            border-top: 1px solid var(--border);
+        }
+        /* Print Styles (Strict light outline, no shadows) */
+        @media print {
+            body {
+                background: #ffffff !important;
+                color: #000000 !important;
+                padding: 12px !important;
+            }
+            .card, .table-container, .day-card {
+                border-color: #000000 !important;
+                box-shadow: none !important;
+                page-break-inside: avoid;
+            }
+            .header {
+                border-bottom: 1px solid #000000 !important;
+            }
+            th, td {
+                color: #000000 !important;
+                border-bottom: 1px solid #cccccc !important;
+            }
+            tbody tr {
+                page-break-inside: avoid;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header class="header">
+            <div class="header-title-group">
+                <h1>Latch Session Report</h1>
+                <p class="subtitle">Network diagnostics and captive portal usage overview</p>
+            </div>
+            <div class="meta-tags">
+                $userBadgeHtml
+                <div class="meta-badge">Version: <strong>v${escapeHtml(appVersion)}</strong></div>
+                <div class="meta-badge">Generated: <strong>${escapeHtml(generatedAt)}</strong></div>
+            </div>
+        </header>
+
+        <section class="stats-grid">
+            <div class="card">
+                <div>
+                    <div class="card-label">Total Data Transfer</div>
+                    <div class="card-value">${formatBytes(totalBytes)}</div>
+                </div>
+                <div class="sub-pills">
+                    <span class="sub-pill download">↓ ${formatBytes(totalDownload)}</span>
+                    <span class="sub-pill upload">↑ ${formatBytes(totalUpload)}</span>
+                </div>
+            </div>
+            <div class="card">
+                <div>
+                    <div class="card-label">Total Active Duration</div>
+                    <div class="card-value">$totalDurationFormatted</div>
+                </div>
+                <div class="card-caption">Cumulative connected time</div>
+            </div>
+            <div class="card">
+                <div>
+                    <div class="card-label">Total Sessions Logged</div>
+                    <div class="card-value">$sessionCount $sessionUnit</div>
+                </div>
+                <div class="card-caption">Historical portal connections</div>
+            </div>
+            <div class="card">
+                <div>
+                    <div class="card-label">Top Location</div>
+                    <div class="card-value">${escapeHtml(topLocation)}</div>
+                </div>
+                <div class="card-caption">Most frequented portal network</div>
+            </div>
+        </section>
+
+$monthGroupsHtml
+        <section class="table-container">
+            <div class="table-header-bar">
+                <h2>Session Details</h2>
+            </div>
+            <div class="table-wrapper">
+                <table>
+                    <thead>
+                        <tr>
+                            <th class="num-col">#</th>
+                            <th>Location</th>
+                            <th>Login Time</th>
+                            <th>Logout Time</th>
+                            <th>Duration</th>
+                            <th>Upload</th>
+                            <th>Download</th>
+                            <th>Total Data</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+$rowsHtml
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <footer class="footer">
+            Generated automatically by Latch v${escapeHtml(appVersion)}
+        </footer>
+    </div>
+</body>
+</html>
+""".trimIndent()
 
     writer.write(html)
     writer.flush()
