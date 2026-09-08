@@ -29,6 +29,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -65,9 +66,14 @@ fun StatsList(
   statsViewModel: StatsViewModel
 ) {
   val overviewMetrics by statsViewModel.overviewMetrics.collectAsStateWithLifecycle()
-  val usageTrends by statsViewModel.usageTrends.collectAsStateWithLifecycle()
   val chartItems by statsViewModel.chartItems.collectAsStateWithLifecycle()
-  val itemsToDisplay = if (showAllSessions) portalHistory else portalHistory.take(5)
+  val selectedFilter by statsViewModel.selectedFilter.collectAsStateWithLifecycle()
+  val todaySessions by statsViewModel.todaySessions.collectAsStateWithLifecycle()
+  val olderDayRecords by statsViewModel.olderDayRecords.collectAsStateWithLifecycle()
+  var displayedOlderDaysCount by remember { mutableIntStateOf(30) }
+  val visibleOlderDays = remember(olderDayRecords, displayedOlderDaysCount) {
+    olderDayRecords.take(displayedOlderDaysCount)
+  }
   val layoutDirection = LocalLayoutDirection.current
 
   LazyColumn(
@@ -106,73 +112,62 @@ fun StatsList(
 
     if (chartItems.isNotEmpty()) {
       item {
-        HistoryBarChart(history = chartItems)
+        HistoryBarChart(
+          history = chartItems,
+          selectedFilter = selectedFilter,
+          onFilterSelected = { statsViewModel.setFilter(it) }
+        )
         Spacer(modifier = Modifier.height(15.dp))
       }
     }
 
-    if (itemsToDisplay.isNotEmpty()) {
+    if (todaySessions.isNotEmpty()) {
       item {
-        Column(modifier = Modifier.padding(vertical = 8.dp)) {
-          Text(
-            stringResource(R.string.stats_sessions),
-            style = MaterialTheme.typography.headlineSmall,
-            fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.onBackground,
-            textAlign = TextAlign.Left,
-            modifier = Modifier
-              .fillMaxWidth()
-              .padding(16.dp)
-          )
-        }
-      }
-      itemsIndexed(itemsToDisplay, key = { index, session -> "${session.loginTime}_${session.macAddress}_$index" }) { index, session ->
-        val cornerRadius = 24.dp
-        val listSize = itemsToDisplay.size
-        val shape = when {
-          listSize == 1 -> RoundedCornerShape(cornerRadius)
-          index == 0 -> RoundedCornerShape(topStart = cornerRadius, topEnd = cornerRadius, bottomStart = 5.dp, bottomEnd = 5.dp)
-          index == listSize - 1 -> RoundedCornerShape(topStart = 5.dp, topEnd = 5.dp, bottomStart = cornerRadius, bottomEnd = cornerRadius)
-          else -> RoundedCornerShape(5.dp)
-        }
-
-        var itemVisible by remember { mutableStateOf(index < 5) }
-        LaunchedEffect(showAllSessions) {
-          if (showAllSessions) {
-            itemVisible = true
-          }
-        }
-
-        val alpha by animateFloatAsState(
-          targetValue = if (itemVisible) 1f else 0f,
-          animationSpec = tween(
-            durationMillis = 300,
-            delayMillis = if (index >= 5) (index - 4) * 70 else 0
-          ),
-          label = "alphaAnim"
+        Text(
+          text = "Today's Sessions",
+          style = MaterialTheme.typography.titleMedium,
+          fontWeight = FontWeight.Bold,
+          color = MaterialTheme.colorScheme.onBackground,
+          textAlign = TextAlign.Left,
+          modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 8.dp)
         )
-
-        Box(modifier = Modifier.graphicsLayer { this.alpha = alpha }.padding(start = 16.dp, end = 16.dp)) {
-          StatsItemCard(session = session, shape = shape)
-        }
       }
 
-      if (portalHistory.size > 5 && !showAllSessions) {
-        item {
-          Button(
-            onClick = onToggleShowAll,
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
-            colors = ButtonDefaults.filledTonalButtonColors(
-              containerColor = MaterialTheme.colorScheme.secondaryContainer,
-              contentColor = MaterialTheme.colorScheme.onSecondaryContainer
-            ),
-            shape = RoundedCornerShape(24.dp)
-          ) {
-            Icon(Icons.Rounded.KeyboardArrowDown, contentDescription = null, modifier = Modifier.size(20.dp))
-            Spacer(Modifier.width(8.dp))
-            Text(stringResource(R.string.stats_view_more), fontWeight = FontWeight.SemiBold)
+      itemsIndexed(todaySessions, key = { index, session -> "today_${session.loginTime}_$index" }) { index, session ->
+        TodaySessionListItem(
+          session = session,
+          shape = groupedItemShape(index, todaySessions.size)
+        )
+      }
+    }
+
+    if (olderDayRecords.isNotEmpty()) {
+      item {
+        Spacer(modifier = Modifier.height(12.dp))
+        Text(
+          text = "Previous Days",
+          style = MaterialTheme.typography.titleMedium,
+          fontWeight = FontWeight.Bold,
+          color = MaterialTheme.colorScheme.onBackground,
+          textAlign = TextAlign.Left,
+          modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 8.dp)
+        )
+      }
+
+      itemsIndexed(visibleOlderDays, key = { _, record -> "day_${record.dayTimestamp}" }) { index, record ->
+        if (index >= visibleOlderDays.size - 5 && displayedOlderDaysCount < olderDayRecords.size) {
+          LaunchedEffect(Unit) {
+            displayedOlderDaysCount = (displayedOlderDaysCount + 30).coerceAtMost(olderDayRecords.size)
           }
         }
+        DayAggregateListItem(
+          record = record,
+          shape = groupedItemShape(index, visibleOlderDays.size)
+        )
       }
     }
   }

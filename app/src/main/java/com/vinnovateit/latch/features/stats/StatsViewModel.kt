@@ -23,6 +23,30 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import java.util.Calendar
 
+import kotlinx.coroutines.flow.MutableStateFlow
+
+enum class DateRangeFilter(val label: String) {
+  THIS_WEEK("This Week"),
+  THIS_MONTH("This Month"),
+  THIS_YEAR("This Year"),
+  LAST_YEAR("Last Year"),
+  ALL_TIME("All Time")
+}
+
+data class AggregatedDayRecord(
+  val dayTimestamp: Long,
+  val dateFormatted: String,
+  val downloadBytes: Long,
+  val uploadBytes: Long,
+  val totalBytes: Long,
+  val downloadFormatted: Pair<String, String>,
+  val uploadFormatted: Pair<String, String>,
+  val totalFormatted: Pair<String, String>,
+  val sessionCount: Int,
+  val totalDurationMillis: Long,
+  val durationFormatted: String,
+)
+
 class StatsViewModel(application: Application) : AndroidViewModel(application) {
 
   // Data now comes from the single source of truth: SessionRepository
@@ -33,14 +57,63 @@ class StatsViewModel(application: Application) : AndroidViewModel(application) {
   val portalHistory: StateFlow<List<PortalSessionRecord>> = LatchAppGraph.sessions.portalHistory
   val isSyncing: StateFlow<Boolean> = LatchAppGraph.sessions.isSyncing
 
+  val selectedFilter = MutableStateFlow(DateRangeFilter.THIS_MONTH)
+
+  fun setFilter(filter: DateRangeFilter) {
+    selectedFilter.value = filter
+  }
+
+  val nonZeroPortalHistory: StateFlow<List<PortalSessionRecord>> =
+    portalHistory.map { list ->
+      list.filter { it.uploadBytes > 0L || it.downloadBytes > 0L }
+    }.flowOn(Dispatchers.Default)
+      .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+  val todaySessions: StateFlow<List<PortalSessionRecord>> =
+    nonZeroPortalHistory.map { list ->
+      val todayKey = formatDate(System.currentTimeMillis(), "yyyy-MM-dd")
+      list.filter { it.loginTime > 0 && formatDate(it.loginTime, "yyyy-MM-dd") == todayKey }
+    }.flowOn(Dispatchers.Default)
+      .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+  val olderDayRecords: StateFlow<List<AggregatedDayRecord>> =
+    nonZeroPortalHistory.map { list ->
+      val todayKey = formatDate(System.currentTimeMillis(), "yyyy-MM-dd")
+      list
+        .filter { it.loginTime > 0 && formatDate(it.loginTime, "yyyy-MM-dd") != todayKey }
+        .groupBy { formatDate(it.loginTime, "yyyy-MM-dd") }
+        .map { (_, daySessions) ->
+          val first = daySessions.first()
+          val dl = daySessions.sumOf { it.downloadBytes }
+          val ul = daySessions.sumOf { it.uploadBytes }
+          val total = daySessions.sumOf { it.totalBytes.coerceAtLeast(it.downloadBytes + it.uploadBytes) }
+          val totalDur = daySessions.sumOf { it.durationMillis }
+          AggregatedDayRecord(
+            dayTimestamp = first.loginTime,
+            dateFormatted = formatDate(first.loginTime, "EEE, dd MMM yyyy"),
+            downloadBytes = dl,
+            uploadBytes = ul,
+            totalBytes = total,
+            downloadFormatted = com.vinnovateit.latch.common.util.formatBytes(dl),
+            uploadFormatted = com.vinnovateit.latch.common.util.formatBytes(ul),
+            totalFormatted = com.vinnovateit.latch.common.util.formatBytes(total),
+            sessionCount = daySessions.size,
+            totalDurationMillis = totalDur,
+            durationFormatted = com.vinnovateit.latch.common.util.formatDurationDynamic(totalDur)
+          )
+        }
+        .sortedByDescending { it.dayTimestamp }
+    }.flowOn(Dispatchers.Default)
+      .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
   val overviewMetrics: StateFlow<StatsOverviewMetrics> =
-    portalHistory.map { sessions ->
+    nonZeroPortalHistory.map { sessions ->
       computeMetrics(sessions)
     }.flowOn(Dispatchers.Default)
       .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), computeMetrics(emptyList()))
 
   val usageTrends: StateFlow<List<DailyUsageTrend>> =
-    portalHistory.map { sessions ->
+    nonZeroPortalHistory.map { sessions ->
       aggregateDailyUsage(sessions)
     }.flowOn(Dispatchers.Default)
       .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
@@ -130,7 +203,7 @@ class StatsViewModel(application: Application) : AndroidViewModel(application) {
 
 
   val chartItems: StateFlow<List<HistoryChartItem>> =
-    combine(portalHistory, liveStatus) { records, live ->
+    combine(selectedFilter, nonZeroPortalHistory, liveStatus) { filter, records, live ->
       val groupedByDay = records
         .filter { it.loginTime > 0 }
         .groupBy { formatDate(it.loginTime, "yyyy-MM-dd") }
@@ -151,25 +224,62 @@ class StatsViewModel(application: Application) : AndroidViewModel(application) {
         )
       }
 
+      val now = Calendar.getInstance()
+      val startCal = Calendar.getInstance().apply {
+        set(Calendar.HOUR_OF_DAY, 0)
+        set(Calendar.MINUTE, 0)
+        set(Calendar.SECOND, 0)
+        set(Calendar.MILLISECOND, 0)
+      }
+
+      val endCal = Calendar.getInstance().apply {
+        set(Calendar.HOUR_OF_DAY, 23)
+        set(Calendar.MINUTE, 59)
+        set(Calendar.SECOND, 59)
+        set(Calendar.MILLISECOND, 999)
+      }
+
+      when (filter) {
+        DateRangeFilter.THIS_WEEK -> {
+          startCal.add(Calendar.DAY_OF_YEAR, -6)
+        }
+        DateRangeFilter.THIS_MONTH -> {
+          startCal.set(Calendar.DAY_OF_MONTH, 1)
+        }
+        DateRangeFilter.THIS_YEAR -> {
+          startCal.set(Calendar.DAY_OF_YEAR, 1)
+        }
+        DateRangeFilter.LAST_YEAR -> {
+          startCal.add(Calendar.YEAR, -1)
+          startCal.set(Calendar.DAY_OF_YEAR, 1)
+          endCal.add(Calendar.YEAR, -1)
+          endCal.set(Calendar.MONTH, Calendar.DECEMBER)
+          endCal.set(Calendar.DAY_OF_MONTH, 31)
+        }
+        DateRangeFilter.ALL_TIME -> {
+          val earliest = records.minOfOrNull { it.loginTime } ?: (System.currentTimeMillis() - 30L * 86400000L)
+          startCal.timeInMillis = earliest
+          startCal.set(Calendar.DAY_OF_MONTH, 1)
+        }
+      }
+
       val items = mutableListOf<HistoryChartItem>()
       var lastMonth = -1
-      val daysToShow = 7 // Always show the last 7 days
 
-      for (i in (daysToShow - 1) downTo 0) {
-        val currentCal = Calendar.getInstance()
-        currentCal.add(Calendar.DAY_OF_YEAR, -i)
-        val dayTimestamp = currentCal.timeInMillis
-        val key = formatDate(dayTimestamp, "yyyy-MM-dd")
-        val usage = groupedByDay[key] ?: DataUsage(0, 0)
-
-        val currentMonth = currentCal.get(Calendar.MONTH)
+      val cursor = startCal.clone() as Calendar
+      while (!cursor.after(endCal) && !cursor.after(now)) {
+        val dayTimestamp = cursor.timeInMillis
+        val currentMonth = cursor.get(Calendar.MONTH)
         if (lastMonth != -1 && currentMonth != lastMonth) {
-          items.add(HistoryChartItem.MonthSeparator(formatDate(dayTimestamp, "MMM")))
+          items.add(HistoryChartItem.MonthSeparator(formatDate(dayTimestamp, "MMM yyyy")))
         }
         lastMonth = currentMonth
 
-        val label = formatDate(dayTimestamp, "E").first().toString()
+        val key = formatDate(dayTimestamp, "yyyy-MM-dd")
+        val usage = groupedByDay[key] ?: DataUsage(0, 0)
+        val label = formatDate(dayTimestamp, "dd")
         items.add(HistoryChartItem.BarData(usage, label, dayTimestamp))
+        cursor.add(Calendar.DAY_OF_YEAR, 1)
       }
       items.distinct()
     }.flowOn(Dispatchers.Default)

@@ -17,6 +17,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 
 // Chart renders 150 points max; keep 200 so stopSession() aggregations are
@@ -148,18 +149,50 @@ class SessionRepository(
         onSessionChanged?.invoke()
     }
 
+    private var lastSyncTimeMillis: Long = 0L
+
     suspend fun syncPortalHistory(
         userId: String,
         password: String,
         host: String = PortalHistoryClient.DEFAULT_PORTAL_HOST,
+        force: Boolean = false,
     ): Result<Unit> {
         val client = portalClient ?: return Result.failure(IllegalStateException("Portal client not configured"))
+        if (_isSyncing.value) return Result.success(Unit)
+        val now = System.currentTimeMillis()
+        if (!force && (now - lastSyncTimeMillis < 30_000L) && _portalHistory.value.isNotEmpty()) {
+            return Result.success(Unit)
+        }
         _isSyncing.value = true
         return try {
             val result = client.fetchHistory(userId, password, host = host)
             if (result.isSuccess) {
-                val records = result.getOrThrow()
-                val entities = records.map {
+                lastSyncTimeMillis = System.currentTimeMillis()
+                val incoming = result.getOrThrow().filter {
+                    it.loginTime > 0 && (it.uploadBytes > 0L || it.downloadBytes > 0L)
+                }
+                val todayKey = com.vinnovateit.latch.core.stats.formatDate(now, "yyyy-MM-dd")
+                val existing = _portalHistory.value
+
+                // Lock already-validated past dates: do not overwrite them
+                val validatedPastDates = existing
+                    .filter { it.loginTime > 0 && com.vinnovateit.latch.core.stats.formatDate(it.loginTime, "yyyy-MM-dd") != todayKey && (it.uploadBytes > 0L || it.downloadBytes > 0L) }
+                    .map { com.vinnovateit.latch.core.stats.formatDate(it.loginTime, "yyyy-MM-dd") }
+                    .toSet()
+
+                val existingLockedRecords = existing.filter {
+                    val date = com.vinnovateit.latch.core.stats.formatDate(it.loginTime, "yyyy-MM-dd")
+                    date != todayKey && date in validatedPastDates
+                }
+                val newAcceptedRecords = incoming.filter {
+                    val date = com.vinnovateit.latch.core.stats.formatDate(it.loginTime, "yyyy-MM-dd")
+                    date == todayKey || date !in validatedPastDates
+                }
+                val merged = (existingLockedRecords + newAcceptedRecords)
+                    .distinctBy { "${it.loginTime}_${it.macAddress}_${it.uploadBytes}_${it.downloadBytes}" }
+                    .sortedByDescending { it.loginTime }
+
+                val entities = merged.map {
                     PortalSessionEntity(
                         location = it.location,
                         macAddress = it.macAddress,
@@ -174,7 +207,7 @@ class SessionRepository(
                 }
                 statsDao.clearAllPortalSessions()
                 statsDao.insertAllPortalSessions(entities)
-                _portalHistory.value = records
+                _portalHistory.value = merged
                 Result.success(Unit)
             } else {
                 Result.failure(result.exceptionOrNull() ?: Exception("Unknown portal sync error"))
@@ -190,5 +223,9 @@ class SessionRepository(
             statsDao.clearAllPortalSessions()
             _portalHistory.value = emptyList()
         }
+    }
+
+    fun close() {
+        scope.cancel()
     }
 }

@@ -33,6 +33,7 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.ArrowDownward
+import androidx.compose.material.icons.rounded.ArrowDropDown
 import androidx.compose.material.icons.rounded.ArrowUpward
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -86,21 +87,73 @@ sealed class HistoryChartItem {
 }
 
 @Composable
-fun HistoryBarChart(history: List<HistoryChartItem>) {
+fun HistoryBarChart(
+    history: List<HistoryChartItem>,
+    selectedFilter: com.vinnovateit.latch.features.stats.DateRangeFilter = com.vinnovateit.latch.features.stats.DateRangeFilter.THIS_MONTH,
+    onFilterSelected: ((com.vinnovateit.latch.features.stats.DateRangeFilter) -> Unit)? = null
+) {
+    val currentYear = remember { java.util.Calendar.getInstance().get(java.util.Calendar.YEAR) }
+    val headerTitle = remember(history, selectedFilter) {
+        val lastTimestamp = history.filterIsInstance<HistoryChartItem.BarData>().lastOrNull()?.timestamp
+            ?: System.currentTimeMillis()
+        val cal = java.util.Calendar.getInstance().apply { timeInMillis = lastTimestamp }
+        if (cal.get(java.util.Calendar.YEAR) == currentYear) {
+            SimpleDateFormat("MMMM", Locale.getDefault()).format(cal.time)
+        } else {
+            SimpleDateFormat("MMMM yyyy", Locale.getDefault()).format(cal.time)
+        }
+    }
+
     Column(
         modifier = Modifier.fillMaxWidth(),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Text(
-            "Daily Usage",
-            style = MaterialTheme.typography.headlineSmall,
-            fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.onBackground,
-            textAlign = TextAlign.Left,
+        Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(16.dp)
-        )
+                .padding(horizontal = 16.dp, vertical = 8.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = headerTitle,
+                style = MaterialTheme.typography.headlineSmall,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onBackground
+            )
+
+            if (onFilterSelected != null) {
+                var menuExpanded by remember { mutableStateOf(false) }
+                Box {
+                    androidx.compose.material3.FilterChip(
+                        selected = true,
+                        onClick = { menuExpanded = true },
+                        label = { Text(selectedFilter.label, style = MaterialTheme.typography.labelMedium) },
+                        trailingIcon = {
+                            Icon(
+                                imageVector = Icons.Rounded.ArrowDropDown,
+                                contentDescription = null,
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
+                    )
+                    androidx.compose.material3.DropdownMenu(
+                        expanded = menuExpanded,
+                        onDismissRequest = { menuExpanded = false }
+                    ) {
+                        com.vinnovateit.latch.features.stats.DateRangeFilter.values().forEach { filter ->
+                            androidx.compose.material3.DropdownMenuItem(
+                                text = { Text(filter.label) },
+                                onClick = {
+                                    onFilterSelected(filter)
+                                    menuExpanded = false
+                                }
+                            )
+                        }
+                    }
+                }
+            }
+        }
         if (history.isNotEmpty()) {
             HistoryBarChartContent(chartItems = history)
         } else {
@@ -189,11 +242,10 @@ private fun HistoryBarChartContent(chartItems: List<HistoryChartItem>) {
 
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
         BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
-            val halfScreenWidth = this.maxWidth / 2
-            val barWidth = 52.dp // Made bars bigger
-            val rowHeight = 220.dp // Increased height
+            val barWidth = 44.dp
+            val rowHeight = 220.dp
             val barAreaHeight = rowHeight * 0.8f
-            val horizontalPadding = halfScreenWidth - (barWidth / 2)
+            val horizontalPadding = 16.dp
 
             LazyRow(
                 state = lazyListState,
