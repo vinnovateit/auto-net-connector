@@ -87,6 +87,20 @@ fun TodaySessionListItem(
             fontWeight = FontWeight.Bold,
             color = MaterialTheme.colorScheme.onSurface
           )
+          if (session.isManual) {
+            Spacer(modifier = Modifier.width(6.dp))
+            Surface(
+              shape = RoundedCornerShape(4.dp),
+              color = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.6f)
+            ) {
+              Text(
+                text = "Manual",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onTertiaryContainer,
+                modifier = Modifier.padding(horizontal = 5.dp, vertical = 1.dp)
+              )
+            }
+          }
           Spacer(modifier = Modifier.width(8.dp))
           Text(
             text = if (session.loginTime > 0) formatDate(session.loginTime, "hh:mm a") else "",

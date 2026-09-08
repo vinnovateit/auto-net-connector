@@ -62,6 +62,7 @@ data class PortalSessionEntity(
     val uploadBytes: Long,
     val downloadBytes: Long,
     val totalBytes: Long,
+    val isManual: Boolean = false,
 )
 
 val MIGRATION_3_TO_4 = object : androidx.room.migration.Migration(3, 4) {
@@ -80,6 +81,12 @@ val MIGRATION_3_TO_4 = object : androidx.room.migration.Migration(3, 4) {
                 `totalBytes` INTEGER NOT NULL
             )
         """.trimIndent())
+    }
+}
+
+val MIGRATION_4_TO_5 = object : androidx.room.migration.Migration(4, 5) {
+    override fun migrate(connection: androidx.sqlite.SQLiteConnection) {
+        connection.execSQL("ALTER TABLE `portal_sessions` ADD COLUMN `isManual` INTEGER NOT NULL DEFAULT 0")
     }
 }
 
@@ -110,7 +117,7 @@ interface StatsDao {
     }
 }
 
-@Database(entities = [Session::class, PortalSessionEntity::class], version = 4, exportSchema = false)
+@Database(entities = [Session::class, PortalSessionEntity::class], version = 5, exportSchema = false)
 @ConstructedBy(LatchDatabaseConstructor::class)
 abstract class LatchDatabase : RoomDatabase() {
     abstract fun statsDao(): StatsDao

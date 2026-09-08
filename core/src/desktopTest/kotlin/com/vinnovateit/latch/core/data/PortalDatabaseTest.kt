@@ -46,6 +46,13 @@ class PortalDatabaseTest {
         assertEquals(1, list.size)
         assertEquals("VIT-Vellore", list[0].location)
         assertEquals(6000L, list[0].totalBytes)
+        assertEquals(false, list[0].isManual)
+
+        val manualSession = session1.copy(id = 0, isManual = true)
+        dao.insertAllPortalSessions(listOf(manualSession))
+        val listWithManual = dao.getAllPortalSessions().first()
+        assertEquals(2, listWithManual.size)
+        assertEquals(true, listWithManual.any { it.isManual })
 
         dao.clearAllPortalSessions()
         val empty = dao.getAllPortalSessions().first()
@@ -79,6 +86,49 @@ class PortalDatabaseTest {
                     `location`, `macAddress`, `loginTime`, `logoutTime`, `durationFormatted`,
                     `durationMillis`, `uploadBytes`, `downloadBytes`, `totalBytes`
                 ) VALUES ('Hostel', 'mac', 10, 20, '10s', 10, 100, 200, 300)
+            """.trimIndent())
+        } finally {
+            connection.close()
+        }
+    }
+
+    @Test
+    fun testMigration4To5() {
+        val driver = BundledSQLiteDriver()
+        val connection = driver.open(":memory:")
+        try {
+            // Create version 4 schema with portal_sessions (no isManual column)
+            connection.execSQL("""
+                CREATE TABLE IF NOT EXISTS `portal_sessions` (
+                    `id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                    `location` TEXT NOT NULL,
+                    `macAddress` TEXT NOT NULL,
+                    `loginTime` INTEGER NOT NULL,
+                    `logoutTime` INTEGER NOT NULL,
+                    `durationFormatted` TEXT NOT NULL,
+                    `durationMillis` INTEGER NOT NULL,
+                    `uploadBytes` INTEGER NOT NULL,
+                    `downloadBytes` INTEGER NOT NULL,
+                    `totalBytes` INTEGER NOT NULL
+                )
+            """.trimIndent())
+
+            connection.execSQL("""
+                INSERT INTO `portal_sessions` (
+                    `location`, `macAddress`, `loginTime`, `logoutTime`, `durationFormatted`,
+                    `durationMillis`, `uploadBytes`, `downloadBytes`, `totalBytes`
+                ) VALUES ('Hostel', 'mac', 10, 20, '10s', 10, 100, 200, 300)
+            """.trimIndent())
+
+            // Run migration 4 to 5
+            MIGRATION_4_TO_5.migrate(connection)
+
+            // Verify isManual exists and can be set to 1
+            connection.execSQL("""
+                INSERT INTO `portal_sessions` (
+                    `location`, `macAddress`, `loginTime`, `logoutTime`, `durationFormatted`,
+                    `durationMillis`, `uploadBytes`, `downloadBytes`, `totalBytes`, `isManual`
+                ) VALUES ('Hostel', 'mac', 30, 40, '10s', 10, 100, 200, 300, 1)
             """.trimIndent())
         } finally {
             connection.close()

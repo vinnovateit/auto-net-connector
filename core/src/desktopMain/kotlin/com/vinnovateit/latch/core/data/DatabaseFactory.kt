@@ -24,7 +24,7 @@ fun buildDatabase(): LatchDatabase =
     Room.databaseBuilder<LatchDatabase>(name = AppPaths.databaseFile.absolutePath)
         .setDriver(BundledSQLiteDriver())
         .setQueryCoroutineContext(Dispatchers.IO)
-        .addMigrations(MIGRATION_1_TO_3, MIGRATION_3_TO_4)
+        .addMigrations(MIGRATION_1_TO_3, MIGRATION_3_TO_4, MIGRATION_4_TO_5)
         .fallbackToDestructiveMigration(dropAllTables = false)
         .build()
 

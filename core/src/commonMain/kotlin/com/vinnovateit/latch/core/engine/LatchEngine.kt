@@ -460,13 +460,24 @@ class LatchEngine(
         if (handle != null && authenticated) {
             platform.wifi.bindProcess(handle)
             try {
-                val ok = withTimeoutOrNull(4500L) {
-                    login.attemptLogout(handle, false, platform.wifi.gatewayIp())
-                } ?: false
+                val logoutResult = withTimeoutOrNull(4500L) {
+                    login.attemptLogoutWithResponse(handle, false, platform.wifi.gatewayIp())
+                } ?: com.vinnovateit.latch.core.wifi.AutoLoginManager.LogoutResult(false)
 
+                val ok = logoutResult.success
                 platform.wifi.reportConnectivity(handle, ok = false)
                 if (ok) {
                     logger.d(TAG, "Remote portal logout succeeded.")
+                    val html = logoutResult.responseHtml
+                    if (!html.isNullOrBlank()) {
+                        val record = com.vinnovateit.latch.core.portal.PortalLogoutParser.parse(html)
+                        if (record != null) {
+                            logger.d(TAG, "Parsed manual session from logout response: $record")
+                            sessions.recordManualSession(record)
+                        } else {
+                            logger.d(TAG, "Logout response did not contain parseable session metrics")
+                        }
+                    }
                 } else {
                     logger.w(TAG, "Remote portal logout timed out or failed (locally disconnected).")
                 }

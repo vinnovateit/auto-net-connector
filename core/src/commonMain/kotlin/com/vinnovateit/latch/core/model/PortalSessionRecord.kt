@@ -10,4 +10,5 @@ data class PortalSessionRecord(
     val uploadBytes: Long,
     val downloadBytes: Long,
     val totalBytes: Long,
+    val isManual: Boolean = false,
 )

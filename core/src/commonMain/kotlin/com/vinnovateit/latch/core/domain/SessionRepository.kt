@@ -104,6 +104,7 @@ class SessionRepository(
                             uploadBytes = entity.uploadBytes,
                             downloadBytes = entity.downloadBytes,
                             totalBytes = entity.totalBytes,
+                            isManual = entity.isManual,
                         )
                     }
                 }
@@ -193,21 +194,29 @@ class SessionRepository(
 
                 // Lock already-validated past dates: do not overwrite them
                 val validatedPastDates = existing
-                    .filter { it.loginTime > 0 && com.vinnovateit.latch.core.stats.formatDate(it.loginTime, "yyyy-MM-dd") != todayKey && (it.uploadBytes > 0L || it.downloadBytes > 0L) }
+                    .filter { !it.isManual && it.loginTime > 0 && com.vinnovateit.latch.core.stats.formatDate(it.loginTime, "yyyy-MM-dd") != todayKey && (it.uploadBytes > 0L || it.downloadBytes > 0L) }
                     .map { com.vinnovateit.latch.core.stats.formatDate(it.loginTime, "yyyy-MM-dd") }
                     .toSet()
                 logger.d(TAG, "locked past dates: ${validatedPastDates.size}")
 
                 val existingLockedRecords = existing.filter {
                     val date = com.vinnovateit.latch.core.stats.formatDate(it.loginTime, "yyyy-MM-dd")
-                    date != todayKey && date in validatedPastDates
+                    !it.isManual && date != todayKey && date in validatedPastDates
                 }
                 val newAcceptedRecords = incoming.filter {
                     val date = com.vinnovateit.latch.core.stats.formatDate(it.loginTime, "yyyy-MM-dd")
                     date == todayKey || date !in validatedPastDates
                 }
-                val merged = (existingLockedRecords + newAcceptedRecords)
-                    .distinctBy { "${it.loginTime}_${it.macAddress}_${it.uploadBytes}_${it.downloadBytes}" }
+
+                // Reconcile manual records: match against incoming server records
+                val existingManualRecords = existing.filter { it.isManual }
+                val pendingManualRecords = existingManualRecords.filter { man ->
+                    incoming.none { inc -> matchesSession(man, inc) }
+                }
+                logger.d(TAG, "manual sessions before sync: ${existingManualRecords.size}, remaining pending after reconciliation: ${pendingManualRecords.size}")
+
+                val merged = (existingLockedRecords + newAcceptedRecords + pendingManualRecords)
+                    .distinctBy { "${it.loginTime}_${it.durationMillis}_${it.totalBytes}" }
                     .sortedByDescending { it.loginTime }
                 logger.d(TAG, "merged records: ${merged.size}")
 
@@ -222,6 +231,7 @@ class SessionRepository(
                         uploadBytes = it.uploadBytes,
                         downloadBytes = it.downloadBytes,
                         totalBytes = it.totalBytes,
+                        isManual = it.isManual,
                     )
                 }
                 statsDao.replacePortalSessions(entities)
@@ -239,6 +249,48 @@ class SessionRepository(
         } finally {
             _isSyncing.value = false
         }
+    }
+
+    fun recordManualSession(record: PortalSessionRecord) {
+        val manualRecord = record.copy(isManual = true)
+        val entity = PortalSessionEntity(
+            location = manualRecord.location,
+            macAddress = manualRecord.macAddress,
+            loginTime = manualRecord.loginTime,
+            logoutTime = manualRecord.logoutTime,
+            durationFormatted = manualRecord.durationFormatted,
+            durationMillis = manualRecord.durationMillis,
+            uploadBytes = manualRecord.uploadBytes,
+            downloadBytes = manualRecord.downloadBytes,
+            totalBytes = manualRecord.totalBytes,
+            isManual = true,
+        )
+        val current = _portalHistory.value
+        val updated = (listOf(manualRecord) + current)
+            .distinctBy { "${it.loginTime}_${it.durationMillis}_${it.totalBytes}" }
+            .sortedByDescending { it.loginTime }
+        _portalHistory.value = updated
+        _isHistoryLoaded.value = true
+
+        scope.launch {
+            statsDao.insertAllPortalSessions(listOf(entity))
+            logger.d(TAG, "Persisted manual portal session: ${manualRecord.durationFormatted}, ${manualRecord.totalBytes} bytes")
+        }
+    }
+
+    private fun matchesSession(manual: PortalSessionRecord, incoming: PortalSessionRecord): Boolean {
+        val durationDiff = kotlin.math.abs(manual.durationMillis - incoming.durationMillis)
+        val durationMatches = durationDiff <= 10_000L || manual.durationFormatted == incoming.durationFormatted
+        if (!durationMatches) return false
+
+        val logoutDiff = kotlin.math.abs(manual.logoutTime - incoming.logoutTime)
+        val loginDiff = kotlin.math.abs(manual.loginTime - incoming.loginTime)
+        val timeMatches = logoutDiff <= 180_000L || loginDiff <= 180_000L
+
+        val bytesDiff = kotlin.math.abs(manual.totalBytes - incoming.totalBytes)
+        val bytesMatches = bytesDiff <= 10_240L
+
+        return timeMatches || (bytesMatches && durationMatches)
     }
 
     fun clearHistory() {

@@ -30,6 +30,7 @@ object SettingsManager {
     private const val KEY_USE_MONOCHROME = "use_monochrome"
     private const val KEY_ACCENT_COLOR = "accent_color"
     private const val KEY_CHART_PALETTE = "chart_palette"
+    private const val KEY_PALETTE_STYLE = "palette_style"
     private const val KEY_HAPTICS_ENABLED = "haptics_enabled"
     // Desktop-only additions.
     private const val KEY_ALLOWED_SSIDS = "allowed_ssids"
@@ -55,6 +56,7 @@ object SettingsManager {
     private const val DEFAULT_USE_MONOCHROME = false
     private const val DEFAULT_ACCENT_COLOR = "Red"
     private const val DEFAULT_CHART_PALETTE = "Material Dynamic"
+    private const val DEFAULT_PALETTE_STYLE = "TonalSpot"
     private const val DEFAULT_HAPTICS_ENABLED = true
 
     /**
@@ -95,6 +97,9 @@ object SettingsManager {
     private val _chartPalette = MutableStateFlow(DEFAULT_CHART_PALETTE)
     val chartPalette: StateFlow<String> = _chartPalette
 
+    private val _paletteStyle = MutableStateFlow(DEFAULT_PALETTE_STYLE)
+    val paletteStyle: StateFlow<String> = _paletteStyle
+
     private val _allowedSsids = MutableStateFlow(DEFAULT_ALLOWED_SSIDS)
     val allowedSsids: StateFlow<Set<String>> = _allowedSsids
 
@@ -109,6 +114,7 @@ object SettingsManager {
 
     init {
         _hapticsEnabled.value = store.getBoolean(KEY_HAPTICS_ENABLED, DEFAULT_HAPTICS_ENABLED)
+        _paletteStyle.value = store.getString(KEY_PALETTE_STYLE, DEFAULT_PALETTE_STYLE)
     }
 
     fun initialize(keyValueStore: KeyValueStore) {
@@ -125,6 +131,7 @@ object SettingsManager {
         _useMonochrome.value = store.getBoolean(KEY_USE_MONOCHROME, DEFAULT_USE_MONOCHROME)
         _accentColor.value = store.getString(KEY_ACCENT_COLOR, DEFAULT_ACCENT_COLOR)
         _chartPalette.value = store.getString(KEY_CHART_PALETTE, DEFAULT_CHART_PALETTE)
+        _paletteStyle.value = store.getString(KEY_PALETTE_STYLE, DEFAULT_PALETTE_STYLE)
         _allowedSsids.value = store.getStringSet(KEY_ALLOWED_SSIDS, DEFAULT_ALLOWED_SSIDS)
         _hasSeenOnboarding.value = store.getBoolean(KEY_HAS_SEEN_ONBOARDING, false)
         _hapticsEnabled.value = store.getBoolean(KEY_HAPTICS_ENABLED, DEFAULT_HAPTICS_ENABLED)
@@ -176,6 +183,12 @@ object SettingsManager {
         notifyChanged()
     }
 
+    fun setPaletteStyle(style: String) {
+        _paletteStyle.value = style
+        store.putString(KEY_PALETTE_STYLE, style)
+        notifyChanged()
+    }
+
     fun setAllowedSsids(ssids: Set<String>) {
         _allowedSsids.value = ssids
         store.putStringSet(KEY_ALLOWED_SSIDS, ssids)
@@ -194,6 +207,8 @@ object SettingsManager {
     fun clearAll() {
         store.putBoolean(KEY_HAPTICS_ENABLED, DEFAULT_HAPTICS_ENABLED)
         _hapticsEnabled.value = DEFAULT_HAPTICS_ENABLED
+        store.putString(KEY_PALETTE_STYLE, DEFAULT_PALETTE_STYLE)
+        _paletteStyle.value = DEFAULT_PALETTE_STYLE
     }
 
     var autostartDefaultApplied: Boolean
