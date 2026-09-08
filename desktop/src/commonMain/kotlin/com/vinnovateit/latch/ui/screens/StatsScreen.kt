@@ -79,9 +79,12 @@ import org.jetbrains.compose.resources.stringResource
 import java.util.Calendar
 
 enum class DateRangeFilter(val label: String) {
-    THIS_WEEK("This Week"),
+    LAST_30_DAYS("Last 30"),
+    LAST_60_DAYS("Last 60"),
+    LAST_90_DAYS("Last 90"),
     THIS_MONTH("This Month"),
     THIS_YEAR("This Year"),
+    YTD("YTD"),
     LAST_YEAR("Last Year"),
     ALL_TIME("All Time")
 }
@@ -414,13 +417,24 @@ private fun PortalDailyBarChart(history: List<PortalSessionRecord>) {
         }
 
         when (selectedFilter) {
-            DateRangeFilter.THIS_WEEK -> {
-                startCal.add(Calendar.DAY_OF_YEAR, -6)
+            DateRangeFilter.LAST_30_DAYS -> {
+                startCal.add(Calendar.DAY_OF_YEAR, -29)
+            }
+            DateRangeFilter.LAST_60_DAYS -> {
+                startCal.add(Calendar.DAY_OF_YEAR, -59)
+            }
+            DateRangeFilter.LAST_90_DAYS -> {
+                startCal.add(Calendar.DAY_OF_YEAR, -89)
             }
             DateRangeFilter.THIS_MONTH -> {
                 startCal.set(Calendar.DAY_OF_MONTH, 1)
             }
             DateRangeFilter.THIS_YEAR -> {
+                startCal.set(Calendar.DAY_OF_YEAR, 1)
+                endCal.set(Calendar.MONTH, Calendar.DECEMBER)
+                endCal.set(Calendar.DAY_OF_MONTH, 31)
+            }
+            DateRangeFilter.YTD -> {
                 startCal.set(Calendar.DAY_OF_YEAR, 1)
             }
             DateRangeFilter.LAST_YEAR -> {
@@ -437,15 +451,18 @@ private fun PortalDailyBarChart(history: List<PortalSessionRecord>) {
             }
         }
 
+        val currentYear = now.get(Calendar.YEAR)
         val items = mutableListOf<HistoryChartItem>()
         var lastMonth = -1
 
         val cursor = startCal.clone() as Calendar
-        while (!cursor.after(endCal) && !cursor.after(now)) {
+        while (!cursor.after(endCal)) {
             val dayTimestamp = cursor.timeInMillis
             val currentMonth = cursor.get(Calendar.MONTH)
+            val itemYear = cursor.get(Calendar.YEAR)
             if (lastMonth != -1 && currentMonth != lastMonth) {
-                items.add(HistoryChartItem.MonthSeparator(formatDate(dayTimestamp, "MMM yyyy")))
+                val monthPattern = if (itemYear == currentYear) "MMM" else "MMM yyyy"
+                items.add(HistoryChartItem.MonthSeparator(formatDate(dayTimestamp, monthPattern)))
             }
             lastMonth = currentMonth
 
@@ -535,6 +552,13 @@ private fun PortalDailyBarChart(history: List<PortalSessionRecord>) {
                                 modifier = Modifier.size(18.dp),
                             )
                         },
+                        colors = androidx.compose.material3.FilterChipDefaults.filterChipColors(
+                            containerColor = Color.Transparent,
+                            selectedContainerColor = Color.Transparent,
+                            labelColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                            selectedLabelColor = MaterialTheme.colorScheme.primary,
+                        ),
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary),
                     )
                     DropdownMenu(
                         expanded = menuExpanded,

@@ -38,6 +38,8 @@ data class DailyUsageTrend(
 fun aggregateDailyUsage(sessions: List<PortalSessionRecord>, daysLimit: Int = 14): List<DailyUsageTrend> {
     if (sessions.isEmpty()) return emptyList()
 
+    val currentYear = java.util.Calendar.getInstance().get(java.util.Calendar.YEAR)
+
     return sessions
         .filter { it.loginTime > 0 }
         .groupBy { formatDate(it.loginTime, "yyyy-MM-dd") }
@@ -45,7 +47,9 @@ fun aggregateDailyUsage(sessions: List<PortalSessionRecord>, daysLimit: Int = 14
             val firstTimestamp = list.minOf { it.loginTime }
             val ul = list.sumOf { it.uploadBytes }
             val dl = list.sumOf { it.downloadBytes }
-            val label = formatDate(firstTimestamp, "dd MMM")
+            val cal = java.util.Calendar.getInstance().apply { timeInMillis = firstTimestamp }
+            val pattern = if (cal.get(java.util.Calendar.YEAR) == currentYear) "dd MMM" else "dd MMM yy"
+            val label = formatDate(firstTimestamp, pattern)
             DailyUsageTrend(
                 dateLabel = label,
                 timestamp = firstTimestamp,
@@ -81,45 +85,61 @@ fun PortalUsageTrends(
                 .fillMaxWidth()
                 .horizontalScroll(scrollState)
                 .padding(horizontal = 16.dp, vertical = 8.dp),
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
             verticalAlignment = Alignment.Bottom
         ) {
             trends.forEach { item ->
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    modifier = Modifier.width(24.dp)
+                ) {
                     val barHeight = 120.dp
-                    val frac = (item.totalBytes.toFloat() / maxDaily).coerceIn(0.1f, 1f)
+                    val totalFrac = (item.totalBytes.toFloat() / maxDaily.toFloat()).coerceIn(0.06f, 1f)
 
                     Box(
                         modifier = Modifier
-                            .width(28.dp)
+                            .width(24.dp)
                             .height(barHeight),
                         contentAlignment = Alignment.BottomCenter
                     ) {
                         Canvas(
                             modifier = Modifier
-                                .fillMaxWidth()
-                                .height(barHeight * frac)
+                                .width(10.dp)
+                                .height(barHeight * totalFrac)
                         ) {
-                            val ulFrac = if (item.totalBytes > 0) item.uploadBytes.toFloat() / item.totalBytes else 0f
-                            val dlFrac = 1f - ulFrac
+                            val total = item.totalBytes
+                            val cornerRadius = CornerRadius(size.width / 2, size.width / 2)
+                            if (total > 0) {
+                                val ulFrac = item.uploadBytes.toFloat() / total.toFloat()
+                                val dlFrac = 1f - ulFrac
 
-                            val dlHeight = size.height * dlFrac
-                            val ulHeight = size.height * ulFrac
+                                val dlHeight = size.height * dlFrac
+                                val ulHeight = size.height * ulFrac
 
-                            // Download portion (bottom)
-                            drawRoundRect(
-                                color = ColorGraphDownload,
-                                topLeft = Offset(0f, size.height - dlHeight),
-                                size = Size(size.width, dlHeight),
-                                cornerRadius = CornerRadius(4.dp.toPx(), 4.dp.toPx())
-                            )
-                            // Upload portion (top)
-                            if (ulHeight > 0f) {
+                                // Download portion (bottom)
+                                if (dlHeight > 0f) {
+                                    drawRoundRect(
+                                        color = ColorGraphDownload,
+                                        topLeft = Offset(0f, size.height - dlHeight),
+                                        size = Size(size.width, dlHeight),
+                                        cornerRadius = cornerRadius
+                                    )
+                                }
+                                // Upload portion (top)
+                                if (ulHeight > 0f) {
+                                    drawRoundRect(
+                                        color = ColorGraphUpload,
+                                        topLeft = Offset(0f, size.height - dlHeight - ulHeight),
+                                        size = Size(size.width, ulHeight),
+                                        cornerRadius = cornerRadius
+                                    )
+                                }
+                            } else {
                                 drawRoundRect(
-                                    color = ColorGraphUpload,
-                                    topLeft = Offset(0f, size.height - dlHeight - ulHeight),
-                                    size = Size(size.width, ulHeight),
-                                    cornerRadius = CornerRadius(4.dp.toPx(), 4.dp.toPx())
+                                    color = androidx.compose.ui.graphics.Color.Gray.copy(alpha = 0.25f),
+                                    topLeft = Offset(0f, 0f),
+                                    size = Size(size.width, size.height),
+                                    cornerRadius = cornerRadius
                                 )
                             }
                         }

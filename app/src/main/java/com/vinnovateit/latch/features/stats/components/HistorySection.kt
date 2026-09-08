@@ -9,10 +9,12 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -30,11 +32,15 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.ArrowDownward
 import androidx.compose.material.icons.rounded.ArrowDropDown
 import androidx.compose.material.icons.rounded.ArrowUpward
+import androidx.compose.material.icons.rounded.Tune
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -65,6 +71,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.vinnovateit.latch.common.util.NoDataCard
 import com.vinnovateit.latch.common.util.formatBytes
+import com.vinnovateit.latch.common.util.formatDate
 import com.vinnovateit.latch.core.model.DataUsage
 import com.vinnovateit.latch.ui.theme.ColorGraphDownload
 import com.vinnovateit.latch.ui.theme.ColorGraphUpload
@@ -82,7 +89,12 @@ import com.vinnovateit.latch.features.settings.manager.SettingsManager
 
 @Immutable
 sealed class HistoryChartItem {
-    data class BarData(val usage: DataUsage, val label: String, val timestamp: Long) : HistoryChartItem()
+    data class BarData(
+        val usage: DataUsage,
+        val label: String,
+        val timestamp: Long,
+        val formattedDate: String = ""
+    ) : HistoryChartItem()
     data class MonthSeparator(val monthName: String) : HistoryChartItem()
 }
 
@@ -104,6 +116,18 @@ fun HistoryBarChart(
         }
     }
 
+    var showAdvancedSheet by remember { mutableStateOf(false) }
+    val quickFilters = remember {
+        listOf(
+            com.vinnovateit.latch.features.stats.DateRangeFilter.LAST_30_DAYS,
+            com.vinnovateit.latch.features.stats.DateRangeFilter.LAST_60_DAYS,
+            com.vinnovateit.latch.features.stats.DateRangeFilter.LAST_90_DAYS,
+            com.vinnovateit.latch.features.stats.DateRangeFilter.THIS_MONTH,
+            com.vinnovateit.latch.features.stats.DateRangeFilter.THIS_YEAR,
+            com.vinnovateit.latch.features.stats.DateRangeFilter.YTD
+        )
+    }
+
     Column(
         modifier = Modifier.fillMaxWidth(),
         horizontalAlignment = Alignment.CenterHorizontally
@@ -121,39 +145,85 @@ fun HistoryBarChart(
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.onBackground
             )
-
-            if (onFilterSelected != null) {
-                var menuExpanded by remember { mutableStateOf(false) }
-                Box {
-                    androidx.compose.material3.FilterChip(
-                        selected = true,
-                        onClick = { menuExpanded = true },
-                        label = { Text(selectedFilter.label, style = MaterialTheme.typography.labelMedium) },
-                        trailingIcon = {
-                            Icon(
-                                imageVector = Icons.Rounded.ArrowDropDown,
-                                contentDescription = null,
-                                modifier = Modifier.size(18.dp)
-                            )
-                        }
-                    )
-                    androidx.compose.material3.DropdownMenu(
-                        expanded = menuExpanded,
-                        onDismissRequest = { menuExpanded = false }
-                    ) {
-                        com.vinnovateit.latch.features.stats.DateRangeFilter.values().forEach { filter ->
-                            androidx.compose.material3.DropdownMenuItem(
-                                text = { Text(filter.label) },
-                                onClick = {
-                                    onFilterSelected(filter)
-                                    menuExpanded = false
-                                }
-                            )
-                        }
-                    }
-                }
-            }
         }
+
+        if (onFilterSelected != null) {
+            val quickFilterScrollState = rememberScrollState()
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .horizontalScroll(quickFilterScrollState)
+                    .padding(horizontal = 16.dp, vertical = 4.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                quickFilters.forEach { filter ->
+                    val isSelected = filter == selectedFilter
+                    FilterChip(
+                        selected = isSelected,
+                        onClick = { onFilterSelected(filter) },
+                        label = {
+                            Text(
+                                text = filter.label,
+                                style = MaterialTheme.typography.labelMedium,
+                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
+                            )
+                        },
+                        colors = FilterChipDefaults.filterChipColors(
+                            containerColor = Color.Transparent,
+                            selectedContainerColor = Color.Transparent,
+                            labelColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                            selectedLabelColor = MaterialTheme.colorScheme.primary
+                        ),
+                        border = BorderStroke(
+                            1.dp,
+                            if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant
+                        )
+                    )
+                }
+
+                val isAdvancedSelected = selectedFilter !in quickFilters
+                FilterChip(
+                    selected = isAdvancedSelected,
+                    onClick = { showAdvancedSheet = true },
+                    label = {
+                        Text(
+                            text = if (isAdvancedSelected) selectedFilter.label else "Advanced...",
+                            style = MaterialTheme.typography.labelMedium,
+                            fontWeight = if (isAdvancedSelected) FontWeight.Bold else FontWeight.Normal
+                        )
+                    },
+                    trailingIcon = {
+                        Icon(
+                            imageVector = Icons.Rounded.Tune,
+                            contentDescription = "Advanced filters",
+                            modifier = Modifier.size(16.dp)
+                        )
+                    },
+                    colors = FilterChipDefaults.filterChipColors(
+                        containerColor = Color.Transparent,
+                        selectedContainerColor = Color.Transparent,
+                        labelColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                        selectedLabelColor = MaterialTheme.colorScheme.primary,
+                        selectedTrailingIconColor = MaterialTheme.colorScheme.primary
+                    ),
+                    border = BorderStroke(
+                        1.dp,
+                        if (isAdvancedSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant
+                    )
+                )
+            }
+            Spacer(Modifier.height(8.dp))
+        }
+
+        if (showAdvancedSheet && onFilterSelected != null) {
+            StatsAdvancedFilterBottomSheet(
+                selectedFilter = selectedFilter,
+                onFilterSelected = onFilterSelected,
+                onDismiss = { showAdvancedSheet = false }
+            )
+        }
+
         if (history.isNotEmpty()) {
             HistoryBarChartContent(chartItems = history)
         } else {
@@ -174,17 +244,22 @@ private fun HistoryBarChartContent(chartItems: List<HistoryChartItem>) {
     val usePureBlack by SettingsManager.usePureBlack.collectAsStateWithLifecycle()
     val isAmoled = usePureBlack && com.vinnovateit.latch.ui.theme.LocalIsDarkTheme.current
 
-
-    val todayIdx = chartItems.indexOfLast { it is HistoryChartItem.BarData }
+    val todayIdx = remember(chartItems) {
+        val todayKey = formatDate(System.currentTimeMillis(), "yyyy-MM-dd")
+        val exact = chartItems.indexOfLast {
+            it is HistoryChartItem.BarData && formatDate(it.timestamp, "yyyy-MM-dd") == todayKey
+        }
+        if (exact != -1) exact else chartItems.indexOfLast { it is HistoryChartItem.BarData }
+    }
     var selectedIndex by remember { mutableIntStateOf(todayIdx) }
 
-    // Add state to track if we are programmatically scrolling
+    // Track if programmatic scroll is happening
     var isAutoScrolling by remember { mutableStateOf(false) }
 
     val lazyListState = rememberLazyListState()
     val coroutineScope = rememberCoroutineScope()
     val haptic = LocalHapticFeedback.current
-    val dateFormatter = remember { SimpleDateFormat("E, dd MMM", Locale.getDefault()) }
+    val dateFormatter = remember { SimpleDateFormat("dd MMM", Locale.getDefault()) }
 
     val totalUsageData = remember(chartItems) {
         val totalRx = chartItems.filterIsInstance<HistoryChartItem.BarData>().sumOf { it.usage.rxBytes }
@@ -201,57 +276,60 @@ private fun HistoryBarChartContent(chartItems: List<HistoryChartItem>) {
             ?.coerceAtLeast(1L) ?: 1L
     }
 
-
-
+    // Scroll synchronization: update center item only when scroll settles, avoiding per-pixel overhead
     LaunchedEffect(lazyListState) {
-        snapshotFlow { lazyListState.layoutInfo }
-            .map { layoutInfo ->
-                val viewportCenter = (layoutInfo.viewportStartOffset + layoutInfo.viewportEndOffset) / 2
-                layoutInfo.visibleItemsInfo.minByOrNull {
-                    val itemCenter = it.offset + it.size / 2
-                    abs(itemCenter - viewportCenter)
-                }?.index ?: -1
-            }
+        snapshotFlow { lazyListState.isScrollInProgress }
             .distinctUntilChanged()
-            .collect { centerIndex ->
-                // Only update selection if we are NOT in the middle of an auto-scroll
-                if (!isAutoScrolling && centerIndex != -1 && selectedIndex != centerIndex) {
-                    haptic.performHapticFeedback(HapticFeedbackType.KeyboardTap)
-                    selectedIndex = centerIndex
+            .collect { isScrolling ->
+                if (!isScrolling && !isAutoScrolling) {
+                    val layoutInfo = lazyListState.layoutInfo
+                    val viewportCenter = (layoutInfo.viewportStartOffset + layoutInfo.viewportEndOffset) / 2
+                    val centerIndex = layoutInfo.visibleItemsInfo.minByOrNull {
+                        val itemCenter = it.offset + it.size / 2
+                        abs(itemCenter - viewportCenter)
+                    }?.index ?: -1
 
-                    val item = chartItems[centerIndex]
-                    if (item is HistoryChartItem.BarData) {
-                        displayedData = item.usage to dateFormatter.format(Date(item.timestamp))
-                        revertJob?.cancel()
-                        revertJob = coroutineScope.launch {
-                            delay(7000)
-                            displayedData = totalUsageData to totalUsageLabel
+                    if (centerIndex != -1 && selectedIndex != centerIndex) {
+                        val item = chartItems.getOrNull(centerIndex) ?: return@collect
+                        if (item is HistoryChartItem.BarData) {
+                            selectedIndex = centerIndex
+                            val formattedDate = item.formattedDate.ifBlank { dateFormatter.format(Date(item.timestamp)) }
+                            displayedData = item.usage to formattedDate
+                            revertJob?.cancel()
+                            revertJob = coroutineScope.launch {
+                                delay(7000)
+                                displayedData = totalUsageData to totalUsageLabel
+                            }
                         }
                     }
                 }
             }
     }
 
-    // Initial scroll to today
-    LaunchedEffect(Unit) {
-        if (todayIdx != -1) {
+    // Reset selection and scroll position safely when chartItems change
+    LaunchedEffect(chartItems) {
+        if (todayIdx in chartItems.indices) {
+            selectedIndex = todayIdx
             lazyListState.scrollToItem(todayIdx)
+        } else {
+            selectedIndex = -1
         }
+        revertJob?.cancel()
         displayedData = totalUsageData to totalUsageLabel
     }
 
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
         BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
-            val barWidth = 44.dp
-            val rowHeight = 220.dp
-            val barAreaHeight = rowHeight * 0.8f
+            val containerWidth = 24.dp
+            val rowHeight = 200.dp
+            val barAreaHeight = 150.dp
             val horizontalPadding = 16.dp
 
             LazyRow(
                 state = lazyListState,
                 modifier = Modifier.height(rowHeight),
                 contentPadding = PaddingValues(horizontal = horizontalPadding),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                horizontalArrangement = Arrangement.spacedBy(2.dp),
                 verticalAlignment = Alignment.Bottom
             ) {
                 itemsIndexed(chartItems, key = { index, item ->
@@ -262,36 +340,31 @@ private fun HistoryBarChartContent(chartItems: List<HistoryChartItem>) {
                 }) { idx, item ->
                     when (item) {
                         is HistoryChartItem.BarData -> {
-                                Bar(
-                                    modifier = Modifier
-                                        .width(barWidth)
-                                        .fillMaxHeight(),
-                                    usage = item.usage,
-                                    maxUsage = maxDailyUsage,
-                                    dayLabel = item.label,
-                                    isSelected = (idx == selectedIndex),
-                                    isAmoled = isAmoled,
-                                    barAreaHeight = barAreaHeight,
-                                    onTap = {
+                            Bar(
+                                modifier = Modifier
+                                    .width(containerWidth)
+                                    .fillMaxHeight(),
+                                usage = item.usage,
+                                maxUsage = maxDailyUsage,
+                                dayLabel = item.label,
+                                isSelected = (idx == selectedIndex),
+                                isAmoled = isAmoled,
+                                barAreaHeight = barAreaHeight,
+                                onTap = {
+                                    val clickedItem = chartItems.getOrNull(idx) as? HistoryChartItem.BarData ?: return@Bar
                                     if (selectedIndex != idx) {
-                                        // 1. Set flag to prevent intermediate snaps
+                                        haptic.performHapticFeedback(HapticFeedbackType.KeyboardTap)
                                         isAutoScrolling = true
-
-                                        // 2. Update selection immediately
                                         selectedIndex = idx
-
-                                        // 3. Update displayed data immediately
-                                        displayedData = item.usage to dateFormatter.format(Date(item.timestamp))
+                                        val formattedDate = clickedItem.formattedDate.ifBlank { dateFormatter.format(Date(clickedItem.timestamp)) }
+                                        displayedData = clickedItem.usage to formattedDate
                                         revertJob?.cancel()
                                         revertJob = coroutineScope.launch {
                                             delay(7000)
                                             displayedData = totalUsageData to totalUsageLabel
                                         }
-
-                                        // 4. Perform the smooth scroll
                                         coroutineScope.launch {
                                             lazyListState.animateScrollToItem(idx)
-                                            // 5. Reset flag after scroll completes
                                             isAutoScrolling = false
                                         }
                                     }
@@ -317,7 +390,7 @@ private fun MonthSeparator(monthName: String) {
     Box(
         modifier = Modifier
             .fillMaxHeight()
-            .padding(horizontal = 8.dp),
+            .padding(horizontal = 4.dp),
         contentAlignment = Alignment.Center
     ) {
         Text(
@@ -329,7 +402,6 @@ private fun MonthSeparator(monthName: String) {
         )
     }
 }
-
 
 @Composable
 private fun Bar(
@@ -343,23 +415,12 @@ private fun Bar(
     onTap: () -> Unit
 ) {
     val total = usage.rxBytes + usage.txBytes
-    val rawFrac = if (maxUsage > 0) total.toFloat() / maxUsage else 0f
-    val targetFrac = rawFrac.coerceAtLeast(0.15f)
+    val totalFrac = (total.toFloat() / maxUsage.toFloat()).coerceIn(0.06f, 1f)
 
-    // Modified animation for "Go slow / Accelerate" and "Overshoot"
-    val heightFrac by animateFloatAsState(
-        targetValue = targetFrac,
-        animationSpec = spring(
-            dampingRatio = 0.45f, // Bouncy (Overshoot)
-            stiffness = Spring.StiffnessLow // Slow start/settle
-        ),
-        label = "BarHeight"
-    )
-
-    val uploadFrac = if (total > 0) usage.txBytes.toFloat() / total else 0f
+    val uploadFrac = if (total > 0) usage.txBytes.toFloat() / total.toFloat() else 0f
     val downloadFrac = 1f - uploadFrac
     val density = LocalDensity.current
-    val barHeightInDp = with(density) { (barAreaHeight.toPx() * heightFrac).toDp() }
+    val barHeightInDp = with(density) { (barAreaHeight.toPx() * totalFrac).toDp() }
 
     Column(
         modifier = modifier
@@ -373,7 +434,7 @@ private fun Bar(
     ) {
         Box(
             modifier = Modifier
-                .fillMaxWidth()
+                .width(24.dp)
                 .height(barAreaHeight),
             contentAlignment = Alignment.BottomCenter
         ) {
@@ -382,24 +443,22 @@ private fun Bar(
 
             Canvas(
                 modifier = Modifier
-                    .fillMaxWidth()
+                    .width(10.dp)
                     .height(barHeightInDp)
             ) {
-                val strokeWidth = 4.dp.toPx()
+                val strokeWidth = 2.dp.toPx()
                 val cornerRadius = androidx.compose.ui.geometry.CornerRadius(size.width / 2, size.width / 2)
-                
-                // Inset the drawing rect by half the stroke width when outlined so it doesn't get clipped by Canvas bounds.
                 val inset = if (isAmoled) strokeWidth / 2 else 0f
                 val drawSize = Size(size.width - inset * 2, size.height - inset * 2)
                 val topLeftOffset = Offset(inset, inset)
 
                 if (total > 0) {
-                    val gapPx = if (downloadFrac > 0f && uploadFrac > 0f) 4.dp.toPx() else 0f
-                    val availableHeight = drawSize.height - gapPx
+                    val gapPx = if (downloadFrac > 0f && uploadFrac > 0f) 2.dp.toPx() else 0f
+                    val availableHeight = (drawSize.height - gapPx).coerceAtLeast(0f)
                     val ulH = availableHeight * uploadFrac
                     val dlH = availableHeight * downloadFrac
 
-                    if (ulH > 0) {
+                    if (ulH > 0f) {
                         if (isAmoled) {
                             drawRoundRect(
                                 color = ulColor,
@@ -418,8 +477,8 @@ private fun Bar(
                         }
                     }
 
-                    if (dlH > 0) {
-                        val dlTopY = topLeftOffset.y + ulH + gapPx
+                    if (dlH > 0f) {
+                        val dlTopY = topLeftOffset.y + if (ulH > 0f) ulH + gapPx else 0f
                         if (isAmoled) {
                             drawRoundRect(
                                 color = dlColor,
@@ -438,7 +497,7 @@ private fun Bar(
                         }
                     }
                 } else {
-                    val emptyColor = Color.Gray.copy(alpha = 0.3f)
+                    val emptyColor = if (isAmoled) Color.DarkGray else Color.Gray.copy(alpha = 0.25f)
                     if (isAmoled) {
                         drawRoundRect(
                             color = emptyColor,
@@ -459,23 +518,23 @@ private fun Bar(
             }
         }
 
-        Spacer(Modifier.height(12.dp))
+        Spacer(Modifier.height(8.dp))
 
-        val backgroundColor = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant
+        val backgroundColor = if (isSelected) MaterialTheme.colorScheme.primary else Color.Transparent
         val textColor = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant
 
         Box(
             contentAlignment = Alignment.Center,
             modifier = Modifier
-                .size(36.dp)
+                .size(20.dp)
                 .clip(CircleShape)
                 .background(backgroundColor)
         ) {
             Text(
                 text = dayLabel,
-                style = MaterialTheme.typography.bodyMedium, // Bigger font
+                style = MaterialTheme.typography.labelSmall,
                 color = textColor,
-                fontWeight = FontWeight.Bold, // Bold text
+                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
                 textAlign = TextAlign.Center
             )
         }
