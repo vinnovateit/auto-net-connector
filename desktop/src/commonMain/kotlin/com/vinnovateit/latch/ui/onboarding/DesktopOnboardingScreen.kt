@@ -31,13 +31,10 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.sp
 import com.vinnovateit.latch.core.platform.PlatformServices
-import com.vinnovateit.latch.desktop.resources.Res
-import com.vinnovateit.latch.desktop.resources.captive_portal_24px
 import com.vinnovateit.latch.ui.components.LatchIcons
 import com.vinnovateit.latch.ui.theme.modernizFontFamily
 import com.vinnovateit.latch.ui.theme.satoshiFontFamily
 import kotlinx.coroutines.launch
-import org.jetbrains.compose.resources.painterResource
 
 private data class DesktopSlide(
     val title: String,
@@ -67,7 +64,7 @@ fun DesktopOnboardingScreen(
                 description = "Latch will handle the \"Sign-in to Network\" captive portal for you every time you connect to the network with your credentials.",
                 icon = {
                     Icon(
-                        painter = painterResource(Res.drawable.captive_portal_24px),
+                        imageVector = LatchIcons.CaptivePortal,
                         contentDescription = null,
                         tint = MaterialTheme.colorScheme.primary,
                         modifier = Modifier.size(80.dp),
