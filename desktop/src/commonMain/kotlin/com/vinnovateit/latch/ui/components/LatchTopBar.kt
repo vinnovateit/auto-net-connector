@@ -52,50 +52,6 @@ import com.vinnovateit.latch.ui.theme.satoshiFontFamily
 import kotlinx.coroutines.delay
 import org.jetbrains.compose.resources.stringResource
 
-/**
- * Static window controls (minimize and close) overlay placed on top of LatchRoot
- * so they remain completely stationary during all page transitions.
- *
- * Uses 40dp IconButton circular ripples matching the menu icon, with 12dp end padding
- * for right margin spacing.
- */
-@Composable
-internal fun WindowControlButtons(
-    onMinimize: () -> Unit,
-    onClose: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    Row(
-        modifier = modifier
-            .height(64.dp)
-            .padding(end = 12.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(4.dp),
-    ) {
-        IconButton(
-            onClick = onMinimize,
-            modifier = Modifier.size(40.dp),
-        ) {
-            Icon(
-                imageVector = LatchIcons.Minimize,
-                contentDescription = "Minimize",
-                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.size(18.dp),
-            )
-        }
-        IconButton(
-            onClick = onClose,
-            modifier = Modifier.size(40.dp),
-        ) {
-            Icon(
-                imageVector = LatchIcons.Close,
-                contentDescription = "Close",
-                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.size(18.dp),
-            )
-        }
-    }
-}
 
 /**
  * Immersive top bar: Latch mark on left, auto-dismissing status pill (3.5s) transitioning
