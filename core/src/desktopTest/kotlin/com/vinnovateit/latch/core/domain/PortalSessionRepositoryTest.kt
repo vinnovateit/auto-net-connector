@@ -9,11 +9,15 @@ import com.vinnovateit.latch.core.platform.HttpTransport
 import com.vinnovateit.latch.core.portal.PortalHistoryClient
 import com.vinnovateit.latch.core.stats.ThroughputMonitor
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.runBlocking
 import java.io.ByteArrayInputStream
 import java.io.InputStream
 import java.net.HttpURLConnection
 import java.net.URL
+import java.util.concurrent.atomic.AtomicInteger
 import kotlin.test.AfterTest
 import kotlin.test.BeforeTest
 import kotlin.test.Test
@@ -60,6 +64,31 @@ class PortalSessionRepositoryTest {
                             </table>
                         """.trimIndent()
                         else -> "OK"
+                    }
+                    return ByteArrayInputStream(html.toByteArray())
+                }
+                override fun getOutputStream() = java.io.ByteArrayOutputStream()
+                override fun getResponseCode() = 200
+            }
+        }
+    }
+
+    private class SlowPortalTransport : HttpTransport {
+        val logins = AtomicInteger(0)
+
+        override fun open(url: URL, handle: com.vinnovateit.latch.core.platform.NetworkHandle?): HttpURLConnection {
+            val urlStr = url.toString()
+            if ("chooseAuth" in urlStr) logins.incrementAndGet()
+            return object : HttpURLConnection(url) {
+                override fun connect() {}
+                override fun disconnect() {}
+                override fun usingProxy(): Boolean = false
+                override fun getInputStream(): InputStream {
+                    Thread.sleep(150)
+                    val html = if ("Main.jsp" in urlStr) {
+                        """<form name="chooseAuthForm" action="/registration/chooseAuth.do"></form>"""
+                    } else {
+                        "OK"
                     }
                     return ByteArrayInputStream(html.toByteArray())
                 }
@@ -177,6 +206,33 @@ class PortalSessionRepositoryTest {
         assertEquals(1, history2.size)
         // Must preserve the validated past date
         assertEquals("VIT-Initial", history2[0].location)
+        repo.close()
+    }
+
+    @Test
+    fun `two concurrent syncs perform only one portal login`() = runBlocking {
+        val transport = SlowPortalTransport()
+        val repo = SessionRepository(
+            statsDao = db.statsDao(),
+            throughput = ThroughputMonitor(StubCounters()),
+            portalClient = PortalHistoryClient(transport),
+            // Slow enough that both callers are inside the function together,
+            // which is what happens on a real cold start.
+            activeHandle = { Thread.sleep(200); TestWifiHandle },
+        )
+        repo.initialize()
+
+        // The app graph and the stats screen both fire a sync on startup.
+        listOf(
+            async(Dispatchers.IO) { repo.syncPortalHistory("24BDS0155", "zero", force = true) },
+            async(Dispatchers.IO) { repo.syncPortalHistory("24BDS0155", "zero", force = true) },
+        ).awaitAll()
+
+        assertEquals(
+            1,
+            transport.logins.get(),
+            "the portal answers a second simultaneous login with a timeout",
+        )
         repo.close()
     }
 

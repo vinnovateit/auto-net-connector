@@ -181,26 +181,33 @@ class SessionRepository(
         force: Boolean = false,
     ): Result<Unit> {
         val client = portalClient ?: return Result.failure(IllegalStateException("Portal client not configured"))
-        if (_isSyncing.value) return Result.success(Unit)
 
-        // The portal is only reachable on the captive-portal Wi-Fi. Without a
-        // handle the transport falls back to the process default network, which
-        // on Android stays cellular while a captive portal is unvalidated -- that
-        // would ship these credentials off-network in cleartext.
-        val handle = activeHandle()
-        if (handle == null) {
-            logger.w(TAG, "No active Wi-Fi network; skipping portal sync rather than leaving the network.")
-            return Result.failure(IllegalStateException("Not connected to Wi-Fi"))
-        }
-
-        val now = System.currentTimeMillis()
-        if (!force && (now - lastSyncTimeMillis < 30_000L) && _portalHistory.value.isNotEmpty()) {
+        // Claim the slot atomically. A check-then-set here lets the app graph's
+        // startup sync and the stats screen's own sync both get through, and two
+        // concurrent Pronto logins make the portal answer with a read timeout or
+        // an unrecognised 200.
+        if (!_isSyncing.compareAndSet(expect = false, update = true)) {
+            logger.d(TAG, "A portal sync is already running; skipping this one.")
             return Result.success(Unit)
         }
-        lastSyncTimeMillis = now
-        logger.d(TAG, "syncPortalHistory starting...")
-        _isSyncing.value = true
+
         return try {
+            // The portal is only reachable on the captive-portal Wi-Fi. Without a
+            // handle the transport falls back to the process default network, which
+            // on Android stays cellular while a captive portal is unvalidated -- that
+            // would ship these credentials off-network in cleartext.
+            val handle = activeHandle()
+            if (handle == null) {
+                logger.w(TAG, "No active Wi-Fi network; skipping portal sync rather than leaving the network.")
+                return Result.failure(IllegalStateException("Not connected to Wi-Fi"))
+            }
+
+            val now = System.currentTimeMillis()
+            if (!force && (now - lastSyncTimeMillis < 30_000L) && _portalHistory.value.isNotEmpty()) {
+                return Result.success(Unit)
+            }
+            lastSyncTimeMillis = now
+            logger.d(TAG, "syncPortalHistory starting...")
             val result = client.fetchHistory(userId, password, handle = handle, host = host)
             if (result.isSuccess) {
                 val incoming = result.getOrThrow().filter {
