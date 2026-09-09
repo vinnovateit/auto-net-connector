@@ -70,8 +70,16 @@ fun computeChartItems(
     val validRecords = nonZero.filter { it.loginTime > 0 }
     val earliest = validRecords.minOfOrNull { it.loginTime } ?: (nowMillis - 30L * 86400000L)
     val minAllowed = Calendar.getInstance().apply { set(2020, Calendar.JANUARY, 1) }.timeInMillis
+    // Assigning timeInMillis discards the midnight normalisation above and
+    // carries the earliest record's time of day into the cursor. Left as-is, the
+    // final iteration overshoots `now` for the rest of the day and today's bar,
+    // the one holding the live bytes, never gets emitted.
     startCal.timeInMillis = maxOf(earliest, minAllowed)
     startCal.set(Calendar.DAY_OF_MONTH, 1)
+    startCal.set(Calendar.HOUR_OF_DAY, 0)
+    startCal.set(Calendar.MINUTE, 0)
+    startCal.set(Calendar.SECOND, 0)
+    startCal.set(Calendar.MILLISECOND, 0)
 
     val monthsWithData = mutableSetOf<String>()
     groupedByDay.forEach { (dayKey, usage) ->
