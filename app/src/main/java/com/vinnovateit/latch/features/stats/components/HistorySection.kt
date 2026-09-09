@@ -66,7 +66,7 @@ import com.vinnovateit.latch.core.stats.formatDisplayDate
 import com.vinnovateit.latch.core.stats.formatDurationDynamic
 import com.vinnovateit.latch.core.model.DataUsage
 import com.vinnovateit.latch.core.model.HistoryChartItem
-import com.vinnovateit.latch.features.settings.manager.SettingsManager
+import com.vinnovateit.latch.core.settings.SettingsManager
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.launch
 

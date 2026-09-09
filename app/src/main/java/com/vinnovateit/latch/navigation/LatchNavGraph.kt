@@ -41,7 +41,7 @@ import com.vinnovateit.latch.features.home.HomeScreen
 import com.vinnovateit.latch.features.onboarding.CredentialsScreen
 import com.vinnovateit.latch.features.onboarding.components.OnboardingScreen
 import com.vinnovateit.latch.features.settings.SettingsScreen
-import com.vinnovateit.latch.features.settings.manager.SettingsManager
+import com.vinnovateit.latch.core.settings.SettingsManager
 import com.vinnovateit.latch.features.stats.StatsScreen
 import com.vinnovateit.latch.features.stats.StatsViewModel
 import com.vinnovateit.latch.platform.LatchAppGraph

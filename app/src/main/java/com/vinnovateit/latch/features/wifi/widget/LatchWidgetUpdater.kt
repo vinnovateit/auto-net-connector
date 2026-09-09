@@ -18,7 +18,7 @@ import com.vinnovateit.latch.platform.toLegacyStatus
 import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.serialization.json.Json
 import java.util.concurrent.TimeUnit
-import com.vinnovateit.latch.features.settings.manager.SettingsManager
+import com.vinnovateit.latch.core.settings.SettingsManager
 import kotlinx.coroutines.flow.first
 
 class LatchWidgetUpdater(
@@ -61,7 +61,7 @@ class LatchWidgetUpdater(
     val glanceIds = manager.getGlanceIds(LatchWidget::class.java)
     if (glanceIds.isEmpty()) return Result.success()
 
-    SettingsManager.initialize(applicationContext)
+    LatchAppGraph.initialize(applicationContext)
 
     val useDynamic = SettingsManager.useDynamicColors.first()
     val accentColorVal = SettingsManager.accentColor.first()

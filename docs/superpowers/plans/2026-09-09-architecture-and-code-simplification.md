@@ -137,7 +137,19 @@ Run: `./gradlew :core:desktopTest :app:testDebugUnitTest :desktop:compileKotlinD
 ## Big Task 3: Settings Architecture Unification
 
 ### Subtask 3.1: Route Android Callers to Core SettingsManager
+- [x] **Step 1: Wire reactive settings observers in LatchAppGraph**
+Listen to `SettingsManager.settingsChanged` for `ACTION_SETTINGS_CHANGED` widget broadcasts, and `SettingsManager.autoLogin` for foreground service start/logout dispatch.
+- [x] **Step 2: Update all 18 Android callers to core SettingsManager**
+Migrate all UI screens, components, services, and navigation to `com.vinnovateit.latch.core.settings.SettingsManager`.
+
 ### Subtask 3.2: Delete Android SettingsManager Shallow Wrapper
+- [x] **Step 1: Remove redundant SettingsManager.initialize() calls**
+Remove unused context initialization from `MainActivity`, and redirect `TileService` & `WidgetUpdater` to `LatchAppGraph.initialize()`.
+- [x] **Step 2: Delete app SettingsManager wrapper and redundant unit test**
+Delete `app/.../features/settings/manager/SettingsManager.kt` and `SettingsManagerTest.kt`.
+- [x] **Step 3: Run full verification and commit**
+Run: `./gradlew assembleDebug testDebugUnitTest :app:lintDebug :desktop:compileKotlinDesktop :core:desktopTest :cli:test :desktop:smoke`
+`git commit -m "refactor(settings): unify settings on core SettingsManager and eliminate Android wrapper"`
 
 ---
 

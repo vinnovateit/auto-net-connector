@@ -39,7 +39,7 @@ import com.vinnovateit.latch.core.stats.formatDurationDynamic
 import com.vinnovateit.latch.core.model.AggregatedDayRecord
 import com.vinnovateit.latch.core.model.PortalSessionRecord
 import com.vinnovateit.latch.core.model.SessionSummary
-import com.vinnovateit.latch.features.settings.manager.SettingsManager
+import com.vinnovateit.latch.core.settings.SettingsManager
 import com.vinnovateit.latch.ui.theme.ColorGraphDownload
 import com.vinnovateit.latch.ui.theme.ColorGraphUpload
 import com.vinnovateit.latch.ui.theme.LocalIsDarkTheme

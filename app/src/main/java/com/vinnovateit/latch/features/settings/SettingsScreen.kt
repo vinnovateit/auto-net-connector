@@ -89,7 +89,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.vinnovateit.latch.R
 import com.vinnovateit.latch.common.ui.components.ExpressiveTopBarContent
 import com.vinnovateit.latch.platform.LatchAppGraph
-import com.vinnovateit.latch.features.settings.manager.SettingsManager
+import com.vinnovateit.latch.core.settings.SettingsManager
 import com.vinnovateit.latch.features.settings.components.CustomColorPickerDialog
 import com.vinnovateit.latch.features.settings.components.parseHexOrNull
 import kotlinx.coroutines.launch

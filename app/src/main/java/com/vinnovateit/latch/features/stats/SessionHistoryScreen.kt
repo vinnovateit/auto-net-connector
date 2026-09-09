@@ -58,7 +58,7 @@ import com.vinnovateit.latch.common.util.NoDataCard
 import com.vinnovateit.latch.core.stats.formatBytes
 import com.vinnovateit.latch.core.stats.formatDate
 import com.vinnovateit.latch.core.model.DateRangeFilter
-import com.vinnovateit.latch.features.settings.manager.SettingsManager
+import com.vinnovateit.latch.core.settings.SettingsManager
 import com.vinnovateit.latch.features.stats.components.DayAggregateListItem
 import com.vinnovateit.latch.features.stats.components.GameStatRow
 import com.vinnovateit.latch.features.stats.components.groupedItemShape

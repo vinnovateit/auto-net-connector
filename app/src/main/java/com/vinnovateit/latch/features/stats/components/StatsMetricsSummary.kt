@@ -30,7 +30,7 @@ import com.vinnovateit.latch.core.stats.formatDurationDynamic
 import com.vinnovateit.latch.core.model.PortalSessionRecord
 import com.vinnovateit.latch.core.model.StatsOverviewMetrics
 import com.vinnovateit.latch.core.model.computeMetrics
-import com.vinnovateit.latch.features.settings.manager.SettingsManager
+import com.vinnovateit.latch.core.settings.SettingsManager
 
 @Composable
 fun StatsMetricsSummary(

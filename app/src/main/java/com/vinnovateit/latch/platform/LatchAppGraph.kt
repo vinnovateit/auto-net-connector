@@ -84,5 +84,30 @@ object LatchAppGraph {
                 }
             }
         }
+
+        val appScope = CoroutineScope(Dispatchers.Main.immediate)
+        appScope.launch {
+            SettingsManager.settingsChanged.collect {
+                appContext.sendBroadcast(android.content.Intent("com.vinnovateit.latch.ACTION_SETTINGS_CHANGED"))
+            }
+        }
+        appScope.launch {
+            var initial = true
+            SettingsManager.autoLogin.collect { enabled ->
+                if (initial) {
+                    initial = false
+                    return@collect
+                }
+                if (enabled) {
+                    appContext.startService(android.content.Intent(appContext, com.vinnovateit.latch.features.wifi.background.ForegroundService::class.java))
+                } else if (_sessions?.liveStatus?.value != null) {
+                    appContext.startService(
+                        android.content.Intent(appContext, com.vinnovateit.latch.features.wifi.background.ForegroundService::class.java).apply {
+                            action = com.vinnovateit.latch.features.wifi.background.ForegroundService.ACTION_TRIGGER_LOGOUT
+                        }
+                    )
+                }
+            }
+        }
     }
 }
