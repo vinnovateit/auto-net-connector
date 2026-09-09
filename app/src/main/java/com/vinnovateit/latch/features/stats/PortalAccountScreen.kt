@@ -179,11 +179,14 @@ fun PortalAccountScreen(
                                     view: WebView?,
                                     request: WebResourceRequest?,
                                 ): Boolean {
-                                    // Returning true blocks the navigation, so the
-                                    // WebView holding the credentials never leaves
-                                    // the portal.
-                                    val target = request?.url?.toString()
-                                    return !isPortalUrl(target)
+                                    // The WebView holds the user's credentials, so
+                                    // it never leaves the portal. Anything else is
+                                    // handed to the browser rather than silently
+                                    // dropped, which would look like a dead link.
+                                    val target = request?.url?.toString() ?: return true
+                                    if (isPortalUrl(target)) return false
+                                    LatchAppGraph.platform.systemActions.openUrl(target)
+                                    return true
                                 }
 
                                 override fun onPageFinished(view: WebView?, url: String?) {
