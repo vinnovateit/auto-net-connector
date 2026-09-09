@@ -66,10 +66,12 @@ class MainActivity : ComponentActivity() {
         val hasSeenOnboarding = prefs.getBoolean("hasSeenOnboarding", false)
         val hasCredentials = com.vinnovateit.latch.core.platform.android.StoredCredentials.credentialsExist(this)
 
-        val startDest = if (hasCredentials && hasSeenOnboarding) {
-            com.vinnovateit.latch.navigation.LatchRoutes.HOME
-        } else {
-            com.vinnovateit.latch.navigation.LatchRoutes.ONBOARDING
+        // Someone who has finished onboarding but cleared their credentials only
+        // needs the credentials screen back, not the whole slide deck again.
+        val startDest = when {
+            !hasSeenOnboarding -> com.vinnovateit.latch.navigation.LatchRoutes.ONBOARDING
+            hasCredentials -> com.vinnovateit.latch.navigation.LatchRoutes.HOME
+            else -> com.vinnovateit.latch.navigation.LatchRoutes.credentials(editMode = false)
         }
 
         setContent {
