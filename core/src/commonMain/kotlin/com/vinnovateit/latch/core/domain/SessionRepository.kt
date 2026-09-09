@@ -12,16 +12,24 @@ import com.vinnovateit.latch.core.platform.NetworkHandle
 import com.vinnovateit.latch.core.platform.Platform
 import com.vinnovateit.latch.core.platform.logger
 import com.vinnovateit.latch.core.portal.PortalHistoryClient
+import com.vinnovateit.latch.core.model.AggregatedDayRecord
+import com.vinnovateit.latch.core.model.HistoryChartItem
+import com.vinnovateit.latch.core.model.StatsOverviewMetrics
+import com.vinnovateit.latch.core.model.computeMetrics
+import com.vinnovateit.latch.core.stats.StatsInsights
 import com.vinnovateit.latch.core.stats.ThroughputMonitor
+import com.vinnovateit.latch.core.stats.aggregateDays
+import com.vinnovateit.latch.core.stats.computeChartItems
+import com.vinnovateit.latch.core.stats.computeStatsInsights
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 
 private const val TAG = "SessionRepository"
@@ -77,6 +85,18 @@ class SessionRepository(
     private val _isSyncing = MutableStateFlow(false)
     val isSyncing: StateFlow<Boolean> = _isSyncing.asStateFlow()
 
+    private val _aggregatedDayRecords = MutableStateFlow<List<AggregatedDayRecord>>(emptyList())
+    val aggregatedDayRecords: StateFlow<List<AggregatedDayRecord>> = _aggregatedDayRecords.asStateFlow()
+
+    private val _overviewMetrics = MutableStateFlow(computeMetrics(emptyList()))
+    val overviewMetrics: StateFlow<StatsOverviewMetrics> = _overviewMetrics.asStateFlow()
+
+    private val _statsInsights = MutableStateFlow(computeStatsInsights(emptyList()))
+    val statsInsights: StateFlow<StatsInsights> = _statsInsights.asStateFlow()
+
+    private val _chartItems = MutableStateFlow<List<HistoryChartItem>>(emptyList())
+    val chartItems: StateFlow<List<HistoryChartItem>> = _chartItems.asStateFlow()
+
     fun initialize() {
         // Local session rows stopped being written when portal history became the
         // source of truth, so the summaries are derived from that instead. Reading
@@ -86,6 +106,18 @@ class SessionRepository(
                 val summaries = records.map { it.toSessionSummary() }
                 _sessionSummaries.value = summaries
                 _lastSession.value = summaries.firstOrNull()
+            }
+        }
+
+        // Asynchronously precompute stats on Dispatchers.Default so UI screens
+        // render immediately with 0ms UI-thread computation lag.
+        scope.launch(Dispatchers.Default) {
+            portalHistory.collect { records ->
+                val nonZero = records.filter { it.uploadBytes > 0L || it.downloadBytes > 0L }
+                _aggregatedDayRecords.value = aggregateDays(nonZero)
+                _overviewMetrics.value = computeMetrics(nonZero)
+                _statsInsights.value = computeStatsInsights(nonZero)
+                _chartItems.value = computeChartItems(nonZero)
             }
         }
 
