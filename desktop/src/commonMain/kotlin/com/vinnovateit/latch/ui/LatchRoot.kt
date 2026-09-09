@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationRail
@@ -78,6 +79,7 @@ fun LatchRoot(
         ) {
             var hasCredentials by remember { mutableStateOf(platform.credentials.exists()) }
             val hasSeenOnboarding by SettingsManager.hasSeenOnboarding.collectAsStateWithLifecycle()
+            val onboardingPagerState = rememberPagerState(initialPage = 0, pageCount = { 6 })
             var editingCredentials by remember { mutableStateOf(false) }
             var showAbout by remember { mutableStateOf(false) }
             var destination by remember { mutableStateOf(LatchDestination.Home) }
@@ -158,6 +160,7 @@ fun LatchRoot(
                                 onNavigateToCredentials = {
                                     editingCredentials = true
                                 },
+                                pagerState = onboardingPagerState,
                             )
                         }
 

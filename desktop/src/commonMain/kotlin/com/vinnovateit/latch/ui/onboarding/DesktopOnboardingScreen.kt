@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.PagerState
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -47,6 +48,7 @@ fun DesktopOnboardingScreen(
     onComplete: () -> Unit,
     onNavigateToCredentials: () -> Unit,
     modifier: Modifier = Modifier,
+    pagerState: PagerState = rememberPagerState(initialPage = 0, pageCount = { 6 }),
 ) {
     val scope = rememberCoroutineScope()
 
@@ -119,8 +121,6 @@ fun DesktopOnboardingScreen(
             ),
         )
     }
-
-    val pagerState = rememberPagerState(initialPage = 0, pageCount = { slides.size })
 
     Scaffold(
         modifier = modifier.fillMaxSize(),
