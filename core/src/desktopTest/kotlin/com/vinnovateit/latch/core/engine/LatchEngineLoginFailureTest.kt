@@ -21,7 +21,6 @@ import com.vinnovateit.latch.core.platform.WifiPlatform
 import com.vinnovateit.latch.core.settings.SettingsManager
 import com.vinnovateit.latch.core.stats.ThroughputMonitor
 import com.vinnovateit.latch.core.wifi.ConnectionStatus
-import com.vinnovateit.latch.core.wifi.ConnectionStatusManager
 import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
 import java.io.OutputStream
@@ -60,7 +59,7 @@ class LatchEngineLoginFailureTest {
             transport.loginAttempts,
             "login should be attempted once, not ${transport.loginAttempts} (revalidation loop detected)",
         )
-        val status = ConnectionStatusManager.status.value
+        val status = engine.status.value
         assertTrue(
             status is ConnectionStatus.Failed,
             "expected Failed status, got $status",

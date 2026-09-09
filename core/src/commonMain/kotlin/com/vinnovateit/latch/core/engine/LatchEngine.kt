@@ -8,7 +8,6 @@ import com.vinnovateit.latch.core.settings.SettingsManager
 import com.vinnovateit.latch.core.wifi.AutoLoginManager
 import com.vinnovateit.latch.core.wifi.CaptivePortalDetector
 import com.vinnovateit.latch.core.wifi.ConnectionStatus
-import com.vinnovateit.latch.core.wifi.ConnectionStatusManager
 import com.vinnovateit.latch.core.wifi.LoginResult
 import com.vinnovateit.latch.core.wifi.isVitCampusSsid
 import com.vinnovateit.latch.core.wifi.probeCampusNetwork
@@ -35,8 +34,8 @@ enum class LatchCommand { CheckAndLogin, SilentCheck, Logout, Shutdown }
 
 /** The only engine API the UI knows about. Replaces Android's Intent control plane. */
 interface LatchController {
-    val status: StateFlow<ConnectionStatus>
     val isLatched: StateFlow<Boolean>
+    val status: StateFlow<ConnectionStatus>
     fun submit(command: LatchCommand)
 
     /**
@@ -44,7 +43,7 @@ interface LatchController {
      * processing (not until some StateFlow happens to already satisfy a
      * predicate -- that races the command itself). Returns false on timeout.
      */
-    suspend fun submitAndAwait(command: LatchCommand, timeoutMs: Long): Boolean
+    suspend fun submitAndAwait(command: LatchCommand, timeoutMs: Long = 10_000L): Boolean
 }
 
 /**
@@ -110,7 +109,22 @@ class LatchEngine(
     private val _isLatched = MutableStateFlow(false)
     override val isLatched: StateFlow<Boolean> = _isLatched.asStateFlow()
 
-    override val status: StateFlow<ConnectionStatus> = ConnectionStatusManager.status
+    private val _status = MutableStateFlow<ConnectionStatus>(ConnectionStatus.Idle)
+    override val status: StateFlow<ConnectionStatus> = _status.asStateFlow()
+    private var statusResetJob: Job? = null
+
+    private fun postStatus(newStatus: ConnectionStatus) {
+        _status.value = newStatus
+        statusResetJob?.cancel()
+        if (newStatus is ConnectionStatus.Success || newStatus is ConnectionStatus.Failed) {
+            statusResetJob = scope.launch {
+                delay(2000)
+                if (_status.value == newStatus) {
+                    _status.value = ConnectionStatus.Idle
+                }
+            }
+        }
+    }
 
     private fun unlatch() {
         _isLatched.value = false
@@ -190,12 +204,12 @@ class LatchEngine(
     private suspend fun handle(command: LatchCommand) {
         when (command) {
             LatchCommand.CheckAndLogin -> {
-                ConnectionStatusManager.postStatus(
+                postStatus(
                     ConnectionStatus.Connecting(ConnectionStatus.Step.Initializing)
                 )
                 if (!platform.wifi.isWifiEnabled()) {
                     unlatch()
-                    ConnectionStatusManager.postStatus(
+                    postStatus(
                         ConnectionStatus.Failed(ConnectionStatus.Reason.WifiOff)
                     )
                     return
@@ -203,7 +217,7 @@ class LatchEngine(
                 val handle = resolveHandle()
                 if (handle == null) {
                     unlatch()
-                    ConnectionStatusManager.postStatus(
+                    postStatus(
                         ConnectionStatus.Failed(ConnectionStatus.Reason.NotOnWifi)
                     )
                     return
@@ -272,7 +286,7 @@ class LatchEngine(
         logger.d(TAG, "[ConnectAnalysis] === Connection Probe Started (revalidating=$revalidating, retry=$retry) ===")
         logger.d(TAG, "[ConnectAnalysis] Step 1/4: Network Info: SSID='$currentSsid', Gateway='$currentGateway'")
 
-        ConnectionStatusManager.postStatus(
+        postStatus(
             ConnectionStatus.Connecting(ConnectionStatus.Step.CheckingInternet)
         )
 
@@ -286,14 +300,14 @@ class LatchEngine(
             if (!isVitCampusSsid(ssid)) {
                 logger.d(TAG, "[ConnectAnalysis] Network has 204 internet but SSID '$ssid' is not a VIT campus network; not latching.")
                 unlatch()
-                ConnectionStatusManager.postStatus(
+                postStatus(
                     ConnectionStatus.Failed(ConnectionStatus.Reason.NotTargetNetwork)
                 )
                 return
             }
             logger.d(TAG, "[ConnectAnalysis] Network has real internet (HTTP 204). Starting session.")
             platform.wifi.reportConnectivity(handle, ok = true)
-            ConnectionStatusManager.postStatus(ConnectionStatus.Success)
+            postStatus(ConnectionStatus.Success)
             _isLatched.value = true
             sessions.startSession()
             startHealthCheck(handle)
@@ -308,7 +322,7 @@ class LatchEngine(
         if (code == CaptivePortalDetector.DNS_RESOLUTION_FAILED && !revalidating) {
             logger.w(TAG, "[ConnectAnalysis] Portal host DNS resolution failed.")
             unlatch()
-            ConnectionStatusManager.postStatus(
+            postStatus(
                 ConnectionStatus.Failed(ConnectionStatus.Reason.DnsResolutionFailed)
             )
             return
@@ -324,7 +338,7 @@ class LatchEngine(
             } else {
                 logger.w(TAG, "[ConnectAnalysis] Network never granted internet after successful login.")
                 unlatch()
-                ConnectionStatusManager.postStatus(
+                postStatus(
                     ConnectionStatus.Failed(ConnectionStatus.Reason.NetworkTimeoutAfterLogin)
                 )
             }
@@ -334,7 +348,7 @@ class LatchEngine(
         if (silent || !SettingsManager.autoLogin.value) {
             logger.d(TAG, "[ConnectAnalysis] Silent check or auto-login disabled; skipping login attempt.")
             unlatch()
-            ConnectionStatusManager.postStatus(
+            postStatus(
                 ConnectionStatus.Failed(ConnectionStatus.Reason.LoginFailed)
             )
             return
@@ -343,7 +357,7 @@ class LatchEngine(
         if (!isTargetNetwork()) {
             logger.w(TAG, "[ConnectAnalysis] Captive portal present but network target verification failed.")
             unlatch()
-            ConnectionStatusManager.postStatus(
+            postStatus(
                 ConnectionStatus.Failed(ConnectionStatus.Reason.NotTargetNetwork)
             )
             return
@@ -391,7 +405,7 @@ class LatchEngine(
 
     private suspend fun handleCaptivePortal(handle: NetworkHandle) {
         logger.d(TAG, "[ConnectAnalysis] Step 4/4: Authenticating with Captive Portal...")
-        ConnectionStatusManager.postStatus(
+        postStatus(
             ConnectionStatus.Connecting(ConnectionStatus.Step.Authenticating)
         )
         platform.wifi.bindProcess(handle)
@@ -401,7 +415,7 @@ class LatchEngine(
             if (user == null || pass == null) {
                 logger.w(TAG, "[ConnectAnalysis] Auth Failed: Missing saved credentials.")
                 unlatch()
-                ConnectionStatusManager.postStatus(
+                postStatus(
                     ConnectionStatus.Failed(ConnectionStatus.Reason.NoCredentials)
                 )
                 return
@@ -431,7 +445,7 @@ class LatchEngine(
             if (result is LoginResult.Failure) {
                 logger.w(TAG, "[ConnectAnalysis] Login failed; not entering revalidation.")
                 unlatch()
-                ConnectionStatusManager.postStatus(
+                postStatus(
                     ConnectionStatus.Failed(ConnectionStatus.Reason.LoginFailed)
                 )
                 return
@@ -442,7 +456,7 @@ class LatchEngine(
         } catch (e: Exception) {
             logger.e(TAG, "[ConnectAnalysis] Exception during handleCaptivePortal: ${e.message}", e)
             unlatch()
-            ConnectionStatusManager.postStatus(
+            postStatus(
                 ConnectionStatus.Failed(ConnectionStatus.Reason.LoginFailed)
             )
         } finally {
@@ -457,7 +471,7 @@ class LatchEngine(
         val wasLatched = _isLatched.value
 
         unlatch()
-        ConnectionStatusManager.postStatus(
+        postStatus(
             ConnectionStatus.Failed(ConnectionStatus.Reason.Disconnected)
         )
 
