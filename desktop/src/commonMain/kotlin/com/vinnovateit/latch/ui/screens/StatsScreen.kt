@@ -179,49 +179,14 @@ fun StatsScreen(
         }
     }
 
-    val nonZeroHistory = remember(portalHistory) {
-        portalHistory.filter { it.uploadBytes > 0L || it.downloadBytes > 0L }
-    }
-    val metrics = remember(nonZeroHistory) { computeMetrics(nonZeroHistory) }
-    val insights = remember(nonZeroHistory) { computeStatsInsights(nonZeroHistory) }
-    val chartItems = remember(nonZeroHistory, liveStatus) {
-        val liveRx = liveStatus?.totalRxBytes ?: 0L
-        val liveTx = liveStatus?.totalTxBytes ?: 0L
-        computeChartItems(nonZeroHistory, liveRxBytes = liveRx, liveTxBytes = liveTx)
-    }
+    val allDayRecords by sessions.aggregatedDayRecords.collectAsStateWithLifecycle()
+    val metrics by sessions.overviewMetrics.collectAsStateWithLifecycle()
+    val insights by sessions.statsInsights.collectAsStateWithLifecycle()
+    val chartItems by sessions.chartItems.collectAsStateWithLifecycle()
 
-    val todayKey = remember { formatDate(System.currentTimeMillis(), "yyyy-MM-dd") }
-    val todaySessions = remember(nonZeroHistory, todayKey) {
-        nonZeroHistory.filter { it.loginTime > 0 && formatDate(it.loginTime, "yyyy-MM-dd") == todayKey }
-    }
-
-    val allDayRecords = remember(nonZeroHistory, todayKey) {
-        nonZeroHistory
-            .filter { it.loginTime > 0 }
-            .groupBy { formatDate(it.loginTime, "yyyy-MM-dd") }
-            .map { (dateKey, daySessions) ->
-                val first = daySessions.first()
-                val dl = daySessions.sumOf { it.downloadBytes }
-                val ul = daySessions.sumOf { it.uploadBytes }
-                val total = daySessions.sumOf { it.totalBytes.coerceAtLeast(it.downloadBytes + it.uploadBytes) }
-                val totalDur = daySessions.sumOf { it.durationMillis }
-                val isToday = dateKey == todayKey
-                AggregatedDayRecord(
-                    dayTimestamp = first.loginTime,
-                    dateFormatted = if (isToday) "Today" else formatDate(first.loginTime, "EEE, dd MMM yyyy"),
-                    downloadBytes = dl,
-                    uploadBytes = ul,
-                    totalBytes = total,
-                    downloadFormatted = formatBytes(dl),
-                    uploadFormatted = formatBytes(ul),
-                    totalFormatted = formatBytes(total),
-                    sessionCount = daySessions.size,
-                    totalDurationMillis = totalDur,
-                    durationFormatted = formatDurationDynamic(totalDur),
-                    isToday = isToday,
-                )
-            }
-            .sortedByDescending { it.dayTimestamp }
+    val todaySessions = remember(portalHistory) {
+        val todayKey = formatDate(System.currentTimeMillis(), "yyyy-MM-dd")
+        portalHistory.filter { it.loginTime > 0 && (it.uploadBytes > 0L || it.downloadBytes > 0L) && formatDate(it.loginTime, "yyyy-MM-dd") == todayKey }
     }
 
     var menuExpanded by remember { mutableStateOf(false) }
@@ -284,7 +249,7 @@ fun StatsScreen(
                                             val reportFile = File(downloadsDir, "latch-session-report-${System.currentTimeMillis()}.html")
                                             reportFile.outputStream().use { stream ->
                                                 generatePortalHtmlReport(
-                                                    sessions = nonZeroHistory,
+                                                    sessions = portalHistory.filter { it.uploadBytes > 0L || it.downloadBytes > 0L },
                                                     outputStream = stream,
                                                     appVersion = "Desktop",
                                                     userId = platform.credentials.userId() ?: "",
@@ -331,8 +296,8 @@ fun StatsScreen(
                 },
             )
 
-            if (liveStatus == null && nonZeroHistory.isEmpty()) {
-                if (isSyncing) {
+            if (liveStatus == null && allDayRecords.isEmpty()) {
+                if (isSyncing && !sessions.isHistoryLoaded.value) {
                     Box(
                         modifier = Modifier.fillMaxSize(),
                         contentAlignment = Alignment.Center,
