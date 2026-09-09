@@ -1,6 +1,7 @@
 package com.vinnovateit.latch.common.util
 
 import com.vinnovateit.latch.core.model.PortalSessionRecord
+import com.vinnovateit.latch.core.stats.generatePortalHtmlReport
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test

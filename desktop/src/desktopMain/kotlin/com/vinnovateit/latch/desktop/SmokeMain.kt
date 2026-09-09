@@ -50,8 +50,8 @@ fun main() = runBlocking {
     println()
     println("--- Captive portal probe ---")
     val detector = CaptivePortalDetector(DesktopHttpTransport(), platform.logger)
-    val code = detector.checkPortalStatus(platform.wifi.activeHandle())
-    println("generate_204     : $code  (204 = online, other = portal, -1 = error)")
+    val result = detector.probe(platform.wifi.activeHandle())
+    println("probe outcome    : $result")
 
     println()
     println("--- Byte counters (OSHI) ---")

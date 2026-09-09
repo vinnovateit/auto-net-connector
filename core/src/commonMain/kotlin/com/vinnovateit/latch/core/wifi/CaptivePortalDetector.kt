@@ -30,8 +30,7 @@ class CaptivePortalDetector(
     private val transport: HttpTransport,
     private val logger: Logger,
 ) {
-    companion object {
-        const val DNS_RESOLUTION_FAILED = -2
+    private companion object {
         private const val PROBE_URL = "http://clients3.google.com/generate_204"
         private const val TAG = "CaptivePortalDetector"
     }
@@ -72,12 +71,5 @@ class CaptivePortalDetector(
                 connection?.disconnect()
             } catch (_: Throwable) {}
         }
-    }
-
-    fun checkPortalStatus(handle: NetworkHandle? = null): Int = when (val res = probe(handle)) {
-        is PortalProbeResult.Online -> 204
-        is PortalProbeResult.Portal -> res.responseCode
-        is PortalProbeResult.DnsBlocked -> DNS_RESOLUTION_FAILED
-        is PortalProbeResult.Error -> -1
     }
 }
