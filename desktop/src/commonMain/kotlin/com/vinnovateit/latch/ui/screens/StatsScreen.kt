@@ -1,9 +1,18 @@
 package com.vinnovateit.latch.ui.screens
 
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.SizeTransform
 import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
@@ -44,6 +53,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -53,11 +63,13 @@ import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
@@ -71,6 +83,7 @@ import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
@@ -631,19 +644,7 @@ fun DesktopSessionHistoryView(
                         .padding(16.dp),
                     contentAlignment = Alignment.Center,
                 ) {
-                    Surface(
-                        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
-                        shape = RoundedCornerShape(16.dp),
-                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
-                    ) {
-                        Text(
-                            text = "No session history for the selected filter.",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.padding(24.dp),
-                            textAlign = TextAlign.Center,
-                        )
-                    }
+                    NoDataCard("No session history for the selected filter.")
                 }
             }
         } else {
@@ -719,6 +720,139 @@ fun DesktopSessionHistoryView(
     }
 }
 
+@Composable
+fun NoDataCard(msg: String) {
+    Box(
+        Modifier
+            .fillMaxWidth()
+            .height(150.dp),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(
+            msg,
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = TextAlign.Center,
+        )
+    }
+}
+
+/**
+ * Animated rolling number text where digits roll vertically like an odometer / slot machine,
+ * counting up one by one with staggered easing.
+ */
+@Composable
+fun RollingNumberText(
+    value: String,
+    textStyle: TextStyle,
+    modifier: Modifier = Modifier,
+) {
+    val styledText = textStyle.copy(
+        fontFeatureSettings = "tnum",
+    )
+    val resolvedColor = if (styledText.color != Color.Unspecified) {
+        styledText.color
+    } else {
+        LocalContentColor.current
+    }
+
+    Row(
+        modifier = modifier,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        var digitIndex = 0
+        for (i in value.indices) {
+            val char = value[i]
+            if (char in '0'..'9') {
+                val idx = digitIndex++
+                key("digit_$idx") {
+                    DigitRoller(
+                        digit = char.digitToInt(),
+                        textStyle = styledText,
+                        resolvedColor = resolvedColor,
+                        colIndex = idx,
+                    )
+                }
+            } else {
+                key("char_$i") {
+                    Text(
+                        text = char.toString(),
+                        style = styledText,
+                        color = resolvedColor,
+                        textAlign = TextAlign.Center,
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun DigitRoller(
+    digit: Int,
+    textStyle: TextStyle,
+    resolvedColor: Color,
+    colIndex: Int,
+) {
+    var hasAnimated by rememberSaveable(colIndex) { mutableStateOf(false) }
+    var currentDigit by rememberSaveable(colIndex) { mutableIntStateOf(if (hasAnimated) digit else 0) }
+
+    LaunchedEffect(digit) {
+        if (hasAnimated) {
+            currentDigit = digit
+            return@LaunchedEffect
+        }
+        if (currentDigit == digit) {
+            hasAnimated = true
+            return@LaunchedEffect
+        }
+        delay(120L + colIndex * 25L)
+        val diff = kotlin.math.abs(digit - currentDigit)
+        if (diff == 0) {
+            hasAnimated = true
+            return@LaunchedEffect
+        }
+        val stepSize = if (diff > 5) kotlin.math.ceil(diff / 5.0).toInt() else 1
+        val direction = if (digit > currentDigit) 1 else -1
+        val totalSteps = (diff + stepSize - 1) / stepSize
+        val stepDelay = (460L / totalSteps.coerceAtLeast(1)).coerceIn(80L, 110L)
+        var d = currentDigit
+        while (d != digit) {
+            delay(stepDelay)
+            d = if (direction > 0) {
+                (d + stepSize).coerceAtMost(digit)
+            } else {
+                (d - stepSize).coerceAtLeast(digit)
+            }
+            currentDigit = d
+        }
+        hasAnimated = true
+    }
+
+    AnimatedContent(
+        targetState = currentDigit,
+        transitionSpec = {
+            val isFinal = targetState == digit
+            val duration = if (isFinal) 180 else 90
+            (slideInVertically(
+                animationSpec = tween(durationMillis = duration, easing = if (isFinal) FastOutSlowInEasing else LinearEasing),
+            ) { height -> height } + fadeIn(tween(duration))).togetherWith(
+                slideOutVertically(
+                    animationSpec = tween(durationMillis = duration, easing = if (isFinal) FastOutSlowInEasing else LinearEasing),
+                ) { height -> -height } + fadeOut(tween(duration)),
+            ).using(SizeTransform(clip = false))
+        },
+        label = "DigitRoll_$colIndex",
+    ) { d ->
+        Text(
+            text = "$d",
+            style = textStyle,
+            color = resolvedColor,
+            textAlign = TextAlign.Center,
+        )
+    }
+}
+
 // ---------------------------------------------------------------------------
 // Hero Metrics Summary (1:1 with Android)
 // ---------------------------------------------------------------------------
@@ -750,9 +884,9 @@ private fun StatsMetricsSummary(
             verticalAlignment = Alignment.Bottom,
             horizontalArrangement = Arrangement.Center,
         ) {
-            Text(
-                text = totalFmt.first,
-                style = MaterialTheme.typography.displayMedium.copy(
+            RollingNumberText(
+                value = totalFmt.first,
+                textStyle = MaterialTheme.typography.displayMedium.copy(
                     fontSize = 48.sp,
                     fontWeight = FontWeight.Black,
                     color = MaterialTheme.colorScheme.onSurface,
@@ -957,6 +1091,31 @@ private fun HistoryBarChart(
     val coroutineScope = rememberCoroutineScope()
     val density = LocalDensity.current
 
+    val (totalUsageDetail, _) = remember(chartItems) {
+        var rx = 0L
+        var tx = 0L
+        var sessions = 0
+        var durationMs = 0L
+        var maxVal = 1L
+        for (item in chartItems) {
+            if (item is HistoryChartItem.BarData) {
+                val tot = item.usage.rxBytes + item.usage.txBytes
+                rx += item.usage.rxBytes
+                tx += item.usage.txBytes
+                sessions += item.sessionCount
+                durationMs += item.durationMillis
+                if (tot > maxVal) maxVal = tot
+            }
+        }
+        val detail = DesktopChartDetailState(
+            usage = DataUsage(rx, tx),
+            label = "Total Data Usage",
+            sessionCount = sessions,
+            durationFormatted = formatDurationDynamic(durationMs),
+        )
+        Pair(detail, maxVal)
+    }
+
     val initialBarItem = remember(chartItems, todayIdx) {
         chartItems.getOrNull(todayIdx) as? HistoryChartItem.BarData
     }
@@ -969,13 +1128,13 @@ private fun HistoryBarChart(
                 DesktopChartDetailState(
                     usage = initialBarItem.usage,
                     label = initialBarItem.formattedDate.ifBlank {
-                        formatDisplayDate(initialBarItem.timestamp)
+                        formatDate(initialBarItem.timestamp, "EEEE, MMMM d, yyyy")
                     },
                     sessionCount = initialBarItem.sessionCount,
                     durationFormatted = initialBarItem.durationFormatted,
                 )
             } else {
-                DesktopChartDetailState(DataUsage(0, 0), "Total Data Usage")
+                totalUsageDetail
             }
         )
     }
@@ -1087,7 +1246,9 @@ private fun HistoryBarChart(
                                     selectedIndex = idx
                                     displayedData = DesktopChartDetailState(
                                         usage = item.usage,
-                                        label = formatDisplayDate(item.timestamp),
+                                        label = item.formattedDate.ifBlank {
+                                            formatDate(item.timestamp, "EEEE, MMMM d, yyyy")
+                                        },
                                         sessionCount = item.sessionCount,
                                         durationFormatted = item.durationFormatted,
                                     )
@@ -1307,36 +1468,41 @@ private fun DesktopStatDetailRow(
                 )
             }
         }
-        if (sessionCount > 0 || (durationFormatted.isNotBlank() && durationFormatted != "0s")) {
-            Spacer(Modifier.height(8.dp))
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                if (sessionCount > 0) {
-                    Surface(
-                        shape = CircleShape,
-                        color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.7f),
-                    ) {
-                        Text(
-                            text = "$sessionCount ${if (sessionCount == 1) "session" else "sessions"}",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSecondaryContainer,
-                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
-                        )
+        Spacer(Modifier.height(8.dp))
+        Box(
+            modifier = Modifier.height(28.dp),
+            contentAlignment = Alignment.Center,
+        ) {
+            if (sessionCount > 0 || (durationFormatted.isNotBlank() && durationFormatted != "0s")) {
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    if (sessionCount > 0) {
+                        Surface(
+                            shape = CircleShape,
+                            color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.7f),
+                        ) {
+                            Text(
+                                text = "$sessionCount ${if (sessionCount == 1) "session" else "sessions"}",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSecondaryContainer,
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
+                            )
+                        }
                     }
-                }
-                if (durationFormatted.isNotBlank() && durationFormatted != "0s") {
-                    Surface(
-                        shape = CircleShape,
-                        color = MaterialTheme.colorScheme.surfaceVariant,
-                    ) {
-                        Text(
-                            text = "⏱ $durationFormatted",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
-                        )
+                    if (durationFormatted.isNotBlank() && durationFormatted != "0s") {
+                        Surface(
+                            shape = CircleShape,
+                            color = MaterialTheme.colorScheme.surfaceVariant,
+                        ) {
+                            Text(
+                                text = "⏱ $durationFormatted",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
+                            )
+                        }
                     }
                 }
             }
