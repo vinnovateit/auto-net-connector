@@ -35,7 +35,6 @@ import com.vinnovateit.latch.core.platform.PlatformServices
 import com.vinnovateit.latch.core.updater.UpdateState
 import com.vinnovateit.latch.desktop.LatchMark
 import com.vinnovateit.latch.ui.components.LatchHomeTopBar
-import com.vinnovateit.latch.ui.components.WindowControlButtons
 import com.vinnovateit.latch.ui.navigation.LatchDestination
 import com.vinnovateit.latch.ui.screens.AboutScreen
 import com.vinnovateit.latch.ui.screens.CredentialsScreen
@@ -63,8 +62,6 @@ fun LatchRoot(
     sessions: SessionRepository,
     platform: PlatformServices,
     updateState: UpdateState,
-    onMinimize: () -> Unit,
-    onClose: () -> Unit,
     onCheckForUpdates: () -> Unit,
     onDownloadUpdate: () -> Unit,
     onCancelDownload: () -> Unit,
@@ -274,12 +271,6 @@ fun LatchRoot(
                     }
                 }
 
-                // Window control buttons static overlay: always pinned to TopEnd
-                WindowControlButtons(
-                    onMinimize = onMinimize,
-                    onClose = onClose,
-                    modifier = Modifier.align(androidx.compose.ui.Alignment.TopEnd),
-                )
             }
         }
     }

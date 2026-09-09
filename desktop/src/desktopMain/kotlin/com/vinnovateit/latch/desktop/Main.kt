@@ -160,7 +160,7 @@ fun main(args: Array<String>) {
                 visible = windowVisible,
                 restoreTrigger = restoreTrigger,
                 onCloseRequest = { windowVisible = false },
-            ) { onMinimize, onClose ->
+            ) {
                 val scope = rememberCoroutineScope()
                 Surface(modifier = Modifier.fillMaxSize()) {
                     LatchRoot(
@@ -168,8 +168,6 @@ fun main(args: Array<String>) {
                         sessions = app.sessions,
                         platform = app.platform,
                         updateState = updateState,
-                        onMinimize = onMinimize,
-                        onClose = onClose,
                         onCheckForUpdates = { scope.launch { app.updater.check(force = true) } },
                         onDownloadUpdate = { app.downloadUpdate() },
                         onCancelDownload = { app.cancelUpdateDownload() },
