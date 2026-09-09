@@ -112,11 +112,6 @@ object SettingsManager {
     private val _settingsChanged = MutableSharedFlow<Unit>(extraBufferCapacity = 8)
     val settingsChanged: SharedFlow<Unit> = _settingsChanged
 
-    init {
-        _hapticsEnabled.value = store.getBoolean(KEY_HAPTICS_ENABLED, DEFAULT_HAPTICS_ENABLED)
-        _paletteStyle.value = store.getString(KEY_PALETTE_STYLE, DEFAULT_PALETTE_STYLE)
-    }
-
     fun initialize(keyValueStore: KeyValueStore) {
         store = keyValueStore
         loadSettings()
@@ -204,11 +199,25 @@ object SettingsManager {
         _hapticsEnabled.value = enabled
     }
 
+    /**
+     * Restores every setting to its default, in the store and in the flows.
+     *
+     * Resetting only a couple of them would leave callers (tests especially)
+     * believing they had a clean slate while the rest carried over.
+     */
     fun clearAll() {
-        store.putBoolean(KEY_HAPTICS_ENABLED, DEFAULT_HAPTICS_ENABLED)
-        _hapticsEnabled.value = DEFAULT_HAPTICS_ENABLED
-        store.putString(KEY_PALETTE_STYLE, DEFAULT_PALETTE_STYLE)
-        _paletteStyle.value = DEFAULT_PALETTE_STYLE
+        setAutoLogin(DEFAULT_AUTO_LOGIN)
+        setSpeedUnits(DEFAULT_SPEED_UNITS)
+        setTheme(DEFAULT_THEME)
+        setUseDynamicColors(DEFAULT_USE_DYNAMIC_COLORS)
+        setUsePureBlack(DEFAULT_USE_PURE_BLACK)
+        setUseMonochrome(DEFAULT_USE_MONOCHROME)
+        setAccentColor(DEFAULT_ACCENT_COLOR)
+        setChartPalette(DEFAULT_CHART_PALETTE)
+        setPaletteStyle(DEFAULT_PALETTE_STYLE)
+        setAllowedSsids(DEFAULT_ALLOWED_SSIDS)
+        setHasSeenOnboarding(false)
+        setHapticsEnabled(DEFAULT_HAPTICS_ENABLED)
     }
 
     var autostartDefaultApplied: Boolean

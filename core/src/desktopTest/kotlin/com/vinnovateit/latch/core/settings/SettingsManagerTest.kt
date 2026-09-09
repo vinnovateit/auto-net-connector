@@ -79,6 +79,44 @@ class SettingsManagerTest {
     }
 
     @Test
+    fun `clearAll resets every setting, not just the two it used to`() {
+        SettingsManager.setAutoLogin(false)
+        SettingsManager.setSpeedUnits("bits")
+        SettingsManager.setTheme("Dark")
+        SettingsManager.setUseDynamicColors(true)
+        SettingsManager.setUsePureBlack(true)
+        SettingsManager.setUseMonochrome(true)
+        SettingsManager.setAccentColor("Pink")
+        SettingsManager.setChartPalette("Ocean")
+        SettingsManager.setPaletteStyle("Vibrant")
+        SettingsManager.setAllowedSsids(setOf("Somewhere Else"))
+        SettingsManager.setHasSeenOnboarding(true)
+        SettingsManager.setHapticsEnabled(false)
+
+        SettingsManager.clearAll()
+
+        // A reset that leaves most of the settings behind is worse than none:
+        // callers believe they have a clean slate while the rest carries over.
+        assertTrue(SettingsManager.autoLogin.value)
+        assertEquals("bps", SettingsManager.speedUnits.value)
+        assertEquals("System Default", SettingsManager.theme.value)
+        assertFalse(SettingsManager.useDynamicColors.value)
+        assertFalse(SettingsManager.usePureBlack.value)
+        assertFalse(SettingsManager.useMonochrome.value)
+        assertEquals("Red", SettingsManager.accentColor.value)
+        assertEquals("Material Dynamic", SettingsManager.chartPalette.value)
+        assertEquals("TonalSpot", SettingsManager.paletteStyle.value)
+        assertFalse(SettingsManager.hasSeenOnboarding.value)
+        assertEquals(setOf("VIT"), SettingsManager.allowedSsids.value)
+        assertTrue(SettingsManager.hapticsEnabled.value)
+
+        // And the store, not only the flows.
+        assertTrue(store.getBoolean("auto_login", false))
+        assertEquals("System Default", store.getString("theme", ""))
+        assertEquals("Red", store.getString("accent_color", ""))
+    }
+
+    @Test
     fun `initialize loads persisted paletteStyle setting`() {
         val populatedStore = InMemoryKeyValueStore()
         populatedStore.putString("palette_style", "Rainbow")
