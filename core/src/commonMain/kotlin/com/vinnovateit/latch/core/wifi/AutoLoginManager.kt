@@ -8,9 +8,9 @@ import java.net.HttpURLConnection
 import java.net.URL
 import java.net.URLEncoder
 
-sealed class LoginResult {
-    object Success : LoginResult()
-    object Failure : LoginResult()
+sealed interface LoginResult {
+    data object Success : LoginResult
+    data object Failure : LoginResult
 }
 
 /**

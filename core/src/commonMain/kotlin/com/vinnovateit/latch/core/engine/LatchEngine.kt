@@ -9,6 +9,7 @@ import com.vinnovateit.latch.core.wifi.AutoLoginManager
 import com.vinnovateit.latch.core.wifi.CaptivePortalDetector
 import com.vinnovateit.latch.core.wifi.ConnectionStatus
 import com.vinnovateit.latch.core.wifi.LoginResult
+import com.vinnovateit.latch.core.wifi.PortalProbeResult
 import com.vinnovateit.latch.core.wifi.isVitCampusSsid
 import com.vinnovateit.latch.core.wifi.probeCampusNetwork
 import kotlinx.coroutines.CompletableDeferred
@@ -290,12 +291,12 @@ class LatchEngine(
             ConnectionStatus.Connecting(ConnectionStatus.Step.CheckingInternet)
         )
 
-        val code = withTimeoutOrNull(5000L) {
-            portal.checkPortalStatus(handle)
-        } ?: -1
-        logger.d(TAG, "[ConnectAnalysis] Step 2/4: Portal Probe Response Code: $code (204 = Direct Internet, 200/302 = Captive Portal, -1 = Network Error)")
+        val probeResult = withTimeoutOrNull(5000L) {
+            portal.probe(handle)
+        } ?: PortalProbeResult.Error("Timeout")
+        logger.d(TAG, "[ConnectAnalysis] Step 2/4: Portal Probe Result: $probeResult")
 
-        if (code == 204) {
+        if (probeResult is PortalProbeResult.Online) {
             val ssid = platform.wifi.currentSsid()
             if (!isVitCampusSsid(ssid)) {
                 logger.d(TAG, "[ConnectAnalysis] Network has 204 internet but SSID '$ssid' is not a VIT campus network; not latching.")
@@ -319,7 +320,7 @@ class LatchEngine(
         // captive-portal detection entirely -- retrying the same probe would
         // just fail the same way, so this is reported distinctly rather than
         // falling into the generic login-failure path below.
-        if (code == CaptivePortalDetector.DNS_RESOLUTION_FAILED && !revalidating) {
+        if (probeResult is PortalProbeResult.DnsBlocked && !revalidating) {
             logger.w(TAG, "[ConnectAnalysis] Portal host DNS resolution failed.")
             unlatch()
             postStatus(
@@ -534,17 +535,17 @@ class LatchEngine(
                     logger.d(TAG, "Detected resume from sleep (drift ${drift}ms); re-checking.")
                 }
 
-                val code = withTimeoutOrNull(5000L) {
-                    portal.checkPortalStatus(handle)
-                } ?: -1
-                if (code == 204) {
+                val probeResult = withTimeoutOrNull(5000L) {
+                    portal.probe(handle)
+                } ?: PortalProbeResult.Error("Timeout")
+                if (probeResult is PortalProbeResult.Online) {
                     failCount = 0
                 } else {
                     // One timed-out probe on congested campus Wi-Fi is normal.
                     // Re-logging in on it would re-POST the credentials and flap
                     // the UI, so only a sustained failure counts as expiry.
                     failCount++
-                    logger.w(TAG, "Health check probe failed ($failCount/$MAX_HEALTH_CHECK_FAILURES, status $code).")
+                    logger.w(TAG, "Health check probe failed ($failCount/$MAX_HEALTH_CHECK_FAILURES, status $probeResult).")
                     if (failCount >= MAX_HEALTH_CHECK_FAILURES) {
                         logger.w(TAG, "Health check failed $MAX_HEALTH_CHECK_FAILURES consecutive times; session may have expired.")
                         failCount = 0
