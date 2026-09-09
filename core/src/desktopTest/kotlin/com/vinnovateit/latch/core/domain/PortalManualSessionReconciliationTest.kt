@@ -64,6 +64,9 @@ class PortalManualSessionReconciliationTest {
 
     @AfterTest
     fun tearDown() {
+        if (::repository.isInitialized) {
+            repository.close()
+        }
         database.close()
     }
 
