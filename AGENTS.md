@@ -40,4 +40,7 @@
 - **Settings & Theme Integrity**:
   - `SettingsManager.clearAll()` must wipe all settings, not a subset.
   - Preserve theme color resolution mappings (e.g. Pink must resolve to Pink, not fallback to Red).
+- **Git & Push Safety (ABSOLUTE INVARIANT)**:
+  - NEVER use force push (`git push --force` or `--force-with-lease`) under any circumstances. All git updates must be standard forward commits or merges to preserve team commits and avoid overwriting work.
+
 
