@@ -224,10 +224,10 @@ class SessionRepository(
         }
 
         return try {
-            // The portal is only reachable on the captive-portal Wi-Fi. Without a
-            // handle the transport falls back to the process default network, which
-            // on Android stays cellular while a captive portal is unvalidated -- that
-            // would ship these credentials off-network in cleartext.
+            // The portal endpoint is a static public IP reachable over any internet
+            // connection. Resolve the active Wi-Fi handle: if present it binds the
+            // request to the Wi-Fi NIC; if null the transport uses the system default
+            // network, allowing resync over cellular or regular Wi-Fi as well.
             val handle = activeHandle()
             if (handle == null) {
                 logger.w(TAG, "No active Wi-Fi network; skipping portal sync rather than leaving the network.")
@@ -235,7 +235,8 @@ class SessionRepository(
             }
 
             val now = System.currentTimeMillis()
-            if (!force && (now - lastSyncTimeMillis < 30_000L) && _portalHistory.value.isNotEmpty()) {
+            if (!force && (now - lastSyncTimeMillis < 15 * 60 * 1000L) && _portalHistory.value.isNotEmpty()) {
+                logger.d(TAG, "Skipping portal sync: within 15-minute cooldown and cached data present.")
                 return Result.success(Unit)
             }
             lastSyncTimeMillis = now

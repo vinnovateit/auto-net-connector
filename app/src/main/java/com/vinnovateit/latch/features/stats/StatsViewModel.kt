@@ -53,13 +53,8 @@ class StatsViewModel(application: Application) : AndroidViewModel(application) {
   val overviewMetrics: StateFlow<StatsOverviewMetrics> = LatchAppGraph.sessions.overviewMetrics
   val statsInsights: StateFlow<StatsInsights> = LatchAppGraph.sessions.statsInsights
 
-  init {
-    refreshHistory()
-  }
-
   fun refreshHistory(force: Boolean = false) {
     val platform = LatchAppGraph.platform
-    if (!platform.wifi.isConnectedToWifi()) return
     if (platform.credentials.exists()) {
       val userId = platform.credentials.userId()
       val password = platform.credentials.password()

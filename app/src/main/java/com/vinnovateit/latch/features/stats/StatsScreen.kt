@@ -35,7 +35,6 @@ import com.vinnovateit.latch.common.util.TooltipHint
 import com.vinnovateit.latch.core.settings.SettingsManager
 import com.vinnovateit.latch.features.stats.components.SessionCard
 import com.vinnovateit.latch.features.stats.components.StatsList
-import com.vinnovateit.latch.features.stats.components.StatsSkeletonLoader
 
 @Composable
 private fun StatsTopBar(
@@ -43,6 +42,7 @@ private fun StatsTopBar(
   headerHeight: Dp,
   onBackPressed: () -> Unit,
   onSaveReport: () -> Unit,
+  isSyncing: Boolean = false,
   onResyncHistory: () -> Unit = {},
   onNavigateToHistory: () -> Unit = {}
 ) {
@@ -142,18 +142,30 @@ private fun StatsTopBar(
             }
           )
           DropdownMenuItem(
-            text = { Text("Resync History") },
+            text = { Text(if (isSyncing) "Syncing…" else "Resync History") },
             onClick = {
-              menuExpanded = false
-              haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-              onResyncHistory()
+              if (!isSyncing) {
+                menuExpanded = false
+                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                onResyncHistory()
+              } else {
+                menuExpanded = false
+              }
             },
             leadingIcon = {
-              Icon(
-                imageVector = Icons.Rounded.Refresh,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.primary
-              )
+              if (isSyncing) {
+                CircularProgressIndicator(
+                  modifier = Modifier.size(18.dp),
+                  strokeWidth = 2.dp,
+                  color = MaterialTheme.colorScheme.primary
+                )
+              } else {
+                Icon(
+                  imageVector = Icons.Rounded.Refresh,
+                  contentDescription = null,
+                  tint = MaterialTheme.colorScheme.primary
+                )
+              }
             }
           )
         }
@@ -229,24 +241,17 @@ fun StatsScreen(
             headerHeight = maxTopBarHeight,
             onBackPressed = onBackPressed,
             onSaveReport = onSaveReport,
-            onResyncHistory = { statsViewModel.refreshHistory() },
+            isSyncing = isSyncing,
+            onResyncHistory = { statsViewModel.refreshHistory(force = true) },
             onNavigateToHistory = onNavigateToHistory
           )
         }
       ) { innerPadding ->
-        if (isSyncing) {
-          StatsSkeletonLoader(
-            modifier = Modifier
-              .padding(innerPadding)
-              .fillMaxSize()
-          )
-        } else {
-          EmptyStatsView(
-            modifier = Modifier
-              .padding(innerPadding)
-              .fillMaxSize()
-          )
-        }
+        EmptyStatsView(
+          modifier = Modifier
+            .padding(innerPadding)
+            .fillMaxSize()
+        )
       }
     } else {
       if (!isPortrait && isLive && sessionToShow != null) {
@@ -262,7 +267,8 @@ fun StatsScreen(
               headerHeight = minTopBarHeight,
               onBackPressed = onBackPressed,
               onSaveReport = onSaveReport,
-              onResyncHistory = { statsViewModel.refreshHistory() },
+              isSyncing = isSyncing,
+              onResyncHistory = { statsViewModel.refreshHistory(force = true) },
               onNavigateToHistory = onNavigateToHistory
             )
             Box(
@@ -316,7 +322,8 @@ fun StatsScreen(
             headerHeight = currentTopBarHeightDp,
             onBackPressed = onBackPressed,
             onSaveReport = onSaveReport,
-            onResyncHistory = { statsViewModel.refreshHistory() },
+            isSyncing = isSyncing,
+            onResyncHistory = { statsViewModel.refreshHistory(force = true) },
             onNavigateToHistory = onNavigateToHistory
           )
         }
