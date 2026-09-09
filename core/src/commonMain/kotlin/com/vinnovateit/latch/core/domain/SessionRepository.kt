@@ -224,10 +224,11 @@ class SessionRepository(
         }
 
         return try {
-            // The portal endpoint is a static public IP reachable over any internet
-            // connection. Resolve the active Wi-Fi handle: if present it binds the
-            // request to the Wi-Fi NIC; if null the transport uses the system default
-            // network, allowing resync over cellular or regular Wi-Fi as well.
+            // Bind the request to the Wi-Fi network, and refuse to sync without
+            // one. Falling back to the process default network would ship these
+            // credentials in cleartext over whatever that happens to be, which on
+            // Android stays cellular while a captive portal is unvalidated. See the
+            // "No Cellular Leaks" invariant in AGENTS.md.
             val handle = activeHandle()
             if (handle == null) {
                 logger.w(TAG, "No active Wi-Fi network; skipping portal sync rather than leaving the network.")
