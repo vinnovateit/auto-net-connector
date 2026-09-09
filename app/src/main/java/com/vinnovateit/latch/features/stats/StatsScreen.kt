@@ -1,7 +1,6 @@
 package com.vinnovateit.latch.features.stats
 
 import android.annotation.SuppressLint
-import androidx.activity.compose.setContent
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
@@ -151,7 +150,7 @@ private fun StatsTopBar(
             },
             leadingIcon = {
               Icon(
-                imageVector = androidx.compose.material.icons.Icons.Rounded.Refresh,
+                imageVector = Icons.Rounded.Refresh,
                 contentDescription = null,
                 tint = MaterialTheme.colorScheme.primary
               )
