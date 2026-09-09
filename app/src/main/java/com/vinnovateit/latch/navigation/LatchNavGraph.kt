@@ -35,7 +35,6 @@ import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
-import com.vinnovateit.latch.common.util.generateHtmlReport
 import com.vinnovateit.latch.common.util.generatePortalHtmlReport
 import com.vinnovateit.latch.features.about.MeetTheTeamPage
 import com.vinnovateit.latch.features.home.HomeScreen

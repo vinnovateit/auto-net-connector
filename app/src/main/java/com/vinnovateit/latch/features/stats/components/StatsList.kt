@@ -40,7 +40,6 @@ fun StatsList(
   showSessionCard: Boolean = true,
   sessionToShow: SessionSummary?,
   portalHistory: List<PortalSessionRecord> = emptyList(),
-  historyToShow: List<SessionSummary> = emptyList(),
   liveStatus: LiveConnectionStatus? = null,
   speedUnits: String,
   showAllSessions: Boolean,

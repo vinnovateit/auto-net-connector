@@ -173,7 +173,6 @@ fun StatsScreen(
   statsViewModel: StatsViewModel = viewModel()
 ) {
   val sessionToShow by statsViewModel.sessionToShow.collectAsStateWithLifecycle()
-  val historyToShow by statsViewModel.historyToShow.collectAsStateWithLifecycle()
   val portalHistory by statsViewModel.portalHistory.collectAsStateWithLifecycle()
   val isSyncing by statsViewModel.isSyncing.collectAsStateWithLifecycle()
   val liveStatus by statsViewModel.liveStatus.collectAsStateWithLifecycle()
@@ -222,7 +221,7 @@ fun StatsScreen(
     val currentTopBarHeightDp = with(density) { topBarHeightPx.toDp() }
     val collapseFraction = 1f - ((topBarHeightPx - minTopBarHeightPx) / (maxTopBarHeightPx - minTopBarHeightPx)).coerceIn(0f, 1f)
 
-    if (!isLive && portalHistory.isEmpty() && historyToShow.isEmpty()) {
+    if (!isLive && portalHistory.isEmpty()) {
       Scaffold(
         topBar = {
           StatsTopBar(
@@ -280,7 +279,6 @@ fun StatsScreen(
             showSessionCard = false,
             sessionToShow = sessionToShow,
             portalHistory = portalHistory,
-            historyToShow = historyToShow,
             liveStatus = liveStatus,
             speedUnits = speedUnits,
             showAllSessions = showAllSessions,
@@ -304,7 +302,6 @@ fun StatsScreen(
             showSessionCard = true,
             sessionToShow = sessionToShow,
             portalHistory = portalHistory,
-            historyToShow = historyToShow,
             liveStatus = liveStatus,
             speedUnits = speedUnits,
             showAllSessions = showAllSessions,

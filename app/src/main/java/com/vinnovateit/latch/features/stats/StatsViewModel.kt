@@ -90,53 +90,6 @@ class StatsViewModel(application: Application) : AndroidViewModel(application) {
       } ?: last // If not live, show the last completed session
     }.stateIn(viewModelScope, SharingStarted.Lazily, null)
 
-  val historyToShow: StateFlow<List<SessionSummary>> =
-    combine(
-      sessionHistory,
-      liveStatus
-    ) { history, live ->
-      live?.let {
-        val liveSummary = SessionSummary(
-          startTimestamp = it.startTimeMillis,
-          endTimestamp = System.currentTimeMillis(),
-          totalData = DataUsage(it.totalRxBytes, it.totalTxBytes),
-          history = it.liveData,
-          maxRxBps = it.maxRxBps,
-          maxTxBps = it.maxTxBps
-        )
-        val historyWithoutLive = history.filter { it.startTimestamp != liveSummary.startTimestamp }
-        mergeSessions(listOf(liveSummary) + historyWithoutLive, 60_000L)
-      } ?: mergeSessions(history, 60_000L)
-    }.stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
-
-  @Deprecated("Legacy session merging superseded by portal history sync")
-  private fun mergeSessions(sessions: List<SessionSummary>, gapMs: Long): List<SessionSummary> {
-    if (sessions.isEmpty()) return emptyList()
-    val sorted = sessions.sortedBy { it.startTimestamp }
-    val merged = mutableListOf<SessionSummary>()
-    var current = sorted[0]
-
-    for (i in 1 until sorted.size) {
-      val next = sorted[i]
-      if (next.startTimestamp - current.endTimestamp <= gapMs) {
-        current = current.copy(
-          endTimestamp = maxOf(current.endTimestamp, next.endTimestamp),
-          totalData = DataUsage(
-            current.totalData.rxBytes + next.totalData.rxBytes,
-            current.totalData.txBytes + next.totalData.txBytes
-          ),
-          history = current.history + next.history,
-          maxRxBps = maxOf(current.maxRxBps, next.maxRxBps),
-          maxTxBps = maxOf(current.maxTxBps, next.maxTxBps)
-        )
-      } else {
-        merged.add(current)
-        current = next
-      }
-    }
-    merged.add(current)
-    return merged.sortedByDescending { it.startTimestamp }
-  }
 
 
   val chartItems: StateFlow<List<HistoryChartItem>> =

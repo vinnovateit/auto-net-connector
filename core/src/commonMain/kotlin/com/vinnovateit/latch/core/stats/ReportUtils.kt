@@ -1,46 +1,11 @@
 package com.vinnovateit.latch.core.stats
 
 import com.vinnovateit.latch.core.model.PortalSessionRecord
-import com.vinnovateit.latch.core.model.SessionSummary
 import java.io.OutputStream
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
 import java.util.Locale
-
-/**
- * Generates an HTML report from a list of session summaries and writes it to an OutputStream.
- * Backward-compatible overload converting legacy SessionSummary items.
- */
-fun generateHtmlReport(
-    sessions: List<SessionSummary>,
-    outputStream: OutputStream,
-    appVersion: String
-) {
-    val portalRecords = sessions.map { session ->
-        val durationMs = (session.endTimestamp - session.startTimestamp).coerceAtLeast(0L)
-        val mins = durationMs / 60000
-        val secs = (durationMs % 60000) / 1000
-        val formattedDuration = if (mins > 0) "$mins min $secs sec" else "$secs sec"
-        PortalSessionRecord(
-            location = "Local Session",
-            macAddress = "-",
-            loginTime = session.startTimestamp,
-            logoutTime = session.endTimestamp,
-            durationFormatted = formattedDuration,
-            durationMillis = durationMs,
-            uploadBytes = session.totalData.txBytes,
-            downloadBytes = session.totalData.rxBytes,
-            totalBytes = session.totalData.rxBytes + session.totalData.txBytes
-        )
-    }
-    generatePortalHtmlReport(
-        sessions = portalRecords,
-        outputStream = outputStream,
-        appVersion = appVersion,
-        userId = ""
-    )
-}
 
 /**
  * Generates a clean light-themed monospace outline HTML report matching Session History layout.

@@ -1,8 +1,6 @@
 package com.vinnovateit.latch.common.util
 
-import com.vinnovateit.latch.core.model.DataUsage
 import com.vinnovateit.latch.core.model.PortalSessionRecord
-import com.vinnovateit.latch.core.model.SessionSummary
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -116,31 +114,5 @@ class ReportUtilsTest {
         assertTrue(html.contains("Hostel-A"))
         assertTrue(html.contains("TEST_USER"))
         assertTrue(html.contains("GB"))
-    }
-
-    @Test
-    fun testGenerateHtmlReportLegacyCompatibility() {
-        val legacySessions = listOf(
-            SessionSummary(
-                startTimestamp = 1773000000000L,
-                endTimestamp = 1773001000000L,
-                totalData = DataUsage(rxBytes = 8388608L, txBytes = 2097152L),
-                history = emptyList(),
-                maxRxBps = 1000000L,
-                maxTxBps = 500000L
-            )
-        )
-
-        val output = ByteArrayOutputStream()
-        generateHtmlReport(
-            sessions = legacySessions,
-            outputStream = output,
-            appVersion = "1.4"
-        )
-
-        val html = output.toString("UTF-8")
-        assertTrue(html.contains("<!DOCTYPE html>"))
-        assertTrue(html.contains("card"))
-        assertTrue(html.contains("@media print"))
     }
 }
