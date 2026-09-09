@@ -23,7 +23,7 @@ jobs:
       tag: ${{ steps.release.outputs.tag }}
     steps:
       - name: Checkout repo
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Match the tag to the project version
         id: release
@@ -48,6 +48,12 @@ jobs:
 
           echo "version=$version" >> "$GITHUB_OUTPUT"
           echo "tag=$tag" >> "$GITHUB_OUTPUT"
+
+      # Fails here in seconds rather than after both build jobs have run.
+      - name: Require a changelog entry
+        env:
+          VERSION: ${{ steps.release.outputs.version }}
+        run: packaging/extract-release-notes.sh "$VERSION" >/dev/null
 
   build-linux:
     name: Build Linux artifacts
@@ -87,16 +93,31 @@ jobs:
           cli/build/cli-package/image/latch-cli/bin/latch-cli --version
           test "$(cli/build/cli-package/image/latch-cli/bin/latch-cli --version)" = "latch-cli ${{ needs.prepare.outputs.version }}"
 
+      # upload-artifact roots an artifact at the least common ancestor of its
+      # path patterns. desktop/... and cli/... share only the repo root, so the
+      # artifact kept the full source paths and the release job found
+      # release-assets/cli/build/distributions/latch-cli-*.tar.gz rather than
+      # release-assets/latch-cli-*.tar.gz. Staging into one directory first
+      # makes the uploaded layout flat and independent of where Gradle wrote
+      # each file.
+      # upload-artifact roots an artifact at the least common ancestor of its
+      # path patterns, so staging everything in one flat directory keeps the
+      # release assets flat regardless of where Gradle wrote each file.
+      - name: Stage Linux artifacts
+        run: |
+          mkdir -p staging
+          cp desktop/build/distributions/*.tar.gz staging/
+          cp cli/build/distributions/*.tar.gz staging/
+          cp cli/build/distributions/*.deb staging/
+          cp cli/build/distributions/*.rpm staging/
+          ls -l staging
+
       - name: Upload Linux artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: linux-artifacts
           if-no-files-found: error
-          path: |
-            desktop/build/distributions/*.tar.gz
-            cli/build/distributions/*.tar.gz
-            cli/build/distributions/*.deb
-            cli/build/distributions/*.rpm
+          path: staging/*
 
   build-windows:
     name: Build Windows artifacts
@@ -125,14 +146,21 @@ jobs:
             throw "Unexpected CLI version output: $actual"
           }
 
+      # Flattened for the same reason as the Linux job above.
+      - name: Stage Windows artifacts
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path staging | Out-Null
+          Copy-Item desktop\build\compose\binaries\main-release\msi\*.msi staging\
+          Copy-Item cli\build\distributions\*.zip staging\
+          Get-ChildItem staging
+
       - name: Upload Windows artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: windows-artifacts
           if-no-files-found: error
-          path: |
-            desktop/build/compose/binaries/main-release/msi/*.msi
-            cli/build/distributions/*.zip
+          path: staging/*
 
   release:
     name: Create GitHub release
@@ -140,7 +168,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repo
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Download all artifacts
         uses: actions/download-artifact@v8
@@ -148,6 +176,15 @@ jobs:
           path: release-assets
           merge-multiple: true
 
+      # Every downstream step here addresses release-assets/<file> directly, so
+      # fail with the actual listing rather than a bare "must exist" if the
+      # layout ever drifts again.
+      - name: List downloaded artifacts
+        run: ls -lR release-assets
+
+      # AUR, winget and chocolatey all fetch the CLI from these release assets,
+      # so their manifests are generated here against the exact files and
+      # checksums that ship.
       - name: Generate package-manager manifests
         env:
           VERSION: ${{ needs.prepare.outputs.version }}
@@ -161,7 +198,14 @@ jobs:
 
       - name: Generate checksums
         working-directory: release-assets
-        run: sha256sum * > SHA256SUMS
+        run: sha256sum -- * > SHA256SUMS
+
+      # The body is maintained in CHANGELOG.md, so re-running this workflow
+      # republishes the same notes instead of overwriting them with boilerplate.
+      - name: Extract release notes
+        env:
+          VERSION: ${{ needs.prepare.outputs.version }}
+        run: packaging/extract-release-notes.sh "$VERSION" release-notes.md
 
       - name: Create GitHub release
         uses: softprops/action-gh-release@v2
@@ -171,10 +215,7 @@ jobs:
           draft: false
           prerelease: false
           make_latest: true
-          body: |
-            Latch Desktop and the standalone `latch-cli` now share one release version.
-
-            CLI downloads include portable Linux and Windows bundles, Debian and RPM packages, checksums, and submission-ready AUR/winget metadata.
+          body_path: release-notes.md
           files: release-assets/*
 
       - name: Clear build artifacts storage
@@ -183,3 +224,96 @@ jobs:
           name: |
             linux-artifacts
             windows-artifacts
+
+  publish-repos:
+    name: Publish Linux repositories
+    needs: [prepare, release]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v7
+
+      # The published site is a branch, not a directory in main. Cloning it
+      # rather than rebuilding from scratch is what keeps older releases
+      # installable: the indexes are regenerated over everything present.
+      - name: Fetch the published site
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if ! git clone --branch gh-pages --depth 1 \
+              "https://x-access-token:$GH_TOKEN@github.com/$GITHUB_REPOSITORY.git" site; then
+            echo "gh-pages does not exist yet; starting it"
+            git clone --depth 1 \
+              "https://x-access-token:$GH_TOKEN@github.com/$GITHUB_REPOSITORY.git" site
+            git -C site checkout --orphan gh-pages
+            git -C site rm -rq --cached .
+            find site -mindepth 1 -maxdepth 1 -not -name .git -exec rm -rf {} +
+          fi
+
+      - name: Install packaging tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes apt-utils createrepo-c rpm
+
+      - name: Import the signing key
+        env:
+          SIGNING_KEY: ${{ secrets.PACKAGE_SIGNING_KEY }}
+        run: printf '%s' "$SIGNING_KEY" | gpg --batch --import
+
+      - name: Download the CLI packages from the release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ needs.prepare.outputs.tag }}
+        run: |
+          mkdir -p artifacts
+          gh release download "$TAG" --dir artifacts --pattern '*.deb' --pattern '*.rpm'
+
+      - name: Build the APT and DNF repositories
+        env:
+          KEY_ID: ${{ secrets.PACKAGE_SIGNING_KEY_ID }}
+          PACKAGE_SIGNING_PASSPHRASE: ${{ secrets.SIGNING_KEY_PASSPHRASE }}
+        run: packaging/build-linux-repos.sh site "$KEY_ID" artifacts
+
+      - name: Publish
+        env:
+          TAG: ${{ needs.prepare.outputs.tag }}
+        run: |
+          cd site
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          if git diff --cached --quiet; then
+            echo "nothing changed"
+            exit 0
+          fi
+          git commit -m "Publish Latch $TAG to the APT and DNF repositories"
+          git push origin gh-pages
+
+  submit-winget:
+    name: Submit to winget
+    needs: [prepare, release]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v7
+
+      - name: Fetch the generated manifests
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ needs.prepare.outputs.tag }}
+          VERSION: ${{ needs.prepare.outputs.version }}
+        run: |
+          gh release download "$TAG" --pattern '*-package-metadata.zip' --dir .
+          unzip -q "latch-cli-$VERSION-package-metadata.zip" -d package-metadata
+
+      # A repository-scoped token cannot push to a fork in another org, so this
+      # needs a PAT with public_repo rather than GITHUB_TOKEN.
+      - name: Open the winget pull request
+        env:
+          GH_TOKEN: ${{ secrets.WINGET_TOKEN }}
+          VERSION: ${{ needs.prepare.outputs.version }}
+        run: |
+          packaging/submit-winget.sh "$VERSION" \
+            "package-metadata/winget/VinnovateIT.LatchCLI/$VERSION"

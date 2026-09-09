@@ -83,10 +83,9 @@ fun LatchNavGraph(
         val liveStatus by statsViewModel.liveStatus.collectAsStateWithLifecycle()
         val connectionStatus by wifiStatusViewModel.connectionStatus.collectAsStateWithLifecycle()
         val speedUnits by SettingsManager.speedUnits.collectAsStateWithLifecycle()
+        val sessionToShow by statsViewModel.sessionToShow.collectAsStateWithLifecycle()
 
-        val sessionForHomeScreen = if (isConnected && liveStatus != null) {
-            statsViewModel.sessionToShow.collectAsStateWithLifecycle().value
-        } else null
+        val sessionForHomeScreen = if (isConnected && liveStatus != null) sessionToShow else null
 
         Surface(modifier = Modifier.fillMaxSize()) {
             HomeScreen(

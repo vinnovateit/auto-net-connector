@@ -232,7 +232,7 @@ class WindowsWifiPlatform(private val logger: Logger) : WifiPlatform {
 
     override fun isConnectedToWifi(): Boolean {
         val snap = snapshot()
-        return snap.adapterUp && snap.ssid != null
+        return snap.adapterUp
     }
 
     override fun currentSsid(): String? = snapshot().ssid
@@ -259,16 +259,16 @@ class WindowsWifiPlatform(private val logger: Logger) : WifiPlatform {
 
     override val events: Flow<WifiEvent> = flow {
         val seed = snapshot()
-        var lastKey = if (seed.adapterUp && seed.ssid != null) {
-            "${seed.adapterName}::${seed.ssid}"
+        var lastKey = if (seed.adapterUp && seed.adapterName != null) {
+            "${seed.adapterName}::${seed.ssid ?: "unknown"}"
         } else {
             null
         }
 
         while (true) {
             val snap = snapshot()
-            val key = if (snap.adapterUp && snap.ssid != null) {
-                "${snap.adapterName}::${snap.ssid}"
+            val key = if (snap.adapterUp && snap.adapterName != null) {
+                "${snap.adapterName}::${snap.ssid ?: "unknown"}"
             } else {
                 null
             }

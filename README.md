@@ -54,27 +54,54 @@ Before you start, make sure you have:
 
 2. Launch Latch from your application menu, or run `latch` in a terminal.
 
-   To install manually instead, download `latch-1.3.8-linux-x64.tar.gz` from the [latest release](https://github.com/vinnovateit/latch/releases/latest) and extract it.
+   To install manually instead, download the `latch-<version>-linux-x64.tar.gz` archive from the [latest release](https://github.com/vinnovateit/latch/releases/latest) and extract it.
 
 ### Command-line app
 
-`latch-cli` is a standalone application with its own trimmed Java runtime; Java does not need to be installed separately.
+`latch-cli` bundles its own trimmed Java runtime, so Java does not need to be
+installed separately.
 
-On Debian or Ubuntu, download the `.deb` from the [latest release](https://github.com/vinnovateit/latch/releases/latest), then run:
+Package-manager installs become available as each channel is published; until
+then, download the package for your system from the
+[latest release](https://github.com/vinnovateit/latch/releases/latest).
 
-```sh
-sudo apt install ./latch-cli_1.3.8_amd64.deb
+**Windows**, with winget:
+
+```powershell
+winget install VinnovateIT.LatchCLI
 ```
 
-RPM-based distributions can install the release package with `sudo dnf install ./latch-cli-*.rpm`. Arch users can install the `latch-cli-bin` AUR package after its release metadata is submitted. The portable `latch-cli-1.3.8-linux-x64.tar.gz` works without package-manager installation.
+**Debian and Ubuntu.** Unlike winget, apt needs the repository added once before
+the install works, because Latch is not in the Debian or Ubuntu archives:
 
-A hosted APT repository can be added later; the initial `.deb` is installed directly with `apt`. Flatpak is intentionally outside the CLI release scope because its sandbox and desktop-first distribution model do not fit a host-network command-line daemon.
+```sh
+curl -fsSL https://vinnovateit.github.io/latch/latch.gpg \
+  | sudo tee /usr/share/keyrings/latch.gpg > /dev/null
+echo "deb [signed-by=/usr/share/keyrings/latch.gpg] \
+  https://vinnovateit.github.io/latch/apt stable main" \
+  | sudo tee /etc/apt/sources.list.d/latch.list
+sudo apt update
+sudo apt install latch-cli
+```
 
-On Windows, install `VinnovateIT.LatchCLI` with winget after its manifest is accepted, or download and extract `latch-cli-1.3.8-windows-x64.zip`. The executable works directly from PowerShell:
+**Fedora and RPM-based distributions**, likewise adding the repository first:
+
+```sh
+sudo dnf config-manager --add-repo https://vinnovateit.github.io/latch/latch.repo
+sudo dnf install latch-cli
+```
+
+**Direct download.** The [latest release](https://github.com/vinnovateit/latch/releases/latest)
+carries a `.deb`, an `.rpm`, a portable Linux tarball and a Windows ZIP, with
+`SHA256SUMS` alongside them. On Windows the executable runs straight from the
+extracted folder:
 
 ```powershell
 .\latch-cli.exe --status
 ```
+
+Flatpak is intentionally out of scope: its sandbox and desktop-first
+distribution model do not fit a host-network command-line daemon.
 
 Run `latch-cli` with no arguments the first time. It prompts for your VIT credentials, starts the auto-login daemon in the background, and enables per-user startup at login. On later runs, `latch-cli` prints its help menu.
 
@@ -102,7 +129,11 @@ Desktop and CLI installations can coexist. They coordinate through an authentica
 
 ### Android
 
-No pre-built APK is currently published for the Android app. To use it today, build it from source. See [Dev setup](#dev-setup) below.
+Latch is on Google Play:
+
+[**Get Latch on Google Play**](https://play.google.com/store/apps/details?id=com.vinnovateit.latch)
+
+To build it from source instead, see [Dev setup](#dev-setup) below.
 
 ## Dev setup
 
@@ -176,3 +207,7 @@ Optionally, it records network statistics for monitoring purposes.
 See the [open issues](https://github.com/vinnovateit/latch/issues) for a full list of proposed features and known issues.
 
 Made with love by [VinnovateIT](https://vinnovateit.com).
+
+## License
+
+Latch is released under the [MIT License](LICENSE).
