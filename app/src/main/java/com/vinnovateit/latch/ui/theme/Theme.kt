@@ -57,6 +57,9 @@ fun LatchTheme(
         "Blue" -> Color(0xFF005AC1)
         "Green" -> Color(0xFF0F5223)
         "Purple" -> Color(0xFF7D00B8)
+        // Dropped from the picker, but still stored by anyone who chose it
+        // before, and still resolved by LatchWidget and the desktop seeds.
+        "Pink" -> Color(0xFFD81B60)
         "Yellow" -> Color(0xFFF5B300)
         else -> parsedColor ?: Color(0xFFC01221) // Red fallback
     }
