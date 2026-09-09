@@ -8,6 +8,11 @@ import java.util.Calendar
 import java.util.Date
 import java.util.Locale
 
+private val dayKeyFormat = ThreadLocal.withInitial { SimpleDateFormat("yyyy-MM-dd", Locale.US) }
+private val monthKeyFormat = ThreadLocal.withInitial { SimpleDateFormat("yyyy-MM", Locale.US) }
+private val monthNameFormat = ThreadLocal.withInitial { SimpleDateFormat("MMM", Locale.US) }
+private val monthYearNameFormat = ThreadLocal.withInitial { SimpleDateFormat("MMM yyyy", Locale.US) }
+
 /**
  * Pure engine for generating all-time history chart items with monthly separators,
  * collapsed non-activity months, and daily bar buckets.
@@ -22,14 +27,14 @@ fun computeChartItems(
     val groupedByDay = mutableMapOf<String, DataUsage>()
     val recordsByDay = mutableMapOf<String, MutableList<PortalSessionRecord>>()
 
-    val dayKeyFormat = SimpleDateFormat("yyyy-MM-dd", Locale.US)
-    val monthKeyFormat = SimpleDateFormat("yyyy-MM", Locale.US)
-    val monthNameFormat = SimpleDateFormat("MMM", Locale.US)
-    val monthYearNameFormat = SimpleDateFormat("MMM yyyy", Locale.US)
+    val dayKeyFmt = dayKeyFormat.get() ?: SimpleDateFormat("yyyy-MM-dd", Locale.US)
+    val monthKeyFmt = monthKeyFormat.get() ?: SimpleDateFormat("yyyy-MM", Locale.US)
+    val monthNameFmt = monthNameFormat.get() ?: SimpleDateFormat("MMM", Locale.US)
+    val monthYearNameFmt = monthYearNameFormat.get() ?: SimpleDateFormat("MMM yyyy", Locale.US)
 
     for (record in nonZero) {
         if (record.loginTime <= 0) continue
-        val dayKey = dayKeyFormat.format(Date(record.loginTime))
+        val dayKey = dayKeyFmt.format(Date(record.loginTime))
         val current = groupedByDay.getOrPut(dayKey) { DataUsage(0, 0) }
         groupedByDay[dayKey] = DataUsage(
             rxBytes = current.rxBytes + record.downloadBytes,
@@ -39,7 +44,7 @@ fun computeChartItems(
     }
 
     val now = Calendar.getInstance().apply { timeInMillis = nowMillis }
-    val todayKey = dayKeyFormat.format(Date(nowMillis))
+    val todayKey = dayKeyFmt.format(Date(nowMillis))
     if (liveRxBytes > 0L || liveTxBytes > 0L) {
         val existing = groupedByDay.getOrPut(todayKey) { DataUsage(0, 0) }
         groupedByDay[todayKey] = DataUsage(
@@ -85,9 +90,9 @@ fun computeChartItems(
 
     while (!cursor.after(maxEnd)) {
         val cursorDate = Date(cursor.timeInMillis)
-        val monthKey = monthKeyFormat.format(cursorDate)
+        val monthKey = monthKeyFmt.format(cursorDate)
         val itemYear = cursor.get(Calendar.YEAR)
-        val monthName = if (itemYear == currentYear) monthNameFormat.format(cursorDate) else monthYearNameFormat.format(cursorDate)
+        val monthName = if (itemYear == currentYear) monthNameFmt.format(cursorDate) else monthYearNameFmt.format(cursorDate)
 
         if (!monthsWithData.contains(monthKey)) {
             items.add(HistoryChartItem.CollapsedMonth(monthName, cursor.timeInMillis))
@@ -101,7 +106,7 @@ fun computeChartItems(
         while (!cursor.after(maxEnd) && cursor.get(Calendar.MONTH) == currentMonthInt) {
             val dayTimestamp = cursor.timeInMillis
             val dayDate = Date(dayTimestamp)
-            val key = dayKeyFormat.format(dayDate)
+            val key = dayKeyFmt.format(dayDate)
             val usage = groupedByDay[key] ?: DataUsage(0, 0)
             val label = cursor.get(Calendar.DAY_OF_MONTH).toString().padStart(2, '0')
             val dayRecords = recordsByDay[key] ?: emptyList()

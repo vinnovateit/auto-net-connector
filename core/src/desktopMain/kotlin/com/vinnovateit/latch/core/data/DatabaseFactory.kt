@@ -19,7 +19,7 @@ interface SystemSqliteInitializer : com.sun.jna.Library {
     fun sqlite3_initialize(): Int
 
     companion object {
-        private val CANDIDATES = listOf("libsqlite3.so.0", "sqlite3", "sqlite3.so.0", "libsqlite3.so", "sqlite3.dll")
+        private val CANDIDATES = listOf("libsqlite3.so.0", "sqlite3", "sqlite3.so.0", "libsqlite3.so", "sqlite3.dll", "libsqlite3.dylib")
 
         fun init() {
             for (name in CANDIDATES) {

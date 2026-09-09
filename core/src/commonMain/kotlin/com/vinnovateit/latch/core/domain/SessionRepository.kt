@@ -216,7 +216,7 @@ class SessionRepository(
                 logger.d(TAG, "manual sessions before sync: ${existingManualRecords.size}, remaining pending after reconciliation: ${pendingManualRecords.size}")
 
                 val merged = (existingLockedRecords + newAcceptedRecords + pendingManualRecords)
-                    .distinctBy { "${it.loginTime}_${it.durationMillis}_${it.totalBytes}" }
+                    .distinctBy { Triple(it.loginTime, it.durationMillis, it.totalBytes) }
                     .sortedByDescending { it.loginTime }
                 logger.d(TAG, "merged records: ${merged.size}")
 

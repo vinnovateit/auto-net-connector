@@ -143,6 +143,7 @@ class StatsViewModel(application: Application) : AndroidViewModel(application) {
       } ?: mergeSessions(history, 60_000L)
     }.stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
 
+  @Deprecated("Legacy session merging superseded by portal history sync")
   private fun mergeSessions(sessions: List<SessionSummary>, gapMs: Long): List<SessionSummary> {
     if (sessions.isEmpty()) return emptyList()
     val sorted = sessions.sortedBy { it.startTimestamp }

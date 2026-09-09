@@ -107,7 +107,9 @@ class PortalHistoryClient(
             if (!conn2Cookie.isNullOrEmpty()) {
                 cookie = conn2Cookie.substringBefore(";")
             }
-            conn2.inputStream.bufferedReader().use { it.readText() }
+            val responseCode2 = conn2.responseCode
+            val stream2 = if (responseCode2 in 200..399) conn2.inputStream else conn2.errorStream
+            stream2?.bufferedReader()?.use { it.readText() }
 
             // Step 3: Query history with registration number date range
             val dateFilter = computeDateFilter(userId)

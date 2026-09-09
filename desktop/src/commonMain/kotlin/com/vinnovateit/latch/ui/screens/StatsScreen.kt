@@ -219,6 +219,8 @@ fun StatsScreen(
                                     coroutineScope.launch {
                                         sessions.syncPortalHistory(userId, password, force = true)
                                     }
+                                } else {
+                                    platform.logger.w("StatsScreen", "Cannot resync portal history: missing credentials")
                                 }
                             },
                         )
@@ -241,7 +243,9 @@ fun StatsScreen(
                                             )
                                         }
                                         platform.systemActions.openUrl(reportFile.toURI().toString())
-                                    } catch (_: Exception) {}
+                                    } catch (e: Exception) {
+                                        platform.logger.e("StatsScreen", "Failed to export HTML report", e)
+                                    }
                                 }
                             },
                         )
