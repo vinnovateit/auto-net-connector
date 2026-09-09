@@ -11,7 +11,8 @@ import com.vinnovateit.latch.core.model.HistoryChartItem
 import com.vinnovateit.latch.core.model.PortalSessionRecord
 import com.vinnovateit.latch.core.model.SessionSummary
 import com.vinnovateit.latch.core.model.StatsOverviewMetrics
-import com.vinnovateit.latch.core.model.computeMetrics
+import com.vinnovateit.latch.core.stats.StatsInsights
+import com.vinnovateit.latch.core.stats.computeChartItems
 import com.vinnovateit.latch.platform.LatchAppGraph
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -48,44 +49,9 @@ class StatsViewModel(application: Application) : AndroidViewModel(application) {
     }.flowOn(Dispatchers.Default)
       .stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
 
-  val allDayRecords: StateFlow<List<AggregatedDayRecord>> =
-    nonZeroPortalHistory.map { list ->
-      val todayKey = formatDate(System.currentTimeMillis(), "yyyy-MM-dd")
-      list
-        .filter { it.loginTime > 0 }
-        .groupBy { formatDate(it.loginTime, "yyyy-MM-dd") }
-        .map { (key, daySessions) ->
-          val first = daySessions.first()
-          val dl = daySessions.sumOf { it.downloadBytes }
-          val ul = daySessions.sumOf { it.uploadBytes }
-          val total = daySessions.sumOf { it.totalBytes.coerceAtLeast(it.downloadBytes + it.uploadBytes) }
-          val totalDur = daySessions.sumOf { it.durationMillis }
-          val isToday = (key == todayKey)
-          AggregatedDayRecord(
-            dayTimestamp = first.loginTime,
-            dateFormatted = if (isToday) "Today, ${com.vinnovateit.latch.common.util.formatDisplayDate(first.loginTime)}"
-            else com.vinnovateit.latch.common.util.formatDisplayDate(first.loginTime),
-            downloadBytes = dl,
-            uploadBytes = ul,
-            totalBytes = total,
-            downloadFormatted = com.vinnovateit.latch.common.util.formatBytes(dl),
-            uploadFormatted = com.vinnovateit.latch.common.util.formatBytes(ul),
-            totalFormatted = com.vinnovateit.latch.common.util.formatBytes(total),
-            sessionCount = daySessions.size,
-            totalDurationMillis = totalDur,
-            durationFormatted = com.vinnovateit.latch.common.util.formatDurationDynamic(totalDur),
-            isToday = isToday
-          )
-        }
-        .sortedByDescending { it.dayTimestamp }
-    }.flowOn(Dispatchers.Default)
-      .stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
-
-  val overviewMetrics: StateFlow<StatsOverviewMetrics> =
-    nonZeroPortalHistory.map { sessions ->
-      computeMetrics(sessions)
-    }.flowOn(Dispatchers.Default)
-      .stateIn(viewModelScope, SharingStarted.Lazily, computeMetrics(emptyList()))
+  val allDayRecords: StateFlow<List<AggregatedDayRecord>> = LatchAppGraph.sessions.aggregatedDayRecords
+  val overviewMetrics: StateFlow<StatsOverviewMetrics> = LatchAppGraph.sessions.overviewMetrics
+  val statsInsights: StateFlow<StatsInsights> = LatchAppGraph.sessions.statsInsights
 
   init {
     refreshHistory()
@@ -177,22 +143,9 @@ class StatsViewModel(application: Application) : AndroidViewModel(application) {
     combine(nonZeroPortalHistory, liveStatus) { records, live ->
       val liveRx = live?.totalRxBytes ?: 0L
       val liveTx = live?.totalTxBytes ?: 0L
-      com.vinnovateit.latch.core.stats.computeChartItems(records, liveRxBytes = liveRx, liveTxBytes = liveTx)
+      computeChartItems(records, liveRxBytes = liveRx, liveTxBytes = liveTx)
     }.flowOn(Dispatchers.Default)
       .stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
-
-  val statsInsights: StateFlow<com.vinnovateit.latch.core.stats.StatsInsights> =
-    nonZeroPortalHistory.map { sessions ->
-      com.vinnovateit.latch.core.stats.computeStatsInsights(sessions)
-    }.flowOn(Dispatchers.Default)
-      .stateIn(
-        viewModelScope,
-        SharingStarted.Lazily,
-        com.vinnovateit.latch.core.stats.computeStatsInsights(emptyList())
-      )
-
-
-
 
   fun onClearHistory() {
     LatchAppGraph.sessions.clearHistory()

@@ -7,7 +7,6 @@ import java.util.Date
 import java.util.Locale
 
 private val dayKeyFormat = ThreadLocal.withInitial { SimpleDateFormat("yyyy-MM-dd", Locale.US) }
-private val displayDateFormat = ThreadLocal.withInitial { SimpleDateFormat("EEE, dd MMM yyyy", Locale.US) }
 
 /**
  * Aggregates individual [PortalSessionRecord] items into daily summary buckets [AggregatedDayRecord].
@@ -18,7 +17,6 @@ fun aggregateDays(
     nowMillis: Long = System.currentTimeMillis(),
 ): List<AggregatedDayRecord> {
     val dayKeyFmt = dayKeyFormat.get() ?: SimpleDateFormat("yyyy-MM-dd", Locale.US)
-    val displayFmt = displayDateFormat.get() ?: SimpleDateFormat("EEE, dd MMM yyyy", Locale.US)
     val todayKey = dayKeyFmt.format(Date(nowMillis))
 
     return sessions
@@ -31,9 +29,10 @@ fun aggregateDays(
             val total = daySessions.sumOf { it.totalBytes.coerceAtLeast(it.downloadBytes + it.uploadBytes) }
             val totalDur = daySessions.sumOf { it.durationMillis }
             val isToday = dateKey == todayKey
+            val dispDate = formatDisplayDate(first.loginTime, nowMillis)
             AggregatedDayRecord(
                 dayTimestamp = first.loginTime,
-                dateFormatted = if (isToday) "Today" else displayFmt.format(Date(first.loginTime)),
+                dateFormatted = if (isToday) "Today, $dispDate" else dispDate,
                 downloadBytes = dl,
                 uploadBytes = ul,
                 totalBytes = total,
