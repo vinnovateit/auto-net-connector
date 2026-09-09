@@ -2,9 +2,11 @@ package com.vinnovateit.latch.features.stats
 
 import android.annotation.SuppressLint
 import android.graphics.Bitmap
+import android.net.Uri
 import android.view.ViewGroup
 import android.webkit.WebSettings
 import android.webkit.WebView
+import android.webkit.WebResourceRequest
 import android.webkit.WebViewClient
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -39,8 +41,20 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.vinnovateit.latch.features.settings.manager.SettingsManager
+import com.vinnovateit.latch.core.portal.PortalHistoryClient
 import com.vinnovateit.latch.platform.LatchAppGraph
 import com.vinnovateit.latch.ui.theme.LocalIsDarkTheme
+
+private const val PORTAL_HOST = PortalHistoryClient.DEFAULT_PORTAL_HOST
+
+/**
+ * Whether [url] is the captive portal itself.
+ *
+ * The portal is plain HTTP on a bare IP, so anything that redirects or spoofs
+ * it would otherwise be handed the user's credentials by [onPageFinished].
+ */
+private fun isPortalUrl(url: String?): Boolean =
+    url != null && runCatching { Uri.parse(url).host }.getOrNull() == PORTAL_HOST
 
 @SuppressLint("SetJavaScriptEnabled")
 @OptIn(ExperimentalMaterial3Api::class)
@@ -161,8 +175,20 @@ fun PortalAccountScreen(
                                     isLoading = true
                                 }
 
+                                override fun shouldOverrideUrlLoading(
+                                    view: WebView?,
+                                    request: WebResourceRequest?,
+                                ): Boolean {
+                                    // Returning true blocks the navigation, so the
+                                    // WebView holding the credentials never leaves
+                                    // the portal.
+                                    val target = request?.url?.toString()
+                                    return !isPortalUrl(target)
+                                }
+
                                 override fun onPageFinished(view: WebView?, url: String?) {
                                     isLoading = false
+                                    if (!isPortalUrl(url)) return
                                     if (!hasAutoSubmitted && userId.isNotBlank() && password.isNotBlank()) {
                                         val escapedUser = userId.replace("\\", "\\\\").replace("'", "\\'")
                                         val escapedPass = password.replace("\\", "\\\\").replace("'", "\\'")
@@ -189,7 +215,7 @@ fun PortalAccountScreen(
                                 }
                             }
 
-                            loadUrl("http://136.233.9.110/registration/Main.jsp?wispId=1")
+                            loadUrl("http://$PORTAL_HOST/registration/Main.jsp?wispId=1")
                             webViewRef = this
                         }
                     }
