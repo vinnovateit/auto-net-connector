@@ -40,7 +40,7 @@ class LatchApp private constructor(
         fun create(echoLogsToStdout: Boolean): LatchApp {
             val notifier = TrayNotifier()
             val runtime = runBlocking {
-                DesktopEngineRuntime.create(notifier, echoLogsToStdout)
+                DesktopEngineRuntime.create(notifier, echoLogsToStdout, syncHistoryOnStart = true)
             }
 
             val updater = GithubUpdater(

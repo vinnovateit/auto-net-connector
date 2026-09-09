@@ -8,11 +8,11 @@ import com.vinnovateit.latch.core.platform.ByteCounts
 import com.vinnovateit.latch.core.platform.ByteCounterSource
 import com.vinnovateit.latch.core.stats.ThroughputMonitor
 import kotlin.test.Test
+import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.runBlocking
 
 class SessionRepositoryShutdownTest {
@@ -37,6 +37,41 @@ class SessionRepositoryShutdownTest {
 
         assertTrue(repository.liveStatus.value == null)
     }
+
+    @Test
+    fun `close stops the database collectors`() = runBlocking {
+        val dao = RecordingStatsDao()
+        val repository = SessionRepository(dao, ThroughputMonitor(ZeroCounters))
+        repository.initialize()
+
+        dao.portalSessions.value = listOf(portalEntity(loginTime = 1L))
+        delay(50)
+        assertEquals(1, repository.portalHistory.value.size)
+
+        // The runtime closes the repository before the database, so anything
+        // still collecting here would read a closed database.
+        repository.close()
+        dao.portalSessions.value = listOf(portalEntity(loginTime = 1L), portalEntity(loginTime = 2L))
+        delay(50)
+
+        assertEquals(1, repository.portalHistory.value.size, "collectors should be cancelled by close()")
+    }
+
+    private fun portalEntity(loginTime: Long) = PortalSessionEntity(
+        location = "VIT-Vellore",
+        macAddress = "9e:85:16:b5:22:eb",
+        loginTime = loginTime,
+        logoutTime = loginTime + 1_000L,
+        durationFormatted = "1 sec",
+        durationMillis = 1_000L,
+        uploadBytes = 1L,
+        downloadBytes = 2L,
+        totalBytes = 3L,
+    )
+}
+
+private object ZeroCounters : ByteCounterSource {
+    override fun sample(): ByteCounts = ByteCounts(0, 0)
 }
 
 private class RecordingStatsDao : StatsDao {
@@ -55,9 +90,15 @@ private class RecordingStatsDao : StatsDao {
         sessions.value = emptyList()
     }
 
-    override suspend fun insertAllPortalSessions(sessions: List<PortalSessionEntity>) {}
+    val portalSessions = MutableStateFlow<List<PortalSessionEntity>>(emptyList())
 
-    override fun getAllPortalSessions(): Flow<List<PortalSessionEntity>> = emptyFlow()
+    override suspend fun insertAllPortalSessions(sessions: List<PortalSessionEntity>) {
+        portalSessions.value = portalSessions.value + sessions
+    }
 
-    override suspend fun clearAllPortalSessions() {}
+    override fun getAllPortalSessions(): Flow<List<PortalSessionEntity>> = portalSessions
+
+    override suspend fun clearAllPortalSessions() {
+        portalSessions.value = emptyList()
+    }
 }
