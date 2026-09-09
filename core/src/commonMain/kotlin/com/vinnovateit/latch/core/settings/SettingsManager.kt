@@ -29,6 +29,9 @@ object SettingsManager {
     private const val KEY_USE_PURE_BLACK = "use_pure_black"
     private const val KEY_USE_MONOCHROME = "use_monochrome"
     private const val KEY_ACCENT_COLOR = "accent_color"
+    private const val KEY_CHART_PALETTE = "chart_palette"
+    private const val KEY_PALETTE_STYLE = "palette_style"
+    private const val KEY_HAPTICS_ENABLED = "haptics_enabled"
     // Desktop-only additions.
     private const val KEY_ALLOWED_SSIDS = "allowed_ssids"
     private const val KEY_HAS_SEEN_ONBOARDING = "hasSeenOnboarding"
@@ -52,6 +55,9 @@ object SettingsManager {
     private const val DEFAULT_USE_PURE_BLACK = false
     private const val DEFAULT_USE_MONOCHROME = false
     private const val DEFAULT_ACCENT_COLOR = "Red"
+    private const val DEFAULT_CHART_PALETTE = "Material Dynamic"
+    private const val DEFAULT_PALETTE_STYLE = "TonalSpot"
+    private const val DEFAULT_HAPTICS_ENABLED = true
 
     /**
      * SSID fragments Latch is allowed to authenticate against, matched as
@@ -88,11 +94,20 @@ object SettingsManager {
     private val _accentColor = MutableStateFlow(DEFAULT_ACCENT_COLOR)
     val accentColor: StateFlow<String> = _accentColor
 
+    private val _chartPalette = MutableStateFlow(DEFAULT_CHART_PALETTE)
+    val chartPalette: StateFlow<String> = _chartPalette
+
+    private val _paletteStyle = MutableStateFlow(DEFAULT_PALETTE_STYLE)
+    val paletteStyle: StateFlow<String> = _paletteStyle
+
     private val _allowedSsids = MutableStateFlow(DEFAULT_ALLOWED_SSIDS)
     val allowedSsids: StateFlow<Set<String>> = _allowedSsids
 
     private val _hasSeenOnboarding = MutableStateFlow(false)
     val hasSeenOnboarding: StateFlow<Boolean> = _hasSeenOnboarding
+
+    private val _hapticsEnabled = MutableStateFlow(DEFAULT_HAPTICS_ENABLED)
+    val hapticsEnabled: StateFlow<Boolean> = _hapticsEnabled
 
     private val _settingsChanged = MutableSharedFlow<Unit>(extraBufferCapacity = 8)
     val settingsChanged: SharedFlow<Unit> = _settingsChanged
@@ -110,8 +125,11 @@ object SettingsManager {
         _usePureBlack.value = store.getBoolean(KEY_USE_PURE_BLACK, DEFAULT_USE_PURE_BLACK)
         _useMonochrome.value = store.getBoolean(KEY_USE_MONOCHROME, DEFAULT_USE_MONOCHROME)
         _accentColor.value = store.getString(KEY_ACCENT_COLOR, DEFAULT_ACCENT_COLOR)
+        _chartPalette.value = store.getString(KEY_CHART_PALETTE, DEFAULT_CHART_PALETTE)
+        _paletteStyle.value = store.getString(KEY_PALETTE_STYLE, DEFAULT_PALETTE_STYLE)
         _allowedSsids.value = store.getStringSet(KEY_ALLOWED_SSIDS, DEFAULT_ALLOWED_SSIDS)
         _hasSeenOnboarding.value = store.getBoolean(KEY_HAS_SEEN_ONBOARDING, false)
+        _hapticsEnabled.value = store.getBoolean(KEY_HAPTICS_ENABLED, DEFAULT_HAPTICS_ENABLED)
     }
 
     fun setAutoLogin(enabled: Boolean) {
@@ -154,6 +172,18 @@ object SettingsManager {
         notifyChanged()
     }
 
+    fun setChartPalette(palette: String) {
+        _chartPalette.value = palette
+        store.putString(KEY_CHART_PALETTE, palette)
+        notifyChanged()
+    }
+
+    fun setPaletteStyle(style: String) {
+        _paletteStyle.value = style
+        store.putString(KEY_PALETTE_STYLE, style)
+        notifyChanged()
+    }
+
     fun setAllowedSsids(ssids: Set<String>) {
         _allowedSsids.value = ssids
         store.putStringSet(KEY_ALLOWED_SSIDS, ssids)
@@ -162,6 +192,32 @@ object SettingsManager {
     fun setHasSeenOnboarding(seen: Boolean) {
         _hasSeenOnboarding.value = seen
         store.putBoolean(KEY_HAS_SEEN_ONBOARDING, seen)
+    }
+
+    fun setHapticsEnabled(enabled: Boolean) {
+        store.putBoolean(KEY_HAPTICS_ENABLED, enabled)
+        _hapticsEnabled.value = enabled
+    }
+
+    /**
+     * Restores every setting to its default, in the store and in the flows.
+     *
+     * Resetting only a couple of them would leave callers (tests especially)
+     * believing they had a clean slate while the rest carried over.
+     */
+    fun clearAll() {
+        setAutoLogin(DEFAULT_AUTO_LOGIN)
+        setSpeedUnits(DEFAULT_SPEED_UNITS)
+        setTheme(DEFAULT_THEME)
+        setUseDynamicColors(DEFAULT_USE_DYNAMIC_COLORS)
+        setUsePureBlack(DEFAULT_USE_PURE_BLACK)
+        setUseMonochrome(DEFAULT_USE_MONOCHROME)
+        setAccentColor(DEFAULT_ACCENT_COLOR)
+        setChartPalette(DEFAULT_CHART_PALETTE)
+        setPaletteStyle(DEFAULT_PALETTE_STYLE)
+        setAllowedSsids(DEFAULT_ALLOWED_SSIDS)
+        setHasSeenOnboarding(false)
+        setHapticsEnabled(DEFAULT_HAPTICS_ENABLED)
     }
 
     var autostartDefaultApplied: Boolean

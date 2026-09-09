@@ -87,6 +87,7 @@ fun SettingsScreen(
     val autoLogin by SettingsManager.autoLogin.collectAsStateWithLifecycle()
     val theme by SettingsManager.theme.collectAsStateWithLifecycle()
     val accentColor by SettingsManager.accentColor.collectAsStateWithLifecycle()
+    val paletteStyle by SettingsManager.paletteStyle.collectAsStateWithLifecycle()
     val useMonochrome by SettingsManager.useMonochrome.collectAsStateWithLifecycle()
     val usePureBlack by SettingsManager.usePureBlack.collectAsStateWithLifecycle()
     val speedUnits by SettingsManager.speedUnits.collectAsStateWithLifecycle()
@@ -94,6 +95,7 @@ fun SettingsScreen(
 
     var showThemeDialog by remember { mutableStateOf(false) }
     var showAccentDialog by remember { mutableStateOf(false) }
+    var showPaletteStyleDialog by remember { mutableStateOf(false) }
     var showUnitsDialog by remember { mutableStateOf(false) }
     var showClearStatsDialog by remember { mutableStateOf(false) }
 
@@ -174,6 +176,23 @@ fun SettingsScreen(
                                     useMonochrome = useMonochrome,
                                 )
                             },
+                        )
+                        SettingsRowGap()
+                        SettingsItem(
+                            title = "Palette style",
+                            subtitle = when (paletteStyle) {
+                                "TonalSpot" -> "Tonal Spot"
+                                "Expressive" -> "Expressive"
+                                "FruitSalad" -> "Fruit Salad"
+                                "Spritz" -> "Spritz"
+                                "Rainbow" -> "Rainbow"
+                                "Vibrant" -> "Vibrant"
+                                "Fidelity" -> "Fidelity"
+                                "Content" -> "Content"
+                                else -> paletteStyle
+                            },
+                            leadingIcon = LatchIcons.Palette,
+                            onClick = { showPaletteStyleDialog = true },
                         )
                     }
 
@@ -293,6 +312,26 @@ fun SettingsScreen(
                         modifier = Modifier.padding(horizontal = 12.dp),
                     )
                 },
+            )
+        }
+
+        if (showPaletteStyleDialog) {
+            SettingsSelectionDialog(
+                title = "Palette style",
+                description = "Choose how Material You generates colors from your seed color.",
+                options = listOf(
+                    SelectionOption("TonalSpot", LatchIcons.Palette, "Tonal Spot"),
+                    SelectionOption("Expressive", LatchIcons.Palette, "Expressive"),
+                    SelectionOption("FruitSalad", LatchIcons.Palette, "Fruit Salad"),
+                    SelectionOption("Spritz", LatchIcons.Palette, "Spritz"),
+                    SelectionOption("Rainbow", LatchIcons.Palette, "Rainbow"),
+                    SelectionOption("Vibrant", LatchIcons.Palette, "Vibrant"),
+                    SelectionOption("Fidelity", LatchIcons.Palette, "Fidelity"),
+                    SelectionOption("Content", LatchIcons.Palette, "Content"),
+                ),
+                selected = paletteStyle,
+                onSelect = { SettingsManager.setPaletteStyle(it) },
+                onDismiss = { showPaletteStyleDialog = false },
             )
         }
 

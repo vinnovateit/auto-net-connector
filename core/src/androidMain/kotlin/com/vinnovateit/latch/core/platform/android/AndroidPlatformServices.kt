@@ -14,7 +14,6 @@ import com.vinnovateit.latch.core.platform.UserNotifier
 import com.vinnovateit.latch.core.platform.WifiPlatform
 
 private object AndroidCapabilities : PlatformCapabilities {
-    override val supportsDynamicColor: Boolean = true
     override val supportsAutostart: Boolean = false
 }
 

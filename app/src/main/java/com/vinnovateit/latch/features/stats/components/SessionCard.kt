@@ -5,7 +5,10 @@ import android.graphics.Typeface
 import android.text.format.DateFormat
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.SizeTransform
-import androidx.compose.animation.core.*
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.animate
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
@@ -16,44 +19,69 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.horizontalScroll
-import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.ArrowDownward
 import androidx.compose.material.icons.rounded.ArrowUpward
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableLongStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.*
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.nativeCanvas
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.vinnovateit.latch.common.util.DisplayMode
-import com.vinnovateit.latch.common.util.Tag
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.vinnovateit.latch.common.util.createGraphPaths
-import com.vinnovateit.latch.common.util.formatBitsPerSecond
-import com.vinnovateit.latch.common.util.formatBytes
-import com.vinnovateit.latch.common.util.formatDurationDynamic
+import com.vinnovateit.latch.core.stats.DisplayMode
+import com.vinnovateit.latch.core.stats.formatBitsPerSecond
+import com.vinnovateit.latch.core.stats.formatBytes
+import com.vinnovateit.latch.core.stats.formatDurationDynamic
 import com.vinnovateit.latch.core.model.DataUsage
 import com.vinnovateit.latch.core.model.LiveDataPoint
 import com.vinnovateit.latch.core.model.SessionSummary
 import com.vinnovateit.latch.features.home.components.GRAPH_HEIGHT_SCALE
 import com.vinnovateit.latch.features.home.components.POINTS_IN_30_SECONDS
+import com.vinnovateit.latch.core.settings.SettingsManager
 import com.vinnovateit.latch.ui.theme.ColorGraphDownload
 import com.vinnovateit.latch.ui.theme.ColorGraphUpload
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.vinnovateit.latch.features.settings.manager.SettingsManager
 import kotlinx.coroutines.delay
-import java.util.*
+import java.util.Date
 import kotlin.math.atan2
 import kotlin.math.max
 
@@ -110,6 +138,8 @@ private fun SessionDetailsOverlay(
     isAmoled: Boolean = false
 ) {
     val overlayColor = MaterialTheme.colorScheme.surface
+    val chartPalette by SettingsManager.chartPalette.collectAsStateWithLifecycle()
+    val (dlColor, ulColor) = com.vinnovateit.latch.common.util.StatsColorPalettes.resolveColors(chartPalette)
 
     Box(
         modifier = modifier
@@ -125,19 +155,30 @@ private fun SessionDetailsOverlay(
             .padding(24.dp)
     ) {
         Column {
-            SessionHeader(session, speedUnit)
+            SessionHeader(session, speedUnit, dlColor = dlColor, ulColor = ulColor)
             Spacer(modifier = Modifier.height(16.dp))
             Row(
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                DataUsageCircle(modifier = Modifier.size(100.dp), data = session.totalData, isAmoled = isAmoled)
+                DataUsageCircle(
+                    modifier = Modifier.size(100.dp),
+                    data = session.totalData,
+                    isAmoled = isAmoled,
+                    dlColor = dlColor,
+                    ulColor = ulColor
+                )
             }
         }
     }
 }
 
 @Composable
-private fun SessionHeader(session: SessionSummary, speedUnit: String) {
+private fun SessionHeader(
+    session: SessionSummary,
+    speedUnit: String,
+    dlColor: Color = ColorGraphDownload,
+    ulColor: Color = ColorGraphUpload
+) {
     var duration by remember(session.startTimestamp) {
         mutableLongStateOf(System.currentTimeMillis() - session.startTimestamp)
     }
@@ -158,7 +199,7 @@ private fun SessionHeader(session: SessionSummary, speedUnit: String) {
     val isDownloadDominant = downloadBps >= uploadBps
     val dominatingBps = if (isDownloadDominant) downloadBps else uploadBps
     val icon = if (isDownloadDominant) Icons.Rounded.ArrowDownward else Icons.Rounded.ArrowUpward
-    val iconColor = if (isDownloadDominant) ColorGraphDownload else ColorGraphUpload
+    val iconColor = if (isDownloadDominant) dlColor else ulColor
     val (value, unit) = formatBitsPerSecond(dominatingBps, speedUnit)
 
     Row(
@@ -183,9 +224,9 @@ private fun SessionHeader(session: SessionSummary, speedUnit: String) {
                 modifier = Modifier.size(16.dp)
             )
             Row(verticalAlignment = Alignment.Bottom) {
-                RollingNumberText(
-                    value = value,
-                    textStyle = MaterialTheme.typography.labelLarge.copy(
+                Text(
+                    text = value,
+                    style = MaterialTheme.typography.labelLarge.copy(
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onSurface
                     )
@@ -223,11 +264,7 @@ private fun SessionRateGraph(
         val idleDuration = System.currentTimeMillis() - lastInteractionTime
         if (lastInteractionTime == 0L || idleDuration > 5000L) {
             isAutoScrolling = true
-            delay(50L)
-            scrollState.animateScrollTo(
-                scrollState.maxValue,
-                animationSpec = tween(durationMillis = 300, easing = LinearEasing)
-            )
+            scrollState.scrollTo(scrollState.maxValue)
             isAutoScrolling = false
         }
     }
@@ -393,7 +430,9 @@ private fun SessionRateGraph(
 fun DataUsageCircle(
     modifier: Modifier = Modifier,
     data: DataUsage,
-    isAmoled: Boolean = false
+    isAmoled: Boolean = false,
+    dlColor: Color = ColorGraphDownload,
+    ulColor: Color = ColorGraphUpload
 ) {
     var mode by remember { mutableStateOf(DisplayMode.TOTAL) }
     LaunchedEffect(mode) {
@@ -445,14 +484,14 @@ fun DataUsageCircle(
                 style = Stroke(width = strokeWidth, cap = StrokeCap.Butt)
             )
             drawArc(
-                color = ColorGraphDownload,
+                color = dlColor,
                 startAngle = -90f + gapAngle,
                 sweepAngle = downloadSweep,
                 useCenter = false,
                 style = Stroke(width = strokeWidth, cap = StrokeCap.Butt)
             )
             drawArc(
-                color = ColorGraphUpload,
+                color = ulColor,
                 startAngle = -90f + gapAngle + downloadSweep + gapAngle,
                 sweepAngle = uploadSweep,
                 useCenter = false,
@@ -473,13 +512,13 @@ fun DataUsageCircle(
                 DisplayMode.DOWNLOAD -> Quadruple(
                     formatBytes(data.rxBytes).first,
                     formatBytes(data.rxBytes).second,
-                    ColorGraphDownload,
+                    dlColor,
                     Icons.Rounded.ArrowDownward
                 )
                 DisplayMode.UPLOAD -> Quadruple(
                     formatBytes(data.txBytes).first,
                     formatBytes(data.txBytes).second,
-                    ColorGraphUpload,
+                    ulColor,
                     Icons.Rounded.ArrowUpward
                 )
                 DisplayMode.TOTAL -> Quadruple(
@@ -533,16 +572,4 @@ private fun DataUsageValueBlock(
             color = MaterialTheme.colorScheme.onSurface
         )
     }
-}
-
-@Composable
-fun RollingNumberText(
-  value: String,
-  textStyle: androidx.compose.ui.text.TextStyle
-) {
-  Text(
-    text = value,
-    style = textStyle,
-    textAlign = androidx.compose.ui.text.style.TextAlign.Center
-  )
 }

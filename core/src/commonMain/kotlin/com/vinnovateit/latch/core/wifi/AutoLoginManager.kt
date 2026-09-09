@@ -8,9 +8,9 @@ import java.net.HttpURLConnection
 import java.net.URL
 import java.net.URLEncoder
 
-sealed class LoginResult {
-    object Success : LoginResult()
-    object Failure : LoginResult()
+sealed interface LoginResult {
+    data object Success : LoginResult
+    data object Failure : LoginResult
 }
 
 /**
@@ -77,8 +77,8 @@ class AutoLoginManager(
 
             connection.setRequestProperty("Content-Type", "application/x-www-form-urlencoded")
             connection.setRequestProperty("User-Agent", "Mozilla/5.0 (Android)")
-            connection.connectTimeout = 2000
-            connection.readTimeout = 2000
+            connection.connectTimeout = 5000
+            connection.readTimeout = 5000
 
             val postData = "userId=${URLEncoder.encode(userId, "UTF-8")}" +
                 "&password=${URLEncoder.encode(password, "UTF-8")}" +
@@ -168,21 +168,32 @@ class AutoLoginManager(
         }
     }
 
+    data class LogoutResult(
+        val success: Boolean,
+        val responseHtml: String? = null,
+    )
+
     fun attemptLogout(
         handle: NetworkHandle? = null,
         useAlternate: Boolean = false,
         fallbackIp: String? = null,
-    ): Boolean {
+    ): Boolean = attemptLogoutWithResponse(handle, useAlternate, fallbackIp).success
+
+    fun attemptLogoutWithResponse(
+        handle: NetworkHandle? = null,
+        useAlternate: Boolean = false,
+        fallbackIp: String? = null,
+    ): LogoutResult {
         logDebug("Initiating logout attempt (useAlternate=$useAlternate)")
         val targetUrlStr = if (useAlternate) SECURE_LOGOUT_URL else LOGOUT_URL
 
-        fun doAttempt(urlStr: String): Boolean {
+        fun doAttempt(urlStr: String): LogoutResult {
             val url = URL(urlStr)
             val connection = transport.open(url, handle)
             connection.requestMethod = "GET"
             connection.instanceFollowRedirects = false
-            connection.connectTimeout = 1500
-            connection.readTimeout = 1500
+            connection.connectTimeout = 3000
+            connection.readTimeout = 3000
 
             return try {
                 connection.connect()
@@ -190,14 +201,15 @@ class AutoLoginManager(
                 val code = connection.responseCode
                 logDebug("Logout returned response code: $code")
 
-                // Drain the stream so the connection can be reused/closed cleanly.
-                try {
+                // Read the response body so we can extract logout session metrics
+                val body = try {
                     (if (code >= 400) connection.errorStream else connection.inputStream)
-                        ?.buffered()?.use { it.readBytes() }
+                        ?.bufferedReader()?.use { it.readText() }
                 } catch (e: Exception) {
-                    logDebug("Stream drain exception (ignored): ${e.message}")
+                    logDebug("Stream read exception (ignored): ${e.message}")
+                    null
                 }
-                code in 200..399
+                LogoutResult(success = code in 200..399, responseHtml = body)
             } finally {
                 try {
                     connection.disconnect()
@@ -215,14 +227,14 @@ class AutoLoginManager(
                     doAttempt(fallbackTargetUrlStr)
                 } catch (fallbackE: Exception) {
                     logError("Fallback logout failed: ${fallbackE.message}", fallbackE)
-                    false
+                    LogoutResult(false)
                 }
             } else {
-                false
+                LogoutResult(false)
             }
         } catch (e: Exception) {
             logError("Logout failed with exception: ${e.message}", e)
-            false
+            LogoutResult(false)
         }
     }
 }

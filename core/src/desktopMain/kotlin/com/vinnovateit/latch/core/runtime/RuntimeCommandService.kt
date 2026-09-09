@@ -201,14 +201,15 @@ private class DesktopRuntimeTarget(private val runtime: DesktopEngineRuntime) : 
     override suspend fun logout(): RuntimeOperation = execute(LatchCommand.Logout, "Logout")
 
     override suspend fun history(): List<RuntimeSessionRecord> =
-        runtime.database.statsDao().getAllSessions().first().map { session ->
+        runtime.database.statsDao().getAllPortalSessions().first().map { session ->
             RuntimeSessionRecord(
-                session.startTime,
-                session.endTime,
-                session.rxBytes,
-                session.txBytes,
-                session.maxRxBps,
-                session.maxTxBps,
+                session.loginTime,
+                session.logoutTime,
+                session.downloadBytes,
+                session.uploadBytes,
+                // The portal reports totals only, never peak throughput.
+                0L,
+                0L,
             )
         }
 

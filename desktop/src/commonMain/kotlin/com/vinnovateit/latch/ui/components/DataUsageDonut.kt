@@ -10,6 +10,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.text.font.FontWeight
@@ -37,6 +38,8 @@ internal fun DataUsageDonut(
     data: DataUsage,
     modifier: Modifier = Modifier,
     isAmoled: Boolean = false,
+    dlColor: Color = ColorGraphDownload,
+    ulColor: Color = ColorGraphUpload,
 ) {
     val totalBytes = (data.rxBytes + data.txBytes).coerceAtLeast(1L)
     val rawDownloadFraction = data.rxBytes.toFloat() / totalBytes
@@ -69,14 +72,14 @@ internal fun DataUsageDonut(
                 style = Stroke(width = strokeWidth, cap = StrokeCap.Butt),
             )
             drawArc(
-                color = ColorGraphDownload,
+                color = dlColor,
                 startAngle = -90f + gapAngle,
                 sweepAngle = downloadSweep,
                 useCenter = false,
                 style = Stroke(width = strokeWidth, cap = StrokeCap.Butt),
             )
             drawArc(
-                color = ColorGraphUpload,
+                color = ulColor,
                 startAngle = -90f + gapAngle + downloadSweep + gapAngle,
                 sweepAngle = uploadSweep,
                 useCenter = false,

@@ -7,8 +7,13 @@ import androidx.activity.compose.setContent
 import androidx.activity.viewModels
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.Surface
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.hapticfeedback.HapticFeedback
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.core.view.WindowCompat
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -21,7 +26,7 @@ import com.google.android.play.core.install.InstallStateUpdatedListener
 import com.google.android.play.core.install.model.AppUpdateType
 import com.google.android.play.core.install.model.InstallStatus
 import com.google.android.play.core.install.model.UpdateAvailability
-import com.vinnovateit.latch.features.settings.manager.SettingsManager
+import com.vinnovateit.latch.core.settings.SettingsManager
 import com.vinnovateit.latch.features.wifi.background.ForegroundService
 import com.vinnovateit.latch.features.wifi.manager.WiFiStatusViewModel
 import com.vinnovateit.latch.ui.theme.LatchTheme
@@ -41,7 +46,6 @@ class MainActivity : ComponentActivity() {
         installSplashScreen()
         super.onCreate(savedInstanceState)
         WindowCompat.setDecorFitsSystemWindows(window, false)
-        SettingsManager.initialize(this)
 
         appUpdateManager = AppUpdateManagerFactory.create(this)
         appUpdateManager.registerListener(installStateListener)
@@ -59,50 +63,69 @@ class MainActivity : ComponentActivity() {
 
         val prefs = getSharedPreferences("app_prefs", android.content.Context.MODE_PRIVATE)
         val hasSeenOnboarding = prefs.getBoolean("hasSeenOnboarding", false)
+        val hasCredentials = com.vinnovateit.latch.core.platform.android.StoredCredentials.credentialsExist(this)
 
+        // Someone who has finished onboarding but cleared their credentials only
+        // needs the credentials screen back, not the whole slide deck again.
         val startDest = when {
             !hasSeenOnboarding -> com.vinnovateit.latch.navigation.LatchRoutes.ONBOARDING
-            com.vinnovateit.latch.core.platform.android.StoredCredentials.credentialsExist(this) -> com.vinnovateit.latch.navigation.LatchRoutes.HOME
+            hasCredentials -> com.vinnovateit.latch.navigation.LatchRoutes.HOME
             else -> com.vinnovateit.latch.navigation.LatchRoutes.credentials(editMode = false)
         }
 
         setContent {
-            LatchTheme {
-                Surface(
-                    modifier = Modifier.fillMaxSize(),
-                    color = androidx.compose.material3.MaterialTheme.colorScheme.background
-                ) {
-                    if (updateDownloaded.value) {
-                        androidx.compose.material3.AlertDialog(
-                            onDismissRequest = { /* Force user to decide */ },
-                            title = { androidx.compose.material3.Text("Update Ready") },
-                            text = { androidx.compose.material3.Text("An update has been downloaded and is ready to be installed. Restart the app to apply the update.") },
-                            confirmButton = {
-                                androidx.compose.material3.TextButton(onClick = {
-                                    appUpdateManager.completeUpdate()
-                                        .addOnSuccessListener { updateDownloaded.value = false }
-                                        .addOnFailureListener { e ->
-                                            e.printStackTrace()
-                                            updateDownloaded.value = false
-                                        }
-                                }) {
-                                    androidx.compose.material3.Text("Restart")
+            val hapticsEnabled by SettingsManager.hapticsEnabled.collectAsStateWithLifecycle()
+            val systemHapticFeedback = LocalHapticFeedback.current
+            val hapticFeedback = remember(hapticsEnabled, systemHapticFeedback) {
+                if (hapticsEnabled) {
+                    systemHapticFeedback
+                } else {
+                    object : HapticFeedback {
+                        override fun performHapticFeedback(hapticFeedbackType: HapticFeedbackType) {
+                            // Silenced globally
+                        }
+                    }
+                }
+            }
+
+            CompositionLocalProvider(LocalHapticFeedback provides hapticFeedback) {
+                LatchTheme {
+                    Surface(
+                        modifier = Modifier.fillMaxSize(),
+                        color = androidx.compose.material3.MaterialTheme.colorScheme.background
+                    ) {
+                        if (updateDownloaded.value) {
+                            androidx.compose.material3.AlertDialog(
+                                onDismissRequest = { /* Force user to decide */ },
+                                title = { androidx.compose.material3.Text("Update Ready") },
+                                text = { androidx.compose.material3.Text("An update has been downloaded and is ready to be installed. Restart the app to apply the update.") },
+                                confirmButton = {
+                                    androidx.compose.material3.TextButton(onClick = {
+                                        appUpdateManager.completeUpdate()
+                                            .addOnSuccessListener { updateDownloaded.value = false }
+                                            .addOnFailureListener { e ->
+                                                e.printStackTrace()
+                                                updateDownloaded.value = false
+                                            }
+                                    }) {
+                                        androidx.compose.material3.Text("Restart")
+                                    }
+                                },
+                                dismissButton = {
+                                    androidx.compose.material3.TextButton(onClick = { 
+                                        updateDownloaded.value = false 
+                                    }) {
+                                        androidx.compose.material3.Text("Later")
+                                    }
                                 }
-                            },
-                            dismissButton = {
-                                androidx.compose.material3.TextButton(onClick = { 
-                                    updateDownloaded.value = false 
-                                }) {
-                                    androidx.compose.material3.Text("Later")
-                                }
-                            }
+                            )
+                        }
+
+                        com.vinnovateit.latch.navigation.LatchNavGraph(
+                            wifiStatusViewModel = wifiStatusViewModel,
+                            startDestination = startDest
                         )
                     }
-
-                    com.vinnovateit.latch.navigation.LatchNavGraph(
-                        wifiStatusViewModel = wifiStatusViewModel,
-                        startDestination = startDest
-                    )
                 }
             }
         }

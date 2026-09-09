@@ -30,15 +30,13 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
-import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import com.vinnovateit.latch.R
 import com.vinnovateit.latch.core.platform.android.StoredCredentials
 import com.vinnovateit.latch.features.onboarding.pages.*
-import kotlinx.collections.immutable.persistentListOf
 import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
 
-@OptIn(ExperimentalFoundationApi::class, ExperimentalPermissionsApi::class)
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun OnboardingScreen(
     onComplete: () -> Unit,
@@ -53,10 +51,11 @@ fun OnboardingScreen(
     val configuration = LocalConfiguration.current
     val isLandscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
 
-    LaunchedEffect(Unit) {
+    androidx.lifecycle.compose.LifecycleResumeEffect(Unit) {
         if (StoredCredentials.credentialsExist(context)) {
             credentialsHandled = true
         }
+        onPauseOrDispose { }
     }
 
     val slides = remember {
@@ -65,7 +64,7 @@ fun OnboardingScreen(
                 "Welcome to Latch",
                 buildAnnotatedString { append("Let's get everything setup for you.") },
                 {},
-                persistentListOf()
+                emptyList()
             ),
             SlideContent(
                 "How it Works",

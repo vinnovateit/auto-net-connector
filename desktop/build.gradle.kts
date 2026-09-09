@@ -130,15 +130,12 @@ compose.desktop {
         )
 
 
-        // `packageRelease*` runs the jars through ProGuard: dead-code shrinking,
-        // optimisation, and name obfuscation. SourceFile is kept so crash line
-        // numbers survive; class/method names are scrambled.
+        // ProGuard is disabled for Desktop builds to prevent JVM stackmap verification errors (VerifyError).
+        // R8 / ProGuard is retained for Android release builds.
         buildTypes.release.proguard {
-            version.set("7.8.0")
-            obfuscate.set(true)
-            optimize.set(true)
-            configurationFiles.from(project.file("proguard-rules.pro"))
+            isEnabled.set(false)
         }
+
 
         nativeDistributions {
             targetFormats(TargetFormat.Msi, TargetFormat.Deb, TargetFormat.AppImage, TargetFormat.Rpm)

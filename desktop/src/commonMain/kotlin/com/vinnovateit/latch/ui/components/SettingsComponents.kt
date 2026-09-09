@@ -363,7 +363,33 @@ internal fun AccentColorPicker(
             horizontalArrangement = Arrangement.spacedBy(8.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            // Monochrome swatch — first in the row
+            // Custom colour button with pen icon at start
+            val isCustomSelected = (showInlineCustom || customColor != null) && !useMonochrome
+            Surface(
+                onClick = {
+                    if (useMonochrome) onMonochromeToggle(false)
+                    showInlineCustom = !showInlineCustom
+                    if (showInlineCustom) onColorSelected(hexText)
+                },
+                modifier = Modifier.size(44.dp),
+                shape = CircleShape,
+                color = if (isCustomSelected && customColor != null) customColor else MaterialTheme.colorScheme.surfaceVariant,
+                border = BorderStroke(
+                    if (isCustomSelected) 3.dp else 2.dp,
+                    if (isCustomSelected) SolidColor(MaterialTheme.colorScheme.onSurface) else Brush.sweepGradient(RainbowSweep),
+                ),
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Icon(
+                        imageVector = LatchIcons.Edit,
+                        contentDescription = "Custom colour",
+                        tint = if (isCustomSelected && customColor != null) Color.White else MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(20.dp),
+                    )
+                }
+            }
+
+            // Monochrome swatch
             MonochromeSwatchButton(
                 isSelected = useMonochrome,
                 onClick = { onMonochromeToggle(!useMonochrome) },
@@ -379,39 +405,6 @@ internal fun AccentColorPicker(
                         onColorSelected(name)
                     },
                 )
-            }
-
-            Surface(
-                onClick = {
-                    if (useMonochrome) onMonochromeToggle(false)
-                    showInlineCustom = !showInlineCustom
-                    if (showInlineCustom) onColorSelected(hexText)
-                },
-                modifier = Modifier.size(44.dp),
-                shape = CircleShape,
-                color = if (showInlineCustom && customColor != null && !useMonochrome) customColor else MaterialTheme.colorScheme.surfaceVariant,
-                border = BorderStroke(
-                    if (showInlineCustom && !useMonochrome) 3.dp else 2.dp,
-                    if (showInlineCustom && !useMonochrome) SolidColor(MaterialTheme.colorScheme.onSurface) else Brush.sweepGradient(RainbowSweep),
-                ),
-            ) {
-                Box(contentAlignment = Alignment.Center) {
-                    if (showInlineCustom && customColor != null && !useMonochrome) {
-                        Icon(
-                            imageVector = LatchIcons.Check,
-                            contentDescription = null,
-                            tint = Color.White,
-                            modifier = Modifier.size(20.dp),
-                        )
-                    } else {
-                        Icon(
-                            imageVector = LatchIcons.Add,
-                            contentDescription = "Custom colour",
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.size(20.dp),
-                        )
-                    }
-                }
             }
         }
 

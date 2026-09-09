@@ -173,8 +173,6 @@ interface SystemActions {
 }
 
 interface PlatformCapabilities {
-    /** Material You wallpaper-derived colours. Always false on desktop. */
-    val supportsDynamicColor: Boolean
     /** Whether an autostart-at-login toggle should be offered. */
     val supportsAutostart: Boolean
 }

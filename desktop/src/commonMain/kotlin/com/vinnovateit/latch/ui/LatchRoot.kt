@@ -109,8 +109,9 @@ fun LatchRoot(
             }
 
             val currentRootScreen = when {
+                editingCredentials -> "Credentials"
                 !hasSeenOnboarding -> "Onboarding"
-                !hasCredentials || editingCredentials -> "Credentials"
+                !hasCredentials -> "Credentials"
                 showAbout -> "About"
                 showUpdateScreen -> "Update"
                 else -> "Main"
@@ -150,7 +151,7 @@ fun LatchRoot(
                     when (rootScreen) {
                         "Onboarding" -> {
                             DesktopOnboardingScreen(
-                                platform = platform,
+                                hasCredentials = hasCredentials,
                                 onComplete = {
                                     SettingsManager.setHasSeenOnboarding(true)
                                 },
@@ -264,6 +265,7 @@ fun LatchRoot(
 
                                             LatchDestination.Stats -> StatsScreen(
                                                 sessions = sessions,
+                                                platform = platform,
                                                 onBack = back,
                                                 onClearHistory = { sessions.clearHistory() },
                                             )

@@ -1,6 +1,7 @@
 package com.vinnovateit.latch.features.stats.components
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -11,108 +12,254 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowDownward
-import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material.icons.rounded.ArrowDownward
 import androidx.compose.material.icons.rounded.ArrowUpward
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
+import androidx.compose.material.icons.rounded.CalendarToday
+import androidx.compose.material.icons.rounded.Wifi
 import androidx.compose.material3.Icon
+import androidx.compose.material3.ListItem
+import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.vinnovateit.latch.features.settings.manager.SettingsManager
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.vinnovateit.latch.core.stats.formatBytes
+import com.vinnovateit.latch.core.stats.formatDate
+import com.vinnovateit.latch.core.stats.formatDurationDynamic
+import com.vinnovateit.latch.core.model.AggregatedDayRecord
+import com.vinnovateit.latch.core.model.PortalSessionRecord
 import com.vinnovateit.latch.core.model.SessionSummary
-import com.vinnovateit.latch.common.util.formatBytes
-import com.vinnovateit.latch.common.util.formatDurationDynamic
+import com.vinnovateit.latch.core.settings.SettingsManager
 import com.vinnovateit.latch.ui.theme.ColorGraphDownload
 import com.vinnovateit.latch.ui.theme.ColorGraphUpload
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
+import com.vinnovateit.latch.ui.theme.LocalIsDarkTheme
 
-/**
- * A Composable that displays a summary of a single past session in a card,
- * with a customizable shape for grouping.
- */
+fun groupedItemShape(index: Int, totalCount: Int, cornerRadius: Dp = 24.dp, innerRadius: Dp = 4.dp): Shape {
+  return when {
+    totalCount <= 1 -> RoundedCornerShape(cornerRadius)
+    index == 0 -> RoundedCornerShape(topStart = cornerRadius, topEnd = cornerRadius, bottomStart = innerRadius, bottomEnd = innerRadius)
+    index == totalCount - 1 -> RoundedCornerShape(topStart = innerRadius, topEnd = innerRadius, bottomStart = cornerRadius, bottomEnd = cornerRadius)
+    else -> RoundedCornerShape(innerRadius)
+  }
+}
+
+@Composable
+fun TodaySessionListItem(
+  session: PortalSessionRecord,
+  shape: Shape = RoundedCornerShape(16.dp),
+  isAmoled: Boolean = false,
+  dlColor: Color = ColorGraphDownload,
+  ulColor: Color = ColorGraphUpload,
+) {
+  Surface(
+    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+    shape = shape,
+    color = MaterialTheme.colorScheme.surfaceVariant,
+    border = if (isAmoled) androidx.compose.foundation.BorderStroke(2.dp, MaterialTheme.colorScheme.primary) else null
+  ) {
+    val totalFormatted = remember(session.totalBytes, session.uploadBytes, session.downloadBytes) {
+      val effectiveTotal = if (session.totalBytes > 0) session.totalBytes else (session.uploadBytes + session.downloadBytes)
+      formatBytes(effectiveTotal)
+    }
+    val dlFormatted = remember(session.downloadBytes) { formatBytes(session.downloadBytes) }
+    val ulFormatted = remember(session.uploadBytes) { formatBytes(session.uploadBytes) }
+    val durationStr = remember(session.durationFormatted, session.durationMillis) {
+      session.durationFormatted.ifBlank { formatDurationDynamic(session.durationMillis) }
+    }
+
+    ListItem(
+      modifier = Modifier.fillMaxWidth(),
+      content = {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+          Text(
+            text = session.location.ifBlank { "Session" },
+            style = MaterialTheme.typography.titleSmall,
+            fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.onSurface
+          )
+          if (session.isManual) {
+            Spacer(modifier = Modifier.width(6.dp))
+            Surface(
+              shape = RoundedCornerShape(4.dp),
+              color = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.6f)
+            ) {
+              Text(
+                text = "Manual",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onTertiaryContainer,
+                modifier = Modifier.padding(horizontal = 5.dp, vertical = 1.dp)
+              )
+            }
+          }
+          Spacer(modifier = Modifier.width(8.dp))
+          Text(
+            text = if (session.loginTime > 0) formatDate(session.loginTime, "hh:mm a") else "",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+          )
+        }
+      },
+      supportingContent = {
+        Row(
+          modifier = Modifier.padding(top = 4.dp),
+          verticalAlignment = Alignment.CenterVertically,
+          horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+          Row(verticalAlignment = Alignment.CenterVertically) {
+            Icon(Icons.Rounded.ArrowDownward, null, tint = dlColor, modifier = Modifier.size(14.dp))
+            Spacer(modifier = Modifier.width(2.dp))
+            Text("${dlFormatted.first} ${dlFormatted.second}", style = MaterialTheme.typography.labelSmall)
+          }
+          Row(verticalAlignment = Alignment.CenterVertically) {
+            Icon(Icons.Rounded.ArrowUpward, null, tint = ulColor, modifier = Modifier.size(14.dp))
+            Spacer(modifier = Modifier.width(2.dp))
+            Text("${ulFormatted.first} ${ulFormatted.second}", style = MaterialTheme.typography.labelSmall)
+          }
+          if (durationStr.isNotBlank()) {
+            Text(durationStr, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
+          }
+        }
+      },
+      trailingContent = {
+        Text(
+          text = "${totalFormatted.first} ${totalFormatted.second}",
+          style = MaterialTheme.typography.titleMedium,
+          fontWeight = FontWeight.Bold,
+          color = MaterialTheme.colorScheme.onSurface
+        )
+      },
+      colors = ListItemDefaults.colors(containerColor = Color.Transparent)
+    )
+  }
+}
+
+@Composable
+fun DayAggregateListItem(
+  record: AggregatedDayRecord,
+  shape: Shape = RoundedCornerShape(16.dp),
+  isAmoled: Boolean = false,
+  dlColor: Color = ColorGraphDownload,
+  ulColor: Color = ColorGraphUpload,
+) {
+  Surface(
+    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+    shape = shape,
+    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+    border = if (isAmoled) androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant) else null
+  ) {
+    ListItem(
+      modifier = Modifier.fillMaxWidth(),
+      content = {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+          Text(
+            text = record.dateFormatted,
+            style = MaterialTheme.typography.bodyMedium,
+            fontWeight = FontWeight.Bold,
+            color = if (record.isToday) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
+          )
+          Spacer(modifier = Modifier.width(6.dp))
+          Surface(
+            shape = RoundedCornerShape(4.dp),
+            color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.6f)
+          ) {
+            Text(
+              text = if (record.sessionCount == 1) "1 session" else "${record.sessionCount} sessions",
+              style = MaterialTheme.typography.labelSmall,
+              color = MaterialTheme.colorScheme.onSecondaryContainer,
+              modifier = Modifier.padding(horizontal = 5.dp, vertical = 1.dp)
+            )
+          }
+        }
+      },
+      supportingContent = {
+        Row(
+          modifier = Modifier.padding(top = 2.dp),
+          verticalAlignment = Alignment.CenterVertically,
+          horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+          Row(verticalAlignment = Alignment.CenterVertically) {
+            Icon(Icons.Rounded.ArrowDownward, null, tint = dlColor, modifier = Modifier.size(13.dp))
+            Spacer(modifier = Modifier.width(2.dp))
+            Text(
+              "${record.downloadFormatted.first} ${record.downloadFormatted.second}",
+              style = MaterialTheme.typography.labelSmall,
+              color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+          }
+          Row(verticalAlignment = Alignment.CenterVertically) {
+            Icon(Icons.Rounded.ArrowUpward, null, tint = ulColor, modifier = Modifier.size(13.dp))
+            Spacer(modifier = Modifier.width(2.dp))
+            Text(
+              "${record.uploadFormatted.first} ${record.uploadFormatted.second}",
+              style = MaterialTheme.typography.labelSmall,
+              color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+          }
+          if (record.durationFormatted.isNotBlank()) {
+            Text(
+              text = record.durationFormatted,
+              style = MaterialTheme.typography.labelSmall,
+              color = MaterialTheme.colorScheme.outline
+            )
+          }
+        }
+      },
+      trailingContent = {
+        Row(verticalAlignment = Alignment.Bottom) {
+          Text(
+            text = record.totalFormatted.first,
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.Black,
+            color = MaterialTheme.colorScheme.onSurface
+          )
+          Spacer(modifier = Modifier.width(3.dp))
+          Text(
+            text = record.totalFormatted.second,
+            style = MaterialTheme.typography.labelSmall,
+            fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.primary,
+            modifier = Modifier.padding(bottom = 1.dp)
+          )
+        }
+      },
+      colors = ListItemDefaults.colors(containerColor = Color.Transparent)
+    )
+  }
+}
+
+@Composable
+fun StatsItemCard(
+  session: PortalSessionRecord,
+  shape: Shape = RoundedCornerShape(16.dp),
+) {
+  TodaySessionListItem(session = session, shape = shape)
+}
+
 @Composable
 fun StatsItemCard(
   session: SessionSummary,
   shape: Shape = RoundedCornerShape(16.dp),
 ) {
-  val usePureBlack by SettingsManager.usePureBlack.collectAsStateWithLifecycle()
-  val isAmoled = usePureBlack && com.vinnovateit.latch.ui.theme.LocalIsDarkTheme.current
-
-  Card(
-    modifier = Modifier.fillMaxWidth(),
-    shape = shape,
-    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
-    border = if (isAmoled) androidx.compose.foundation.BorderStroke(4.dp, MaterialTheme.colorScheme.primary) else null
-  ) {
-    Row(
-      modifier = Modifier
-        .fillMaxWidth()
-        .padding(20.dp),
-      verticalAlignment = Alignment.CenterVertically,
-      horizontalArrangement = Arrangement.SpaceBetween
-    ) {
-      Column(modifier = Modifier.weight(1f)) {
-        val now = System.currentTimeMillis()
-        val timeString = if (now - session.startTimestamp < 60 * 1000) {
-            "Just now"
-        } else if (now - session.startTimestamp < 24 * 60 * 60 * 1000) {
-            android.text.format.DateUtils.getRelativeTimeSpanString(session.startTimestamp, now, android.text.format.DateUtils.MINUTE_IN_MILLIS).toString()
-        } else {
-            SimpleDateFormat("E, dd MMM", Locale.getDefault()).format(Date(session.startTimestamp))
-        }
-        Text(
-          text = timeString,
-          style = MaterialTheme.typography.titleMedium,
-          fontWeight = FontWeight.Bold,
-          color = MaterialTheme.colorScheme.onSurface
-        )
-        Spacer(modifier = Modifier.height(4.dp))
-        Text(
-          text = formatDurationDynamic(session.endTimestamp - session.startTimestamp),
-          style = MaterialTheme.typography.bodySmall,
-          color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-      }
-      Column(horizontalAlignment = Alignment.End) {
-        val total = remember(session.totalData) { formatBytes(session.totalData.rxBytes + session.totalData.txBytes) }
-        Text(
-          text = "${total.first} ${total.second}",
-          style = MaterialTheme.typography.titleMedium,
-          fontWeight = FontWeight.Bold,
-          color = MaterialTheme.colorScheme.onSurface
-        )
-        Row {
-          val dl = remember(session.totalData) { formatBytes(session.totalData.rxBytes) }
-          Icon(Icons.Rounded.ArrowDownward, contentDescription = "Download data", tint = ColorGraphDownload, modifier = Modifier.size(16.dp))
-          Text(
-            text = "${dl.first} ${dl.second}",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-          )
-          Spacer(modifier = Modifier.width(12.dp))
-          val ul = remember(session.totalData) { formatBytes(session.totalData.txBytes) }
-          Icon(Icons.Rounded.ArrowUpward, contentDescription = "Upload data", tint = ColorGraphUpload, modifier = Modifier.size(16.dp))
-          Text(
-            text = "${ul.first} ${ul.second}",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-          )
-        }
-      }
-    }
-  }
+  val record = PortalSessionRecord(
+    location = "Local Session",
+    macAddress = "-",
+    loginTime = session.startTimestamp,
+    logoutTime = session.endTimestamp,
+    durationFormatted = formatDurationDynamic(session.endTimestamp - session.startTimestamp),
+    durationMillis = (session.endTimestamp - session.startTimestamp).coerceAtLeast(0L),
+    uploadBytes = session.totalData.txBytes,
+    downloadBytes = session.totalData.rxBytes,
+    totalBytes = session.totalData.rxBytes + session.totalData.txBytes
+  )
+  TodaySessionListItem(session = record, shape = shape)
 }

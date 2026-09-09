@@ -1,23 +1,45 @@
 package com.vinnovateit.latch.features.home.components
 
-import androidx.compose.animation.*
-import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.ExperimentalAnimationApi
+import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
+import androidx.compose.animation.shrinkVertically
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.ArrowDownward
 import androidx.compose.material.icons.rounded.ArrowOutward
 import androidx.compose.material.icons.rounded.ArrowUpward
-import androidx.compose.material.icons.rounded.Check
-import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Error
 import androidx.compose.material.icons.rounded.QuestionMark
 import androidx.compose.material.icons.rounded.Wifi
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
+import androidx.compose.material3.Icon
+import androidx.compose.material3.LoadingIndicator
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.graphicsLayer
@@ -26,13 +48,13 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.vinnovateit.latch.R
 import com.vinnovateit.latch.core.model.LiveDataPoint
 import com.vinnovateit.latch.core.model.SessionSummary
+import com.vinnovateit.latch.core.settings.SettingsManager
 import com.vinnovateit.latch.features.wifi.manager.ConnectionStatus
 import com.vinnovateit.latch.ui.theme.ModernizFontFamily
-import com.vinnovateit.latch.features.settings.manager.SettingsManager
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
 
 @Composable
 fun SpectrumCard(
@@ -89,14 +111,14 @@ fun SpectrumCard(
 
         val isDownloadDominant = downloadBps >= uploadBps
         val dominatingBps = if (isDownloadDominant) downloadBps else uploadBps
-        val icon = if (isDownloadDominant) androidx.compose.material.icons.Icons.Rounded.ArrowDownward else androidx.compose.material.icons.Icons.Rounded.ArrowUpward
+        val icon = if (isDownloadDominant) Icons.Rounded.ArrowDownward else Icons.Rounded.ArrowUpward
         val iconColor = if (isDownloadDominant) com.vinnovateit.latch.ui.theme.ColorGraphDownload else com.vinnovateit.latch.ui.theme.ColorGraphUpload
-        val (value, unit) = com.vinnovateit.latch.common.util.formatBitsPerSecond(dominatingBps, speedUnit)
+        val (value, unit) = com.vinnovateit.latch.core.stats.formatBitsPerSecond(dominatingBps, speedUnit)
 
         androidx.compose.animation.AnimatedVisibility(
             visible = dominatingBps > 0L,
-            enter = androidx.compose.animation.fadeIn(),
-            exit = androidx.compose.animation.fadeOut()
+            enter = fadeIn(),
+            exit = fadeOut()
         ) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
@@ -110,9 +132,9 @@ fun SpectrumCard(
                     modifier = Modifier.size(16.dp)
                 )
                 Row(verticalAlignment = Alignment.Bottom) {
-                    com.vinnovateit.latch.features.stats.components.RollingNumberText(
-                        value = value,
-                        textStyle = MaterialTheme.typography.labelLarge.copy(
+                    Text(
+                        text = value,
+                        style = MaterialTheme.typography.labelLarge.copy(
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.onSurface
                         )

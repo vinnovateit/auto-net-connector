@@ -35,15 +35,16 @@ import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
-import com.vinnovateit.latch.common.util.generateHtmlReport
+import com.vinnovateit.latch.core.stats.generatePortalHtmlReport
 import com.vinnovateit.latch.features.about.MeetTheTeamPage
 import com.vinnovateit.latch.features.home.HomeScreen
 import com.vinnovateit.latch.features.onboarding.CredentialsScreen
 import com.vinnovateit.latch.features.onboarding.components.OnboardingScreen
 import com.vinnovateit.latch.features.settings.SettingsScreen
-import com.vinnovateit.latch.features.settings.manager.SettingsManager
+import com.vinnovateit.latch.core.settings.SettingsManager
 import com.vinnovateit.latch.features.stats.StatsScreen
 import com.vinnovateit.latch.features.stats.StatsViewModel
+import com.vinnovateit.latch.platform.LatchAppGraph
 import com.vinnovateit.latch.features.wifi.manager.WiFiStatusViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -55,6 +56,8 @@ object LatchRoutes {
     const val HOME = "home"
     const val SETTINGS = "settings"
     const val STATS = "stats"
+    const val SESSION_HISTORY = "session_history"
+    const val PORTAL_ACCOUNT = "portal_account"
     const val MEET_THE_TEAM = "meet_the_team"
 
     fun credentials(editMode: Boolean = false) = "credentials/$editMode"
@@ -74,7 +77,6 @@ fun LatchNavGraph(
     startDestination: String
 ) {
     val statsViewModel: StatsViewModel = viewModel()
-
     val homeContent: @Composable () -> Unit = {
         val isConnected by wifiStatusViewModel.isConnected.collectAsStateWithLifecycle()
         val liveStatus by statsViewModel.liveStatus.collectAsStateWithLifecycle()
@@ -93,6 +95,25 @@ fun LatchNavGraph(
                 onNavigateToSettings = { navController.navigate(LatchRoutes.SETTINGS) },
                 onNavigateToStats = { navController.navigate(LatchRoutes.STATS) },
                 onNavigateToMeetTheTeam = { navController.navigate(LatchRoutes.MEET_THE_TEAM) }
+            )
+        }
+    }
+
+    val statsContent: @Composable () -> Unit = {
+        StatsScreen(
+            onSaveReport = {},
+            onBackPressed = {},
+            onNavigateToHistory = {},
+            onNavigateToPortalAccount = {},
+            statsViewModel = statsViewModel
+        )
+    }
+
+    val settingsContent: @Composable () -> Unit = {
+        Surface(modifier = Modifier.fillMaxSize()) {
+            SettingsScreen(
+                onBackClick = {},
+                onNavigateToCredentials = {}
             )
         }
     }
@@ -152,7 +173,8 @@ fun LatchNavGraph(
                     } else {
                         navController.popBackStack(LatchRoutes.ONBOARDING, inclusive = false)
                     }
-                }
+                },
+                backgroundContent = if (editMode) settingsContent else null
             ) { triggerBack ->
                 CredentialsScreen(
                     editMode = editMode,
@@ -192,11 +214,13 @@ fun LatchNavGraph(
                 uri?.let {
                     coroutineScope.launch(Dispatchers.IO) {
                         try {
+                            val userId = LatchAppGraph.platform.credentials.userId() ?: ""
                             context.contentResolver.openOutputStream(it)?.use { outputStream ->
-                                generateHtmlReport(
-                                    sessions = statsViewModel.historyToShow.value,
+                                generatePortalHtmlReport(
+                                    sessions = statsViewModel.portalHistory.value,
                                     outputStream = outputStream,
-                                    appVersion = com.vinnovateit.latch.BuildConfig.VERSION_NAME
+                                    appVersion = com.vinnovateit.latch.BuildConfig.VERSION_NAME,
+                                    userId = userId
                                 )
                             }
                         } catch (_: Exception) { }
@@ -216,7 +240,34 @@ fun LatchNavGraph(
                         createDocumentLauncher.launch(fileName)
                     },
                     onBackPressed = triggerBack,
+                    onNavigateToHistory = { navController.navigate(LatchRoutes.SESSION_HISTORY) },
+                    onNavigateToPortalAccount = { navController.navigate(LatchRoutes.PORTAL_ACCOUNT) },
                     statsViewModel = statsViewModel
+                )
+            }
+        }
+
+        // Session History
+        composable(LatchRoutes.SESSION_HISTORY) {
+            PredictiveSlideBackContainer(
+                onBackPressed = { navController.popBackStack() },
+                backgroundContent = statsContent
+            ) { triggerBack ->
+                com.vinnovateit.latch.features.stats.SessionHistoryScreen(
+                    onBackPressed = triggerBack,
+                    statsViewModel = statsViewModel
+                )
+            }
+        }
+
+        // Portal Account Management
+        composable(LatchRoutes.PORTAL_ACCOUNT) {
+            PredictiveSlideBackContainer(
+                onBackPressed = { navController.popBackStack() },
+                backgroundContent = statsContent
+            ) { triggerBack ->
+                com.vinnovateit.latch.features.stats.PortalAccountScreen(
+                    onBackPressed = triggerBack
                 )
             }
         }

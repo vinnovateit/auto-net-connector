@@ -30,7 +30,6 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.sp
-import com.vinnovateit.latch.core.platform.PlatformServices
 import com.vinnovateit.latch.ui.components.LatchIcons
 import com.vinnovateit.latch.ui.theme.modernizFontFamily
 import com.vinnovateit.latch.ui.theme.satoshiFontFamily
@@ -44,13 +43,12 @@ private data class DesktopSlide(
 
 @Composable
 fun DesktopOnboardingScreen(
-    platform: PlatformServices,
+    hasCredentials: Boolean,
     onComplete: () -> Unit,
     onNavigateToCredentials: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val scope = rememberCoroutineScope()
-    val hasCredentials = remember(platform) { platform.credentials.exists() }
 
     val slides = remember {
         listOf(

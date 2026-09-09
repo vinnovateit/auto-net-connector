@@ -15,14 +15,39 @@ private val MIGRATION_1_TO_3 = object : Migration(1, 3) {
     override fun migrate(connection: androidx.sqlite.SQLiteConnection) = Unit
 }
 
+interface SystemSqliteInitializer : com.sun.jna.Library {
+    fun sqlite3_initialize(): Int
+
+    companion object {
+        private val CANDIDATES = listOf("libsqlite3.so.0", "sqlite3", "sqlite3.so.0", "libsqlite3.so", "sqlite3.dll", "libsqlite3.dylib")
+
+        fun init() {
+            for (name in CANDIDATES) {
+                try {
+                    val lib = com.sun.jna.Native.load(name, SystemSqliteInitializer::class.java)
+                    lib.sqlite3_initialize()
+                    return
+                } catch (_: Throwable) {
+                }
+            }
+        }
+    }
+}
+
+
 /**
  * BundledSQLiteDriver and setQueryCoroutineContext are both mandatory for Room
  * KMP. The bundled driver ships its own native library which it extracts at
  * runtime, which is why the jpackage module list does not need java.sql.
  */
-fun buildDatabase(): LatchDatabase =
-    Room.databaseBuilder<LatchDatabase>(name = AppPaths.databaseFile.absolutePath)
+fun buildDatabase(): LatchDatabase {
+    SystemSqliteInitializer.init()
+    return Room.databaseBuilder<LatchDatabase>(name = AppPaths.databaseFile.absolutePath)
         .setDriver(BundledSQLiteDriver())
         .setQueryCoroutineContext(Dispatchers.IO)
-        .addMigrations(MIGRATION_1_TO_3)
+        .addMigrations(MIGRATION_1_TO_3, MIGRATION_3_TO_4, MIGRATION_4_TO_5)
+        .fallbackToDestructiveMigration(dropAllTables = false)
         .build()
+}
+
+

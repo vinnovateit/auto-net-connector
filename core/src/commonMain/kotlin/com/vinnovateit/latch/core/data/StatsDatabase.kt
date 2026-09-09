@@ -10,6 +10,8 @@ import androidx.room.PrimaryKey
 import androidx.room.Query
 import androidx.room.RoomDatabase
 import androidx.room.RoomDatabaseConstructor
+import androidx.room.Transaction
+import androidx.sqlite.execSQL
 import kotlinx.coroutines.flow.Flow
 
 /**
@@ -48,6 +50,46 @@ data class Session(
     val maxTxBps: Long,
 )
 
+@Entity(tableName = "portal_sessions")
+data class PortalSessionEntity(
+    @PrimaryKey(autoGenerate = true) val id: Int = 0,
+    val location: String,
+    val macAddress: String,
+    val loginTime: Long,
+    val logoutTime: Long,
+    val durationFormatted: String,
+    val durationMillis: Long,
+    val uploadBytes: Long,
+    val downloadBytes: Long,
+    val totalBytes: Long,
+    val isManual: Boolean = false,
+)
+
+val MIGRATION_3_TO_4 = object : androidx.room.migration.Migration(3, 4) {
+    override fun migrate(connection: androidx.sqlite.SQLiteConnection) {
+        connection.execSQL("""
+            CREATE TABLE IF NOT EXISTS `portal_sessions` (
+                `id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                `location` TEXT NOT NULL,
+                `macAddress` TEXT NOT NULL,
+                `loginTime` INTEGER NOT NULL,
+                `logoutTime` INTEGER NOT NULL,
+                `durationFormatted` TEXT NOT NULL,
+                `durationMillis` INTEGER NOT NULL,
+                `uploadBytes` INTEGER NOT NULL,
+                `downloadBytes` INTEGER NOT NULL,
+                `totalBytes` INTEGER NOT NULL
+            )
+        """.trimIndent())
+    }
+}
+
+val MIGRATION_4_TO_5 = object : androidx.room.migration.Migration(4, 5) {
+    override fun migrate(connection: androidx.sqlite.SQLiteConnection) {
+        connection.execSQL("ALTER TABLE `portal_sessions` ADD COLUMN `isManual` INTEGER NOT NULL DEFAULT 0")
+    }
+}
+
 @Dao
 interface StatsDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
@@ -58,9 +100,24 @@ interface StatsDao {
 
     @Query("DELETE FROM sessions")
     suspend fun clearAllSessions()
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertAllPortalSessions(sessions: List<PortalSessionEntity>)
+
+    @Query("SELECT * FROM portal_sessions ORDER BY loginTime DESC")
+    fun getAllPortalSessions(): Flow<List<PortalSessionEntity>>
+
+    @Query("DELETE FROM portal_sessions")
+    suspend fun clearAllPortalSessions()
+
+    @Transaction
+    suspend fun replacePortalSessions(sessions: List<PortalSessionEntity>) {
+        clearAllPortalSessions()
+        insertAllPortalSessions(sessions)
+    }
 }
 
-@Database(entities = [Session::class], version = 3, exportSchema = false)
+@Database(entities = [Session::class, PortalSessionEntity::class], version = 5, exportSchema = false)
 @ConstructedBy(LatchDatabaseConstructor::class)
 abstract class LatchDatabase : RoomDatabase() {
     abstract fun statsDao(): StatsDao

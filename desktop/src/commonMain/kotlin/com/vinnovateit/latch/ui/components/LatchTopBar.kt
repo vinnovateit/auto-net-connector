@@ -189,6 +189,7 @@ internal fun LatchDetailHeader(
     onBack: (() -> Unit)?,
     modifier: Modifier = Modifier,
     subtitle: String? = null,
+    actions: @Composable (androidx.compose.foundation.layout.RowScope.() -> Unit)? = null,
 ) {
     Row(
         modifier = modifier
@@ -227,6 +228,10 @@ internal fun LatchDetailHeader(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
+        }
+
+        if (actions != null) {
+            actions()
         }
 
         // Reserve space for static WindowControlButtons overlay (100dp)

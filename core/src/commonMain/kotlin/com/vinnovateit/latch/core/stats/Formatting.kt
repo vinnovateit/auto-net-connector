@@ -59,3 +59,14 @@ fun formatDate(millis: Long, pattern: String): String =
 /** Wall-clock time for the tray tooltip / "connected since" text. */
 fun formatClockTime(millis: Long): String =
     SimpleDateFormat("hh:mm a", Locale.getDefault()).format(Date(millis))
+
+/** Date formatting omitting week name and omitting year for current year. */
+fun formatDisplayDate(millis: Long, nowMillis: Long = System.currentTimeMillis()): String {
+    val cal = java.util.Calendar.getInstance().apply { timeInMillis = millis }
+    val recordYear = cal.get(java.util.Calendar.YEAR)
+    val nowCal = java.util.Calendar.getInstance().apply { timeInMillis = nowMillis }
+    val currentYear = nowCal.get(java.util.Calendar.YEAR)
+
+    val pattern = if (recordYear == currentYear) "dd MMM" else "dd MMM yyyy"
+    return SimpleDateFormat(pattern, Locale.US).format(Date(millis))
+}

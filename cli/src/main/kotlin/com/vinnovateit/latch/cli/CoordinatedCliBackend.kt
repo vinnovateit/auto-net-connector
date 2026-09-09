@@ -50,6 +50,9 @@ private suspend fun createOwnerBackend(
         val runtime = DesktopEngineRuntime.create(
             ConsoleNotifier(terminal),
             echoLogsToStdout = ownerKind == OwnerKind.CLI_DAEMON,
+            // A one-shot exits in milliseconds; a full portal login on its way
+            // out would race the database close and never finish anyway.
+            syncHistoryOnStart = ownerKind != OwnerKind.CLI_ONESHOT,
         )
         val stopSignal = CompletableDeferred<Unit>()
         val service = RuntimeCommandService(

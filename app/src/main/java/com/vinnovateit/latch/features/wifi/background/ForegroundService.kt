@@ -9,7 +9,7 @@ import android.util.Log
 import androidx.core.app.NotificationCompat
 import com.vinnovateit.latch.R
 import com.vinnovateit.latch.core.engine.LatchCommand
-import com.vinnovateit.latch.features.settings.manager.SettingsManager
+import com.vinnovateit.latch.core.settings.SettingsManager
 import com.vinnovateit.latch.features.wifi.widget.LatchWidgetUpdater
 import com.vinnovateit.latch.core.platform.android.AndroidNetworkHandle
 import com.vinnovateit.latch.platform.AndroidUserNotifier
@@ -217,7 +217,7 @@ class ForegroundService : Service(), ForegroundController {
                     val dominatingBps = if (isDownloadDominant) downloadBps else uploadBps
 
                     val speedUnit = SettingsManager.speedUnits.value
-                    val (value, unit) = com.vinnovateit.latch.common.util.formatBitsPerSecond(dominatingBps, speedUnit)
+                    val (value, unit) = com.vinnovateit.latch.core.stats.formatBitsPerSecond(dominatingBps, speedUnit)
                     val direction = if (isDownloadDominant) "↓" else "↑"
 
                     val timeFormat = SimpleDateFormat("hh:mm a", Locale.getDefault())

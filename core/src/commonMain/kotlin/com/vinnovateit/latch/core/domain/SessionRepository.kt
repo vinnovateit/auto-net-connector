@@ -1,20 +1,38 @@
 package com.vinnovateit.latch.core.domain
 
-import com.vinnovateit.latch.core.data.Session
+import com.vinnovateit.latch.core.data.PortalSessionEntity
 import com.vinnovateit.latch.core.data.StatsDao
 import com.vinnovateit.latch.core.model.DataUsage
 import com.vinnovateit.latch.core.model.LiveConnectionStatus
 import com.vinnovateit.latch.core.model.LiveDataPoint
+import com.vinnovateit.latch.core.model.PortalSessionRecord
 import com.vinnovateit.latch.core.model.SessionSummary
+import com.vinnovateit.latch.core.platform.Logger
+import com.vinnovateit.latch.core.platform.NetworkHandle
+import com.vinnovateit.latch.core.platform.Platform
+import com.vinnovateit.latch.core.platform.logger
+import com.vinnovateit.latch.core.portal.PortalHistoryClient
+import com.vinnovateit.latch.core.model.AggregatedDayRecord
+import com.vinnovateit.latch.core.model.HistoryChartItem
+import com.vinnovateit.latch.core.model.StatsOverviewMetrics
+import com.vinnovateit.latch.core.model.computeMetrics
+import com.vinnovateit.latch.core.stats.StatsInsights
 import com.vinnovateit.latch.core.stats.ThroughputMonitor
+import com.vinnovateit.latch.core.stats.aggregateDays
+import com.vinnovateit.latch.core.stats.computeChartItems
+import com.vinnovateit.latch.core.stats.computeStatsInsights
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
+
+private const val TAG = "SessionRepository"
 
 // Chart renders 150 points max; keep 200 so stopSession() aggregations are
 // accurate while memory stays bounded regardless of session length.
@@ -22,7 +40,7 @@ import kotlinx.coroutines.launch
 private const val LIVE_HISTORY_CAP = 200
 
 /**
- * Tracks the live session and persists finished ones.
+ * Tracks the live session and persists portal history.
  *
  * Ported from the Android singleton, with the Application context, the
  * WorkManager widget enqueue and the TileService nudge all removed. The
@@ -33,7 +51,16 @@ private const val LIVE_HISTORY_CAP = 200
 class SessionRepository(
     private val statsDao: StatsDao,
     private val throughput: ThroughputMonitor,
+    private val portalClient: PortalHistoryClient? = null,
     private val scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.IO),
+    private val logger: Logger = Platform.logger,
+    /**
+     * Resolves the Wi-Fi network the portal lives on. Injected so tests can
+     * supply one without installing a [Platform].
+     */
+    private val activeHandle: () -> NetworkHandle? = {
+        if (Platform.isInstalled) Platform.services.wifi.activeHandle() else null
+    },
 ) {
     private var sessionUpdateJob: Job? = null
 
@@ -49,27 +76,88 @@ class SessionRepository(
     private val _lastSession = MutableStateFlow<SessionSummary?>(null)
     val lastSession = _lastSession.asStateFlow()
 
+    private val _portalHistory = MutableStateFlow<List<PortalSessionRecord>>(emptyList())
+    val portalHistory: StateFlow<List<PortalSessionRecord>> = _portalHistory.asStateFlow()
+
+    private val _isHistoryLoaded = MutableStateFlow(false)
+    val isHistoryLoaded: StateFlow<Boolean> = _isHistoryLoaded.asStateFlow()
+
+    private val _isSyncing = MutableStateFlow(false)
+    val isSyncing: StateFlow<Boolean> = _isSyncing.asStateFlow()
+
+    private val _aggregatedDayRecords = MutableStateFlow<List<AggregatedDayRecord>>(emptyList())
+    val aggregatedDayRecords: StateFlow<List<AggregatedDayRecord>> = _aggregatedDayRecords.asStateFlow()
+
+    private val _overviewMetrics = MutableStateFlow(computeMetrics(emptyList()))
+    val overviewMetrics: StateFlow<StatsOverviewMetrics> = _overviewMetrics.asStateFlow()
+
+    private val _statsInsights = MutableStateFlow(computeStatsInsights(emptyList()))
+    val statsInsights: StateFlow<StatsInsights> = _statsInsights.asStateFlow()
+
+    private val _chartItems = MutableStateFlow<List<HistoryChartItem>>(emptyList())
+    val chartItems: StateFlow<List<HistoryChartItem>> = _chartItems.asStateFlow()
+
     fun initialize() {
+        // Local session rows stopped being written when portal history became the
+        // source of truth, so the summaries are derived from that instead. Reading
+        // the local table here would leave every consumer permanently empty.
         scope.launch {
-            statsDao.getAllSessions()
-                .map { rows ->
-                    rows.map { row ->
-                        SessionSummary(
-                            startTimestamp = row.startTime,
-                            endTimestamp = row.endTime,
-                            totalData = DataUsage(rxBytes = row.rxBytes, txBytes = row.txBytes),
-                            history = emptyList(),
-                            maxRxBps = row.maxRxBps,
-                            maxTxBps = row.maxTxBps,
+            portalHistory.collect { records ->
+                val summaries = records.map { it.toSessionSummary() }
+                _sessionSummaries.value = summaries
+                _lastSession.value = summaries.firstOrNull()
+            }
+        }
+
+        // Asynchronously precompute stats on Dispatchers.Default so UI screens
+        // render immediately with 0ms UI-thread computation lag.
+        scope.launch(Dispatchers.Default) {
+            portalHistory.collect { records ->
+                val nonZero = records.filter { it.uploadBytes > 0L || it.downloadBytes > 0L }
+                _aggregatedDayRecords.value = aggregateDays(nonZero)
+                _overviewMetrics.value = computeMetrics(nonZero)
+                _statsInsights.value = computeStatsInsights(nonZero)
+                _chartItems.value = computeChartItems(nonZero)
+            }
+        }
+
+        scope.launch {
+            statsDao.getAllPortalSessions()
+                .map { entities ->
+                    entities.map { entity ->
+                        PortalSessionRecord(
+                            location = entity.location,
+                            macAddress = entity.macAddress,
+                            loginTime = entity.loginTime,
+                            logoutTime = entity.logoutTime,
+                            durationFormatted = entity.durationFormatted,
+                            durationMillis = entity.durationMillis,
+                            uploadBytes = entity.uploadBytes,
+                            downloadBytes = entity.downloadBytes,
+                            totalBytes = entity.totalBytes,
+                            isManual = entity.isManual,
                         )
                     }
                 }
-                .collect { summaries ->
-                    _sessionSummaries.value = summaries
-                    _lastSession.value = summaries.firstOrNull()
+                .collect { records ->
+                    _portalHistory.value = records
+                    _isHistoryLoaded.value = true
                 }
         }
     }
+
+    /**
+     * Portal records carry no per-second sampling, so the live-only fields are
+     * zero. [PortalSessionRecord.downloadBytes] is rx and upload is tx.
+     */
+    private fun PortalSessionRecord.toSessionSummary() = SessionSummary(
+        startTimestamp = loginTime,
+        endTimestamp = logoutTime,
+        totalData = DataUsage(rxBytes = downloadBytes, txBytes = uploadBytes),
+        history = emptyList(),
+        maxRxBps = 0L,
+        maxTxBps = 0L,
+    )
 
     fun startSession() {
         if (sessionUpdateJob?.isActive == true || _liveStatus.value != null) return
@@ -98,48 +186,182 @@ class SessionRepository(
     }
 
     fun stopSession() {
-        val session = finishActiveSession() ?: return
-        scope.launch { statsDao.insertSession(session) }
+        finishActiveSession()
     }
 
     /** Completes persistence before returning, for orderly process shutdown. */
     suspend fun stopSessionAndAwait() {
-        val session = finishActiveSession() ?: return
-        statsDao.insertSession(session)
+        finishActiveSession()
     }
 
-    private fun finishActiveSession(): Session? {
-        val sessionToFinalize = _liveStatus.value ?: return null
+    private fun finishActiveSession() {
+        if (_liveStatus.value == null) return
 
         sessionUpdateJob?.cancel()
         sessionUpdateJob = null
         throughput.stop()
         _liveStatus.value = null
+        onSessionChanged?.invoke()
+    }
 
-        val totalRxBytes = sessionToFinalize.totalRxBytes
-        val totalTxBytes = sessionToFinalize.totalTxBytes
-        val maxRxBps = sessionToFinalize.maxRxBps
-        val maxTxBps = sessionToFinalize.maxTxBps
+    private var lastSyncTimeMillis: Long = 0L
 
-        // Discard trivial sessions so the history isn't polluted by a connect
-        // that carried no traffic. Threshold matches Android.
-        if (totalRxBytes + totalTxBytes < 1024) {
-            onSessionChanged?.invoke()
-            return null
+    suspend fun syncPortalHistory(
+        userId: String,
+        password: String,
+        host: String = PortalHistoryClient.DEFAULT_PORTAL_HOST,
+        force: Boolean = false,
+    ): Result<Unit> {
+        val client = portalClient ?: return Result.failure(IllegalStateException("Portal client not configured"))
+
+        // Claim the slot atomically. A check-then-set here lets the app graph's
+        // startup sync and the stats screen's own sync both get through, and two
+        // concurrent Pronto logins make the portal answer with a read timeout or
+        // an unrecognised 200.
+        if (!_isSyncing.compareAndSet(expect = false, update = true)) {
+            logger.d(TAG, "A portal sync is already running; skipping this one.")
+            return Result.success(Unit)
         }
 
-        onSessionChanged?.invoke()
-        return Session(
-            startTime = sessionToFinalize.startTimeMillis,
-            endTime = System.currentTimeMillis(),
-            rxBytes = totalRxBytes,
-            txBytes = totalTxBytes,
-            maxRxBps = maxRxBps,
-            maxTxBps = maxTxBps,
+        return try {
+            // The portal is only reachable on the captive-portal Wi-Fi. Without a
+            // handle the transport falls back to the process default network, which
+            // on Android stays cellular while a captive portal is unvalidated -- that
+            // would ship these credentials off-network in cleartext.
+            val handle = activeHandle()
+            if (handle == null) {
+                logger.w(TAG, "No active Wi-Fi network; skipping portal sync rather than leaving the network.")
+                return Result.failure(IllegalStateException("Not connected to Wi-Fi"))
+            }
+
+            val now = System.currentTimeMillis()
+            if (!force && (now - lastSyncTimeMillis < 30_000L) && _portalHistory.value.isNotEmpty()) {
+                return Result.success(Unit)
+            }
+            lastSyncTimeMillis = now
+            logger.d(TAG, "syncPortalHistory starting...")
+            val result = client.fetchHistory(userId, password, handle = handle, host = host)
+            if (result.isSuccess) {
+                val incoming = result.getOrThrow().filter {
+                    it.loginTime > 0 && (it.uploadBytes > 0L || it.downloadBytes > 0L)
+                }
+                logger.d(TAG, "incoming records: ${incoming.size}")
+                val todayKey = com.vinnovateit.latch.core.stats.formatDate(now, "yyyy-MM-dd")
+                val existing = _portalHistory.value
+
+                if (incoming.isEmpty() && existing.isNotEmpty()) {
+                    logger.d(TAG, "incoming empty but existing data present; preserving existing records")
+                    return Result.success(Unit)
+                }
+
+                // Lock already-validated past dates: do not overwrite them
+                val validatedPastDates = existing
+                    .filter { !it.isManual && it.loginTime > 0 && com.vinnovateit.latch.core.stats.formatDate(it.loginTime, "yyyy-MM-dd") != todayKey && (it.uploadBytes > 0L || it.downloadBytes > 0L) }
+                    .map { com.vinnovateit.latch.core.stats.formatDate(it.loginTime, "yyyy-MM-dd") }
+                    .toSet()
+                logger.d(TAG, "locked past dates: ${validatedPastDates.size}")
+
+                val existingLockedRecords = existing.filter {
+                    val date = com.vinnovateit.latch.core.stats.formatDate(it.loginTime, "yyyy-MM-dd")
+                    !it.isManual && date != todayKey && date in validatedPastDates
+                }
+                val newAcceptedRecords = incoming.filter {
+                    val date = com.vinnovateit.latch.core.stats.formatDate(it.loginTime, "yyyy-MM-dd")
+                    date == todayKey || date !in validatedPastDates
+                }
+
+                // Reconcile manual records: match against incoming server records
+                val existingManualRecords = existing.filter { it.isManual }
+                val pendingManualRecords = existingManualRecords.filter { man ->
+                    incoming.none { inc -> matchesSession(man, inc) }
+                }
+                logger.d(TAG, "manual sessions before sync: ${existingManualRecords.size}, remaining pending after reconciliation: ${pendingManualRecords.size}")
+
+                val merged = (existingLockedRecords + newAcceptedRecords + pendingManualRecords)
+                    .distinctBy { Triple(it.loginTime, it.durationMillis, it.totalBytes) }
+                    .sortedByDescending { it.loginTime }
+                logger.d(TAG, "merged records: ${merged.size}")
+
+                val entities = merged.map {
+                    PortalSessionEntity(
+                        location = it.location,
+                        macAddress = it.macAddress,
+                        loginTime = it.loginTime,
+                        logoutTime = it.logoutTime,
+                        durationFormatted = it.durationFormatted,
+                        durationMillis = it.durationMillis,
+                        uploadBytes = it.uploadBytes,
+                        downloadBytes = it.downloadBytes,
+                        totalBytes = it.totalBytes,
+                        isManual = it.isManual,
+                    )
+                }
+                statsDao.replacePortalSessions(entities)
+                logger.d(TAG, "Persisted ${entities.size} portal session records to database")
+                _portalHistory.value = merged
+                Result.success(Unit)
+            } else {
+                val ex = result.exceptionOrNull() ?: Exception("Unknown portal sync error")
+                logger.e(TAG, "syncPortalHistory failed: ${ex.message}", ex)
+                Result.failure(ex)
+            }
+        } catch (e: Throwable) {
+            logger.e(TAG, "syncPortalHistory error: ${e.message}", e)
+            Result.failure(e)
+        } finally {
+            _isSyncing.value = false
+        }
+    }
+
+    suspend fun recordManualSession(record: PortalSessionRecord) {
+        val manualRecord = record.copy(isManual = true)
+        val entity = PortalSessionEntity(
+            location = manualRecord.location,
+            macAddress = manualRecord.macAddress,
+            loginTime = manualRecord.loginTime,
+            logoutTime = manualRecord.logoutTime,
+            durationFormatted = manualRecord.durationFormatted,
+            durationMillis = manualRecord.durationMillis,
+            uploadBytes = manualRecord.uploadBytes,
+            downloadBytes = manualRecord.downloadBytes,
+            totalBytes = manualRecord.totalBytes,
+            isManual = true,
         )
+        val current = _portalHistory.value
+        val updated = (listOf(manualRecord) + current)
+            .distinctBy { Triple(it.loginTime, it.durationMillis, it.totalBytes) }
+            .sortedByDescending { it.loginTime }
+        _portalHistory.value = updated
+        _isHistoryLoaded.value = true
+
+        statsDao.insertAllPortalSessions(listOf(entity))
+        logger.d(TAG, "Persisted manual portal session: ${manualRecord.durationFormatted}, ${manualRecord.totalBytes} bytes")
+    }
+
+    private fun matchesSession(manual: PortalSessionRecord, incoming: PortalSessionRecord): Boolean {
+        val durationDiff = kotlin.math.abs(manual.durationMillis - incoming.durationMillis)
+        val durationMatches = durationDiff <= 10_000L || manual.durationFormatted == incoming.durationFormatted
+        if (!durationMatches) return false
+
+        val logoutDiff = kotlin.math.abs(manual.logoutTime - incoming.logoutTime)
+        val loginDiff = kotlin.math.abs(manual.loginTime - incoming.loginTime)
+        val timeMatches = logoutDiff <= 180_000L || loginDiff <= 180_000L
+
+        val bytesDiff = kotlin.math.abs(manual.totalBytes - incoming.totalBytes)
+        val bytesMatches = bytesDiff <= 10_240L
+
+        return timeMatches || (bytesMatches && durationMatches)
     }
 
     fun clearHistory() {
-        scope.launch { statsDao.clearAllSessions() }
+        scope.launch {
+            statsDao.clearAllSessions()
+            statsDao.clearAllPortalSessions()
+            _portalHistory.value = emptyList()
+        }
+    }
+
+    fun close() {
+        scope.cancel()
     }
 }

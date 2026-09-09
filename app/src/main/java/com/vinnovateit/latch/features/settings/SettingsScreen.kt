@@ -3,6 +3,7 @@ package com.vinnovateit.latch.features.settings
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.spring
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -25,6 +26,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -32,13 +34,16 @@ import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.Autorenew
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.ColorLens
+import androidx.compose.material.icons.rounded.Colorize
 import androidx.compose.material.icons.rounded.DarkMode
 import androidx.compose.material.icons.rounded.FormatPaint
 import androidx.compose.material.icons.rounded.LightMode
+import androidx.compose.material.icons.rounded.Palette
 import androidx.compose.material.icons.rounded.Password
 import androidx.compose.material.icons.rounded.SettingsBackupRestore
 import androidx.compose.material.icons.rounded.SettingsSystemDaydream
 import androidx.compose.material.icons.rounded.Speed
+import androidx.compose.material.icons.rounded.Vibration
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledIconButton
@@ -55,6 +60,7 @@ import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -63,6 +69,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
@@ -81,7 +89,9 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.vinnovateit.latch.R
 import com.vinnovateit.latch.common.ui.components.ExpressiveTopBarContent
 import com.vinnovateit.latch.platform.LatchAppGraph
-import com.vinnovateit.latch.features.settings.manager.SettingsManager
+import com.vinnovateit.latch.core.settings.SettingsManager
+import com.vinnovateit.latch.features.settings.components.CustomColorPickerDialog
+import com.vinnovateit.latch.features.settings.components.parseHexOrNull
 import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
 
@@ -142,11 +152,16 @@ fun SettingsScreen(onBackClick: () -> Unit, onNavigateToCredentials: () -> Unit)
   var showThemeSheet by remember { mutableStateOf(false) }
   var showClearStatsSheet by remember { mutableStateOf(false) }
   var showAccentColorSheet by remember { mutableStateOf(false) }
+  var showChartPaletteSheet by remember { mutableStateOf(false) }
+  var showPaletteStyleSheet by remember { mutableStateOf(false) }
 
   val useDynamicColors by SettingsManager.useDynamicColors.collectAsStateWithLifecycle()
   val usePureBlack by SettingsManager.usePureBlack.collectAsStateWithLifecycle()
   val useMonochrome by SettingsManager.useMonochrome.collectAsStateWithLifecycle()
   val accentColor by SettingsManager.accentColor.collectAsStateWithLifecycle()
+  val chartPalette by SettingsManager.chartPalette.collectAsStateWithLifecycle()
+  val paletteStyle by SettingsManager.paletteStyle.collectAsStateWithLifecycle()
+  val hapticsEnabled by SettingsManager.hapticsEnabled.collectAsStateWithLifecycle()
 
   val density = LocalDensity.current
   val coroutineScope = rememberCoroutineScope()
@@ -303,22 +318,46 @@ fun SettingsScreen(onBackClick: () -> Unit, onNavigateToCredentials: () -> Unit)
                   },
                   trailingContent = {
                     val colors = listOf(
-                      "Red" to androidx.compose.ui.graphics.Color(0xFFC01221),
-                      "Blue" to androidx.compose.ui.graphics.Color(0xFF005AC1),
-                      "Green" to androidx.compose.ui.graphics.Color(0xFF0F5223),
-                      "Purple" to androidx.compose.ui.graphics.Color(0xFF7D00B8),
-                      "Pink" to androidx.compose.ui.graphics.Color(0xFFD81B60),
-                      "Yellow" to androidx.compose.ui.graphics.Color(0xFFF5B300)
+                      "Red" to Color(0xFFC01221),
+                      "Blue" to Color(0xFF005AC1),
+                      "Green" to Color(0xFF0F5223),
+                      "Purple" to Color(0xFF7D00B8),
+                      "Yellow" to Color(0xFFF5B300)
                     )
-                    val selectedColor = if (useMonochrome) androidx.compose.ui.graphics.Color(0xFF808080) else (colors.find { it.first == accentColor }?.second ?: androidx.compose.ui.graphics.Color.Transparent)
+                    val customParsed = if (accentColor.startsWith("#")) parseHexOrNull(accentColor) else null
+                    val selectedColor = if (useMonochrome) Color(0xFF808080)
+                        else (customParsed ?: colors.find { it.first == accentColor }?.second ?: Color(0xFFC01221))
                     Box(
                       modifier = Modifier
                         .size(24.dp)
-                        .clip(androidx.compose.foundation.shape.CircleShape)
+                        .clip(CircleShape)
                         .background(selectedColor)
                     )
                   },
                   onClick = { showAccentColorSheet = true }
+                )
+                Spacer(modifier = Modifier.height(3.dp))
+                SettingsItem(
+                  title = "Palette Style",
+                  subtitle = when (paletteStyle) {
+                    "TonalSpot" -> "Tonal Spot"
+                    "Expressive" -> "Expressive"
+                    "FruitSalad" -> "Fruit Salad"
+                    "Spritz" -> "Spritz"
+                    "Rainbow" -> "Rainbow"
+                    "Vibrant" -> "Vibrant"
+                    "Fidelity" -> "Fidelity"
+                    "Content" -> "Content"
+                    else -> paletteStyle
+                  },
+                  leadingIcon = {
+                    Icon(
+                      Icons.Rounded.Palette,
+                      contentDescription = null,
+                      tint = MaterialTheme.colorScheme.primary
+                    )
+                  },
+                  onClick = { showPaletteStyleSheet = true }
                 )
                 Spacer(modifier = Modifier.height(3.dp))
               }
@@ -343,6 +382,59 @@ fun SettingsScreen(onBackClick: () -> Unit, onNavigateToCredentials: () -> Unit)
                   })
               },
               onClick = { SettingsManager.setUseDynamicColors(!useDynamicColors) },
+            )
+            Spacer(modifier = Modifier.height(3.dp))
+            SettingsItem(
+              title = "Chart Bar Colors",
+              subtitle = chartPalette,
+              leadingIcon = {
+                Icon(
+                  Icons.Rounded.FormatPaint,
+                  contentDescription = null,
+                  tint = MaterialTheme.colorScheme.primary
+                )
+              },
+              trailingContent = {
+                val (previewDl, previewUl) = com.vinnovateit.latch.common.util.StatsColorPalettes.resolveColors(chartPalette)
+                Canvas(
+                  modifier = Modifier
+                    .size(20.dp)
+                    .clip(CircleShape)
+                ) {
+                  drawArc(
+                    color = previewDl,
+                    startAngle = 90f,
+                    sweepAngle = 180f,
+                    useCenter = true
+                  )
+                  drawArc(
+                    color = previewUl,
+                    startAngle = 270f,
+                    sweepAngle = 180f,
+                    useCenter = true
+                  )
+                }
+              },
+              onClick = { showChartPaletteSheet = true }
+            )
+            Spacer(modifier = Modifier.height(3.dp))
+            SettingsItem(
+              title = "Haptic feedback",
+              subtitle = "Vibrate on interactions and button taps",
+              leadingIcon = {
+                Icon(
+                  Icons.Rounded.Vibration,
+                  contentDescription = null,
+                  tint = MaterialTheme.colorScheme.primary
+                )
+              },
+              trailingContent = {
+                Switch(
+                  checked = hapticsEnabled,
+                  onCheckedChange = { SettingsManager.setHapticsEnabled(it) }
+                )
+              },
+              onClick = { SettingsManager.setHapticsEnabled(!hapticsEnabled) }
             )
           }
         }
@@ -548,6 +640,41 @@ fun SettingsScreen(onBackClick: () -> Unit, onNavigateToCredentials: () -> Unit)
       onDismiss = { showClearStatsSheet = false }
     )
   }
+
+  if (showChartPaletteSheet) {
+    com.vinnovateit.latch.features.stats.components.ChartPaletteBottomSheet(
+      selectedPalette = chartPalette,
+      onSelectPalette = {
+        SettingsManager.setChartPalette(it)
+        showChartPaletteSheet = false
+      },
+      onDismiss = { showChartPaletteSheet = false }
+    )
+  }
+
+  if (showPaletteStyleSheet) {
+    val paletteOptions = listOf(
+      SelectionOption("TonalSpot", Icons.Rounded.Palette, "Tonal Spot"),
+      SelectionOption("Expressive", Icons.Rounded.Palette, "Expressive"),
+      SelectionOption("FruitSalad", Icons.Rounded.Palette, "Fruit Salad"),
+      SelectionOption("Spritz", Icons.Rounded.Palette, "Spritz"),
+      SelectionOption("Rainbow", Icons.Rounded.Palette, "Rainbow"),
+      SelectionOption("Vibrant", Icons.Rounded.Palette, "Vibrant"),
+      SelectionOption("Fidelity", Icons.Rounded.Palette, "Fidelity"),
+      SelectionOption("Content", Icons.Rounded.Palette, "Content")
+    )
+    SettingsSelectionBottomSheet(
+      title = "Palette Style",
+      description = "Choose the Material You palette algorithm",
+      options = paletteOptions,
+      selected = paletteStyle,
+      onSelect = {
+        SettingsManager.setPaletteStyle(it.label)
+        showPaletteStyleSheet = false
+      },
+      onDismiss = { showPaletteStyleSheet = false }
+    )
+  }
 }
 
 data class SelectionOption(
@@ -584,38 +711,89 @@ fun AccentColorPicker(
   selectedColorName: String,
   onColorSelected: (String) -> Unit
 ) {
+  var showCustomColorDialog by remember { mutableStateOf(false) }
+
   Row(
     modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
-    horizontalArrangement = Arrangement.SpaceEvenly
+    horizontalArrangement = Arrangement.SpaceEvenly,
+    verticalAlignment = Alignment.CenterVertically
   ) {
-    val colors = listOf(
-      "Red" to androidx.compose.ui.graphics.Color(0xFFC01221),
-      "Blue" to androidx.compose.ui.graphics.Color(0xFF005AC1),
-      "Green" to androidx.compose.ui.graphics.Color(0xFF0F5223),
-      "Purple" to androidx.compose.ui.graphics.Color(0xFF7D00B8),
-      "Pink" to androidx.compose.ui.graphics.Color(0xFFD81B60),
-      "Yellow" to androidx.compose.ui.graphics.Color(0xFFF5B300)
-    )
     val haptic = LocalHapticFeedback.current
+
+    // Pen / Colorize button at the start (first item before "Red")
+    val isCustomSelected = selectedColorName.startsWith("#")
+    val customParsedColor = if (isCustomSelected) parseHexOrNull(selectedColorName) else null
+    val customBg = if (isCustomSelected) (customParsedColor ?: MaterialTheme.colorScheme.surfaceVariant) else MaterialTheme.colorScheme.surfaceVariant
+    val customTint = if (isCustomSelected && customParsedColor != null) {
+      val isLight = (0.299 * customParsedColor.red + 0.587 * customParsedColor.green + 0.114 * customParsedColor.blue) > 0.5
+      if (isLight) Color.Black else Color.White
+    } else {
+      MaterialTheme.colorScheme.onSurfaceVariant
+    }
+
+    Box(
+      modifier = Modifier
+        .size(44.dp)
+        .clip(CircleShape)
+        .clickable {
+          haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+          showCustomColorDialog = true
+        }
+        .then(
+          if (isCustomSelected) Modifier.border(3.dp, MaterialTheme.colorScheme.onSurface, CircleShape)
+          else Modifier
+        )
+        .padding(if (isCustomSelected) 6.dp else 0.dp)
+        .clip(CircleShape)
+        .background(customBg),
+      contentAlignment = Alignment.Center
+    ) {
+      Icon(
+        imageVector = Icons.Rounded.Colorize,
+        contentDescription = "Custom Accent Color",
+        tint = customTint,
+        modifier = Modifier.size(20.dp)
+      )
+    }
+
+    val colors = listOf(
+      "Red" to Color(0xFFC01221),
+      "Blue" to Color(0xFF005AC1),
+      "Green" to Color(0xFF0F5223),
+      "Purple" to Color(0xFF7D00B8),
+      "Yellow" to Color(0xFFF5B300)
+    )
+
     colors.forEach { (name, color) ->
       val isSelected = name == selectedColorName
       Box(
         modifier = Modifier
           .size(44.dp)
-          .clip(androidx.compose.foundation.shape.CircleShape)
+          .clip(CircleShape)
           .clickable { 
-              haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-              onColorSelected(name) 
+            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+            onColorSelected(name) 
           }
           .then(
-              if (isSelected) Modifier.border(3.dp, MaterialTheme.colorScheme.onSurface, androidx.compose.foundation.shape.CircleShape)
-              else Modifier
+            if (isSelected) Modifier.border(3.dp, MaterialTheme.colorScheme.onSurface, CircleShape)
+            else Modifier
           )
           .padding(if (isSelected) 6.dp else 0.dp)
-          .clip(androidx.compose.foundation.shape.CircleShape)
+          .clip(CircleShape)
           .background(color)
       )
     }
+  }
+
+  if (showCustomColorDialog) {
+    CustomColorPickerDialog(
+      initialColorHex = if (selectedColorName.startsWith("#")) selectedColorName else "#C01221",
+      onDismiss = { showCustomColorDialog = false },
+      onColorConfirmed = { hex ->
+        showCustomColorDialog = false
+        onColorSelected(hex)
+      }
+    )
   }
 }
 

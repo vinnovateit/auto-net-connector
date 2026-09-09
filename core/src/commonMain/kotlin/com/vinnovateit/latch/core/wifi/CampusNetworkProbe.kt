@@ -10,8 +10,6 @@ import kotlinx.coroutines.withTimeoutOrNull
 /** Matches the engine's own portal-probe budget in checkAndAct. */
 private const val PROBE_TIMEOUT_MS = 3_500L
 
-private const val NO_CONTENT = 204
-
 /** What the network says about itself right now, independent of any engine state. */
 data class CampusNetworkState(
     val connected: Boolean,
@@ -43,6 +41,6 @@ suspend fun probeCampusNetwork(
     if (!wifi.isConnectedToWifi()) return@withContext CampusNetworkState(false, false, ssid)
 
     val detector = CaptivePortalDetector(transport, logger)
-    val code = withTimeoutOrNull(PROBE_TIMEOUT_MS) { detector.checkPortalStatus(wifi.activeHandle()) } ?: -1
-    CampusNetworkState(connected = true, online = code == NO_CONTENT, ssid = ssid)
+    val result = withTimeoutOrNull(PROBE_TIMEOUT_MS) { detector.probe(wifi.activeHandle()) }
+    CampusNetworkState(connected = true, online = result is PortalProbeResult.Online, ssid = ssid)
 }

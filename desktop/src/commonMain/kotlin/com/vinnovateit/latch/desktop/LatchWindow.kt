@@ -24,17 +24,14 @@ import com.vinnovateit.latch.ui.theme.LatchTheme
 import java.awt.GraphicsEnvironment
 import java.awt.Toolkit
 
-/** Corner radius of the window itself -- requires [Window]'s transparent flag. */
-private val WindowCornerRadius = 14.dp
-
-/** 18:9 aspect ratio window dimensions (360dp x 720dp) sitting on taskbar. */
+/** Default window dimensions (420dp x 700dp) for modern desktop layout. */
 private const val PREFERRED_W = 420f
-private const val PREFERRED_H = 740f
+private const val PREFERRED_H = 700f
 
 /** Maximum fraction of screen usable height/width. */
 private const val MAX_SCREEN_FRACTION = 0.95f
 
-/** Minimum window dimensions matching 18:9 aspect ratio. */
+/** Minimum window dimensions. */
 private const val MIN_W = 360
 private const val MIN_H = 600
 

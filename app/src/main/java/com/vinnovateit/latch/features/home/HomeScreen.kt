@@ -10,7 +10,10 @@ import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectTapGestures
@@ -25,7 +28,6 @@ import androidx.compose.material.icons.rounded.BarChart
 import androidx.compose.material.icons.rounded.Groups
 import androidx.compose.material.icons.rounded.Menu
 import androidx.compose.material.icons.rounded.PowerSettingsNew
-import androidx.compose.material.icons.rounded.Speed
 import androidx.compose.material.icons.rounded.QuestionMark
 import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material.icons.rounded.Wifi
@@ -66,7 +68,7 @@ import com.vinnovateit.latch.common.util.TooltipHint
 import com.vinnovateit.latch.core.model.LiveDataPoint
 import com.vinnovateit.latch.core.model.SessionSummary
 import com.vinnovateit.latch.features.home.components.SpectrumCard
-import com.vinnovateit.latch.features.settings.manager.SettingsManager
+import com.vinnovateit.latch.core.settings.SettingsManager
 import com.vinnovateit.latch.features.wifi.background.ForegroundService
 import com.vinnovateit.latch.features.wifi.manager.ConnectionStatus
 import com.vinnovateit.latch.ui.theme.*
@@ -201,7 +203,7 @@ fun PortraitHomeScreen(
     val buttonDiameterPx = screenWidthPx * 0.6f
     val colorScheme = MaterialTheme.colorScheme
     val usePureBlack by SettingsManager.usePureBlack.collectAsStateWithLifecycle()
-    val isAmoled = usePureBlack && com.vinnovateit.latch.ui.theme.LocalIsDarkTheme.current
+    val isAmoled = usePureBlack && LocalIsDarkTheme.current
 
     Box(modifier = Modifier.fillMaxSize()) {
         LeafOverlay(
@@ -219,15 +221,11 @@ fun PortraitHomeScreen(
                     .statusBarsPadding()
             ) {
                 TopBarSection(
+                    isConnected = isConnected,
+                    triggerStatusPill = showStatusText,
                     onPreferencesClick = onNavigateToSettings,
                     onHowItWorksClick = onHowItWorksClick,
                     onMeetTheTeamClick = onNavigateToMeetTheTeam
-                )
-
-                StaggeredStatusText(
-                    visible = showStatusText,
-                    isConnected = isConnected,
-                    modifier = Modifier.offset(y = (-14).dp)
                 )
 
                 Spacer(modifier = Modifier.height(10.dp))
@@ -313,15 +311,11 @@ fun LandscapeHomeScreen(
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 TopBarSection(
+                    isConnected = isConnected,
+                    triggerStatusPill = showStatusText,
                     onPreferencesClick = onNavigateToSettings,
                     onHowItWorksClick = onHowItWorksClick,
                     onMeetTheTeamClick = onNavigateToMeetTheTeam
-                )
-
-                StaggeredStatusText(
-                    visible = showStatusText,
-                    isConnected = isConnected,
-                    modifier = Modifier.offset(y = (-14).dp)
                 )
 
                 Column(modifier = Modifier.weight(1f)) {
@@ -357,49 +351,6 @@ fun LandscapeHomeScreen(
     }
 }
 
-@Composable
-fun StaggeredStatusText(
-    visible: Boolean,
-    isConnected: Boolean,
-    modifier: Modifier = Modifier
-) {
-    val text = if (isConnected) "LATCHED" else "DISCONNECTED"
-    val containerColor = MaterialTheme.colorScheme.primaryContainer
-    val contentColor = MaterialTheme.colorScheme.onPrimaryContainer
-
-    androidx.compose.animation.AnimatedVisibility(
-        visible = visible,
-        modifier = modifier.fillMaxWidth(),
-        enter = androidx.compose.animation.fadeIn() + androidx.compose.animation.expandVertically(expandFrom = Alignment.Top),
-        exit = androidx.compose.animation.fadeOut() + androidx.compose.animation.shrinkVertically(shrinkTowards = Alignment.Top)
-    ) {
-        Box(contentAlignment = Alignment.Center) {
-            Surface(
-                shape = androidx.compose.foundation.shape.CircleShape,
-                color = containerColor,
-                modifier = Modifier.wrapContentSize()
-            ) {
-                androidx.compose.animation.AnimatedContent(
-                    targetState = text,
-                    transitionSpec = {
-                        (androidx.compose.animation.fadeIn(animationSpec = androidx.compose.animation.core.tween(300)) + androidx.compose.animation.scaleIn(initialScale = 0.95f))
-                            .togetherWith(androidx.compose.animation.fadeOut(animationSpec = androidx.compose.animation.core.tween(300)) + androidx.compose.animation.scaleOut(targetScale = 0.95f))
-                            .using(androidx.compose.animation.SizeTransform(clip = false))
-                    },
-                    label = "StatusTextAnimation"
-                ) { targetText ->
-                    Text(
-                        text = targetText,
-                        color = contentColor,
-                        style = MaterialTheme.typography.labelMedium,
-                        fontWeight = FontWeight.Bold,
-                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp)
-                    )
-                }
-            }
-        }
-    }
-}
 
 
 @Composable
@@ -420,7 +371,7 @@ fun PowerButtonOverlay(
     )
 
     val usePureBlack by SettingsManager.usePureBlack.collectAsStateWithLifecycle()
-    val isAmoled = usePureBlack && com.vinnovateit.latch.ui.theme.LocalIsDarkTheme.current
+    val isAmoled = usePureBlack && LocalIsDarkTheme.current
 
     val containerColor = if (isAmoled) Color.Black else MaterialTheme.colorScheme.primaryContainer
 
@@ -522,32 +473,109 @@ fun LandscapePowerButton(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun TopBarSection(
+    isConnected: Boolean,
     onPreferencesClick: () -> Unit,
     onHowItWorksClick: () -> Unit,
     onMeetTheTeamClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    triggerStatusPill: Boolean = false,
 ) {
-    val isDark = LocalIsDarkTheme.current
     var menuExpanded by remember { mutableStateOf(false) }
-    CenterAlignedTopAppBar(
+    var showPill by remember(isConnected) { mutableStateOf(true) }
+
+    LaunchedEffect(isConnected, triggerStatusPill) {
+        showPill = true
+        delay(3500)
+        showPill = false
+    }
+
+    TopAppBar(
+        modifier = modifier,
+        colors = TopAppBarDefaults.topAppBarColors(
+            containerColor = Color.Transparent,
+            scrolledContainerColor = Color.Transparent,
+        ),
         title = {
-            Text(modifier = Modifier.padding(top = 0.dp), text = stringResource(R.string.app_name_uppercase), color = MaterialTheme.colorScheme.primary, fontSize = 23.sp, fontFamily = ModernizFontFamily, fontWeight = FontWeight.Normal, textAlign = TextAlign.Center)
-        },
-        navigationIcon = {
-            Icon(painter = if (isDark) painterResource(id = R.drawable.ic_latch_dark) else painterResource(id = R.drawable.ic_latch_light), contentDescription = "LATCH Logo", tint = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(start = 16.dp).size(36.dp))
-        },
-        actions = {
-            TooltipHint(tooltipText = "More options") {
-                IconButton(onClick = { menuExpanded = true }, modifier = Modifier.padding(end = 12.dp).size(52.dp)) {
-                    Icon(imageVector = Icons.Rounded.Menu, contentDescription = "More options", tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(36.dp))
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.padding(start = 4.dp),
+            ) {
+                Icon(
+                    painter = painterResource(id = R.drawable.ic_latch),
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(36.dp),
+                )
+                Spacer(Modifier.width(12.dp))
+                AnimatedVisibility(
+                    visible = showPill,
+                    enter = fadeIn(tween(200)),
+                    exit = fadeOut(tween(200)),
+                    label = "TopBarTitlePill",
+                ) {
+                    Surface(
+                        shape = CircleShape,
+                        color = if (isConnected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceContainerHigh,
+                    ) {
+                        Text(
+                            text = stringResource(
+                                if (isConnected) R.string.home_status_connected
+                                else R.string.home_status_disconnected,
+                            ),
+                            style = MaterialTheme.typography.labelLarge,
+                            color = if (isConnected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant,
+                            fontWeight = FontWeight.Bold,
+                            fontFamily = SatoshiFontFamily,
+                            modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp),
+                        )
+                    }
                 }
             }
-            DropdownMenu(expanded = menuExpanded, onDismissRequest = { menuExpanded = false }, shape = RoundedCornerShape(12.dp), containerColor = MaterialTheme.colorScheme.surfaceContainer, modifier = Modifier.width(200.dp)) {
-                DropdownMenuItem(text = { Text("How It Works", fontSize = 16.sp, fontFamily = SatoshiFontFamily) }, onClick = { menuExpanded = false; onHowItWorksClick() }, leadingIcon = { Icon(Icons.Rounded.QuestionMark, contentDescription = "How It Works") })
-                DropdownMenuItem(text = { Text("Settings", fontSize = 16.sp, fontFamily = SatoshiFontFamily) }, onClick = { menuExpanded = false; onPreferencesClick() }, leadingIcon = { Icon(Icons.Rounded.Settings, contentDescription = "Settings") })
-                DropdownMenuItem(text = { Text("Meet The Team", fontSize = 16.sp, fontFamily = SatoshiFontFamily) }, onClick = { menuExpanded = false; onMeetTheTeamClick() }, leadingIcon = { Icon(Icons.Rounded.Groups, contentDescription = "Meet The Team") })
-            }
         },
-        colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent, scrolledContainerColor = Color.Transparent, navigationIconContentColor = MaterialTheme.colorScheme.primary, titleContentColor = MaterialTheme.colorScheme.primary, actionIconContentColor = MaterialTheme.colorScheme.primary)
+        actions = {
+            Box {
+                IconButton(onClick = { menuExpanded = true }, modifier = Modifier.size(48.dp)) {
+                    Icon(
+                        imageVector = Icons.Rounded.Menu,
+                        contentDescription = "Menu",
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(28.dp),
+                    )
+                }
+                DropdownMenu(
+                    expanded = menuExpanded,
+                    onDismissRequest = { menuExpanded = false },
+                    shape = RoundedCornerShape(12.dp),
+                    containerColor = MaterialTheme.colorScheme.surfaceContainer,
+                    modifier = Modifier.width(200.dp),
+                ) {
+                    DropdownMenuItem(
+                        text = { Text("Settings", fontSize = 15.sp, fontFamily = SatoshiFontFamily) },
+                        onClick = {
+                            menuExpanded = false
+                            onPreferencesClick()
+                        },
+                        leadingIcon = { Icon(Icons.Rounded.Settings, contentDescription = "Settings") }
+                    )
+                    DropdownMenuItem(
+                        text = { Text("How It Works", fontSize = 15.sp, fontFamily = SatoshiFontFamily) },
+                        onClick = {
+                            menuExpanded = false
+                            onHowItWorksClick()
+                        },
+                        leadingIcon = { Icon(Icons.Rounded.QuestionMark, contentDescription = "How It Works") }
+                    )
+                    DropdownMenuItem(
+                        text = { Text("Meet The Team", fontSize = 15.sp, fontFamily = SatoshiFontFamily) },
+                        onClick = {
+                            menuExpanded = false
+                            onMeetTheTeamClick()
+                        },
+                        leadingIcon = { Icon(Icons.Rounded.Groups, contentDescription = "Meet The Team") }
+                    )
+                }
+            }
+        }
     )
 }
 
@@ -585,10 +613,6 @@ fun HowItWorksBottomSheet(onDismiss: () -> Unit) {
                 HowItWorksRow(
                     icon = Icons.Rounded.BarChart,
                     text = "Once connected, you can watch your real-time stats and data usage."
-                )
-                HowItWorksRow(
-                    icon = Icons.Rounded.Speed,
-                    text = "The 20 mbps cap will not be bypassable."
                 )
                 HowItWorksRow(
                     icon = Icons.Rounded.PowerSettingsNew,

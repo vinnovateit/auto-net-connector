@@ -37,7 +37,9 @@ private fun configureWindowsAppUserModelId() {
 }
 
 fun main(args: Array<String>) {
+    com.vinnovateit.latch.core.data.SystemSqliteInitializer.init()
     var onActivateWindow: (() -> Unit)? = null
+
     val pendingActivation = AtomicBoolean(false)
     val serviceReady = CompletableDeferred<RuntimeCommandService>()
     val ownership = runBlocking {

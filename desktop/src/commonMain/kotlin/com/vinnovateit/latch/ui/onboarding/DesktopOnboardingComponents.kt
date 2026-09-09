@@ -209,6 +209,7 @@ fun DesktopOnboardingBottomBar(
                 }
 
                 val isLastPage = pagerState.currentPage == pagerState.pageCount - 1
+                val isEnabled = !isLastPage || isFinishButtonEnabled
                 val fabShape = RoundedCornerShape(
                     topStart = animatedTopStart.dp,
                     topEnd = animatedTopEnd.dp,
@@ -218,12 +219,21 @@ fun DesktopOnboardingBottomBar(
 
                 FloatingActionButton(
                     onClick = {
+                        if (!isEnabled) return@FloatingActionButton
                         if (isLastPage) onFinishClicked() else onNextClicked()
                     },
                     shape = fabShape,
-                    containerColor = if (isLastPage) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.primaryContainer,
-                    contentColor = if (isLastPage) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onPrimaryContainer,
-                    elevation = FloatingActionButtonDefaults.elevation(defaultElevation = 2.dp),
+                    containerColor = if (isLastPage) {
+                        if (isFinishButtonEnabled) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f)
+                    } else {
+                        MaterialTheme.colorScheme.primaryContainer
+                    },
+                    contentColor = if (isLastPage) {
+                        if (isFinishButtonEnabled) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
+                    } else {
+                        MaterialTheme.colorScheme.onPrimaryContainer
+                    },
+                    elevation = FloatingActionButtonDefaults.elevation(defaultElevation = if (isEnabled) 2.dp else 0.dp),
                     modifier = Modifier.size(56.dp),
                 ) {
                     Box(

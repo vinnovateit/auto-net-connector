@@ -3,18 +3,26 @@ package com.vinnovateit.latch.features.stats
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
-import com.vinnovateit.latch.common.util.formatDate
+import com.vinnovateit.latch.core.stats.formatDate
+import com.vinnovateit.latch.core.model.AggregatedDayRecord
 import com.vinnovateit.latch.core.model.DataUsage
+import com.vinnovateit.latch.core.model.DateRangeFilter
+import com.vinnovateit.latch.core.model.HistoryChartItem
+import com.vinnovateit.latch.core.model.PortalSessionRecord
 import com.vinnovateit.latch.core.model.SessionSummary
-import com.vinnovateit.latch.features.stats.components.HistoryChartItem
+import com.vinnovateit.latch.core.model.StatsOverviewMetrics
+import com.vinnovateit.latch.core.stats.StatsInsights
+import com.vinnovateit.latch.core.stats.computeChartItems
 import com.vinnovateit.latch.platform.LatchAppGraph
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch
 import java.util.Calendar
 
 class StatsViewModel(application: Application) : AndroidViewModel(application) {
@@ -23,6 +31,45 @@ class StatsViewModel(application: Application) : AndroidViewModel(application) {
   val liveStatus = LatchAppGraph.sessions.liveStatus
   val lastSession = LatchAppGraph.sessions.lastSession
   private val sessionHistory = LatchAppGraph.sessions.sessionSummaries
+
+  val portalHistory: StateFlow<List<PortalSessionRecord>> = LatchAppGraph.sessions.portalHistory
+  val isHistoryLoaded: StateFlow<Boolean> = LatchAppGraph.sessions.isHistoryLoaded
+  val isSyncing: StateFlow<Boolean> = LatchAppGraph.sessions.isSyncing
+
+  val nonZeroPortalHistory: StateFlow<List<PortalSessionRecord>> =
+    portalHistory.map { list ->
+      list.filter { it.uploadBytes > 0L || it.downloadBytes > 0L }
+    }.flowOn(Dispatchers.Default)
+      .stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
+
+  val todaySessions: StateFlow<List<PortalSessionRecord>> =
+    nonZeroPortalHistory.map { list ->
+      val todayKey = formatDate(System.currentTimeMillis(), "yyyy-MM-dd")
+      list.filter { it.loginTime > 0 && formatDate(it.loginTime, "yyyy-MM-dd") == todayKey }
+    }.flowOn(Dispatchers.Default)
+      .stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
+
+  val allDayRecords: StateFlow<List<AggregatedDayRecord>> = LatchAppGraph.sessions.aggregatedDayRecords
+  val overviewMetrics: StateFlow<StatsOverviewMetrics> = LatchAppGraph.sessions.overviewMetrics
+  val statsInsights: StateFlow<StatsInsights> = LatchAppGraph.sessions.statsInsights
+
+  init {
+    refreshHistory()
+  }
+
+  fun refreshHistory(force: Boolean = false) {
+    val platform = LatchAppGraph.platform
+    if (!platform.wifi.isConnectedToWifi()) return
+    if (platform.credentials.exists()) {
+      val userId = platform.credentials.userId()
+      val password = platform.credentials.password()
+      if (!userId.isNullOrBlank() && !password.isNullOrBlank()) {
+        viewModelScope.launch(Dispatchers.IO) {
+          LatchAppGraph.sessions.syncPortalHistory(userId, password, force = force)
+        }
+      }
+    }
+  }
 
   // This flow combines live and last sessions to decide what to show in the UI.
   val sessionToShow: StateFlow<SessionSummary?> =
@@ -41,97 +88,17 @@ class StatsViewModel(application: Application) : AndroidViewModel(application) {
           maxTxBps = it.maxTxBps
         )
       } ?: last // If not live, show the last completed session
-    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
+    }.stateIn(viewModelScope, SharingStarted.Lazily, null)
 
-  val historyToShow: StateFlow<List<SessionSummary>> =
-    combine(
-      sessionHistory,
-      liveStatus
-    ) { history, live ->
-      live?.let {
-        val liveSummary = SessionSummary(
-          startTimestamp = it.startTimeMillis,
-          endTimestamp = System.currentTimeMillis(),
-          totalData = DataUsage(it.totalRxBytes, it.totalTxBytes),
-          history = it.liveData,
-          maxRxBps = it.maxRxBps,
-          maxTxBps = it.maxTxBps
-        )
-        val historyWithoutLive = history.filter { it.startTimestamp != liveSummary.startTimestamp }
-        mergeSessions(listOf(liveSummary) + historyWithoutLive, 60_000L)
-      } ?: mergeSessions(history, 60_000L)
-    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
-
-  private fun mergeSessions(sessions: List<SessionSummary>, gapMs: Long): List<SessionSummary> {
-    if (sessions.isEmpty()) return emptyList()
-    val sorted = sessions.sortedBy { it.startTimestamp }
-    val merged = mutableListOf<SessionSummary>()
-    var current = sorted[0]
-
-    for (i in 1 until sorted.size) {
-      val next = sorted[i]
-      if (next.startTimestamp - current.endTimestamp <= gapMs) {
-        current = current.copy(
-          endTimestamp = maxOf(current.endTimestamp, next.endTimestamp),
-          totalData = DataUsage(
-            current.totalData.rxBytes + next.totalData.rxBytes,
-            current.totalData.txBytes + next.totalData.txBytes
-          ),
-          history = current.history + next.history,
-          maxRxBps = maxOf(current.maxRxBps, next.maxRxBps),
-          maxTxBps = maxOf(current.maxTxBps, next.maxTxBps)
-        )
-      } else {
-        merged.add(current)
-        current = next
-      }
-    }
-    merged.add(current)
-    return merged.sortedByDescending { it.startTimestamp }
-  }
 
 
   val chartItems: StateFlow<List<HistoryChartItem>> =
-    historyToShow.map { sessions ->
-      if (sessions.isEmpty()) return@map emptyList()
-
-      val groupedByDay = sessions.groupBy {
-        formatDate(it.startTimestamp, "yyyy-MM-dd")
-      }.mapValues { (_, list) ->
-        DataUsage(
-          rxBytes = list.sumOf { it.totalData.rxBytes },
-          txBytes = list.sumOf { it.totalData.txBytes }
-        )
-      }
-
-      val today = Calendar.getInstance()
-      val daysToShow = 7 // Always show the last 7 days
-
-      val items = mutableListOf<HistoryChartItem>()
-      var lastMonth = -1
-
-      for (i in (daysToShow - 1) downTo 0) {
-        val currentCal = Calendar.getInstance()
-        currentCal.add(Calendar.DAY_OF_YEAR, -i)
-        val dayTimestamp = currentCal.timeInMillis
-        val key = formatDate(dayTimestamp, "yyyy-MM-dd")
-        val usage = groupedByDay[key] ?: DataUsage(0, 0)
-
-        val currentMonth = currentCal.get(Calendar.MONTH)
-        if (lastMonth != -1 && currentMonth != lastMonth) {
-          items.add(HistoryChartItem.MonthSeparator(formatDate(dayTimestamp, "MMM")))
-        }
-        lastMonth = currentMonth
-
-        val label = formatDate(dayTimestamp, "E").first().toString()
-        items.add(HistoryChartItem.BarData(usage, label, dayTimestamp))
-      }
-      items.distinct() // Ensure no duplicate separators if the week crosses a month boundary
-    }.flowOn(Dispatchers.Default) // Perform mapping on a background thread
-      .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
-
-
-
+    combine(nonZeroPortalHistory, liveStatus) { records, live ->
+      val liveRx = live?.totalRxBytes ?: 0L
+      val liveTx = live?.totalTxBytes ?: 0L
+      computeChartItems(records, liveRxBytes = liveRx, liveTxBytes = liveTx)
+    }.flowOn(Dispatchers.Default)
+      .stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
 
   fun onClearHistory() {
     LatchAppGraph.sessions.clearHistory()
