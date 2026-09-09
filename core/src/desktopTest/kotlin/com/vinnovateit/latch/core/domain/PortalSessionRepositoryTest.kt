@@ -18,7 +18,9 @@ import kotlin.test.AfterTest
 import kotlin.test.BeforeTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
+import kotlin.test.assertFalse
 
 class PortalSessionRepositoryTest {
     private lateinit var db: LatchDatabase
@@ -27,8 +29,15 @@ class PortalSessionRepositoryTest {
         override fun sample(): ByteCounts = ByteCounts(0L, 0L)
     }
 
+    private object TestWifiHandle : com.vinnovateit.latch.core.platform.NetworkHandle {
+        override val id: String = "wlan0"
+    }
+
     private class FakePortalTransport : HttpTransport {
+        val handles = mutableListOf<com.vinnovateit.latch.core.platform.NetworkHandle?>()
+
         override fun open(url: URL, handle: com.vinnovateit.latch.core.platform.NetworkHandle?): HttpURLConnection {
+            handles += handle
             return object : HttpURLConnection(url) {
                 override fun connect() {}
                 override fun disconnect() {}
@@ -79,7 +88,8 @@ class PortalSessionRepositoryTest {
         val repo = SessionRepository(
             statsDao = db.statsDao(),
             throughput = throughput,
-            portalClient = portalClient
+            portalClient = portalClient,
+            activeHandle = { TestWifiHandle },
         )
         repo.initialize()
 
@@ -134,7 +144,8 @@ class PortalSessionRepositoryTest {
         val repo = SessionRepository(
             statsDao = db.statsDao(),
             throughput = throughput,
-            portalClient = portalClient
+            portalClient = portalClient,
+            activeHandle = { TestWifiHandle },
         )
         repo.initialize()
 
@@ -166,6 +177,45 @@ class PortalSessionRepositoryTest {
         assertEquals(1, history2.size)
         // Must preserve the validated past date
         assertEquals("VIT-Initial", history2[0].location)
+        repo.close()
+    }
+
+    @Test
+    fun `portal sync binds every request to the active Wi-Fi handle`() = runBlocking {
+        val transport = FakePortalTransport()
+        val repo = SessionRepository(
+            statsDao = db.statsDao(),
+            throughput = ThroughputMonitor(StubCounters()),
+            portalClient = PortalHistoryClient(transport),
+            activeHandle = { TestWifiHandle },
+        )
+        repo.initialize()
+
+        assertTrue(repo.syncPortalHistory("24BDS0155", "zero", force = true).isSuccess)
+
+        assertTrue(transport.handles.isNotEmpty(), "the portal client should have opened connections")
+        transport.handles.forEach { handle ->
+            assertNotNull(handle, "credentials must never be sent on the default network")
+            assertEquals(TestWifiHandle.id, handle.id)
+        }
+        repo.close()
+    }
+
+    @Test
+    fun `portal sync is refused when no Wi-Fi network is active`() = runBlocking {
+        val transport = FakePortalTransport()
+        val repo = SessionRepository(
+            statsDao = db.statsDao(),
+            throughput = ThroughputMonitor(StubCounters()),
+            portalClient = PortalHistoryClient(transport),
+            activeHandle = { null },
+        )
+        repo.initialize()
+
+        val result = repo.syncPortalHistory("24BDS0155", "zero", force = true)
+
+        assertFalse(result.isSuccess, "sync must fail rather than leave the Wi-Fi network")
+        assertTrue(transport.handles.isEmpty(), "no request should have been made at all")
         repo.close()
     }
 

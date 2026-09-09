@@ -31,6 +31,10 @@ class PortalManualSessionReconciliationTest {
         override fun sample(): ByteCounts = ByteCounts(0L, 0L)
     }
 
+    private object ReconciliationWifiHandle : com.vinnovateit.latch.core.platform.NetworkHandle {
+        override val id: String = "wlan0"
+    }
+
     private class FakePortalTransport(var historyHtml: String = "") : HttpTransport {
         override fun open(url: URL, handle: com.vinnovateit.latch.core.platform.NetworkHandle?): HttpURLConnection {
             return object : HttpURLConnection(url) {
@@ -70,7 +74,8 @@ class PortalManualSessionReconciliationTest {
         repository = SessionRepository(
             statsDao = database.statsDao(),
             throughput = ThroughputMonitor(StubCounters()),
-            portalClient = portalClient
+            portalClient = portalClient,
+            activeHandle = { ReconciliationWifiHandle },
         )
         repository.initialize()
 
@@ -150,7 +155,8 @@ class PortalManualSessionReconciliationTest {
         repository = SessionRepository(
             statsDao = database.statsDao(),
             throughput = ThroughputMonitor(StubCounters()),
-            portalClient = portalClient
+            portalClient = portalClient,
+            activeHandle = { ReconciliationWifiHandle },
         )
         repository.initialize()
 

@@ -8,6 +8,7 @@ import com.vinnovateit.latch.core.model.LiveDataPoint
 import com.vinnovateit.latch.core.model.PortalSessionRecord
 import com.vinnovateit.latch.core.model.SessionSummary
 import com.vinnovateit.latch.core.platform.Logger
+import com.vinnovateit.latch.core.platform.NetworkHandle
 import com.vinnovateit.latch.core.platform.Platform
 import com.vinnovateit.latch.core.platform.logger
 import com.vinnovateit.latch.core.portal.PortalHistoryClient
@@ -45,6 +46,13 @@ class SessionRepository(
     private val portalClient: PortalHistoryClient? = null,
     private val scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.IO),
     private val logger: Logger = Platform.logger,
+    /**
+     * Resolves the Wi-Fi network the portal lives on. Injected so tests can
+     * supply one without installing a [Platform].
+     */
+    private val activeHandle: () -> NetworkHandle? = {
+        if (Platform.isInstalled) Platform.services.wifi.activeHandle() else null
+    },
 ) {
     private var sessionUpdateJob: Job? = null
 
@@ -170,6 +178,17 @@ class SessionRepository(
     ): Result<Unit> {
         val client = portalClient ?: return Result.failure(IllegalStateException("Portal client not configured"))
         if (_isSyncing.value) return Result.success(Unit)
+
+        // The portal is only reachable on the captive-portal Wi-Fi. Without a
+        // handle the transport falls back to the process default network, which
+        // on Android stays cellular while a captive portal is unvalidated -- that
+        // would ship these credentials off-network in cleartext.
+        val handle = activeHandle()
+        if (handle == null) {
+            logger.w(TAG, "No active Wi-Fi network; skipping portal sync rather than leaving the network.")
+            return Result.failure(IllegalStateException("Not connected to Wi-Fi"))
+        }
+
         val now = System.currentTimeMillis()
         if (!force && (now - lastSyncTimeMillis < 30_000L) && _portalHistory.value.isNotEmpty()) {
             return Result.success(Unit)
@@ -178,7 +197,7 @@ class SessionRepository(
         logger.d(TAG, "syncPortalHistory starting...")
         _isSyncing.value = true
         return try {
-            val result = client.fetchHistory(userId, password, host = host)
+            val result = client.fetchHistory(userId, password, handle = handle, host = host)
             if (result.isSuccess) {
                 val incoming = result.getOrThrow().filter {
                     it.loginTime > 0 && (it.uploadBytes > 0L || it.downloadBytes > 0L)
