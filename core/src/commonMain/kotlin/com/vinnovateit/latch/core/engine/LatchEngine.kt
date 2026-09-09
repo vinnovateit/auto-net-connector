@@ -69,12 +69,15 @@ class LatchEngine(
     private val platform: PlatformServices,
     private val sessions: SessionRepository,
     private val scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.IO),
+    /** Overridable so tests can drive the health check without waiting a minute. */
+    private val healthCheckIntervalMs: Long = HEALTH_CHECK_INTERVAL_MS,
 ) : LatchController {
 
     private companion object {
         const val TAG = "LatchEngine"
         const val PORTAL_HOST = "phc.prontonetworks.com"
         const val HEALTH_CHECK_INTERVAL_MS = 60_000L
+        const val MAX_HEALTH_CHECK_FAILURES = 3
         const val REVALIDATE_DELAY_MS = 2000L
         const val MAX_REVALIDATE_RETRIES = 3
     }
@@ -503,16 +506,17 @@ class LatchEngine(
         healthCheckJob?.cancel()
         healthCheckJob = scope.launch {
             var lastTick = System.currentTimeMillis()
+            var failCount = 0
             while (isActive) {
-                delay(HEALTH_CHECK_INTERVAL_MS)
+                delay(healthCheckIntervalMs)
 
                 // delay() does not track wall-clock across OS suspend, so after a
                 // lid-close the tick can be arbitrarily late. Detect that and
                 // re-check immediately rather than trusting stale state.
                 val now = System.currentTimeMillis()
-                val drift = now - lastTick - HEALTH_CHECK_INTERVAL_MS
+                val drift = now - lastTick - healthCheckIntervalMs
                 lastTick = now
-                if (drift > HEALTH_CHECK_INTERVAL_MS) {
+                if (drift > healthCheckIntervalMs) {
                     logger.d(TAG, "Detected resume from sleep (drift ${drift}ms); re-checking.")
                 }
 
@@ -520,10 +524,21 @@ class LatchEngine(
                     portal.checkPortalStatus(handle)
                 } ?: -1
                 if (code == 204) {
-                    logger.d(TAG, "Health check passed.")
+                    failCount = 0
                 } else {
-                    logger.w(TAG, "Health check failed (status $code). Triggering re-login.")
-                    checkAndActExclusive(handle, revalidating = false)
+                    // One timed-out probe on congested campus Wi-Fi is normal.
+                    // Re-logging in on it would re-POST the credentials and flap
+                    // the UI, so only a sustained failure counts as expiry.
+                    failCount++
+                    logger.w(TAG, "Health check probe failed ($failCount/$MAX_HEALTH_CHECK_FAILURES, status $code).")
+                    if (failCount >= MAX_HEALTH_CHECK_FAILURES) {
+                        logger.w(TAG, "Health check failed $MAX_HEALTH_CHECK_FAILURES consecutive times; session may have expired.")
+                        failCount = 0
+                        // Drop the latch first so the re-login starts a fresh
+                        // session rather than stacking one on a live one.
+                        unlatch()
+                        checkAndActExclusive(handle, revalidating = false)
+                    }
                 }
             }
         }
