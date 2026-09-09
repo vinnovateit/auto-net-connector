@@ -4,13 +4,13 @@ import com.vinnovateit.latch.core.model.PortalSessionRecord
 import com.vinnovateit.latch.core.model.SessionSummary
 import java.io.OutputStream
 
-inline fun generateHtmlReport(
+fun generateHtmlReport(
     sessions: List<SessionSummary>,
     outputStream: OutputStream,
     appVersion: String
 ) = com.vinnovateit.latch.core.stats.generateHtmlReport(sessions, outputStream, appVersion)
 
-inline fun generatePortalHtmlReport(
+fun generatePortalHtmlReport(
     sessions: List<PortalSessionRecord>,
     outputStream: OutputStream,
     appVersion: String,
