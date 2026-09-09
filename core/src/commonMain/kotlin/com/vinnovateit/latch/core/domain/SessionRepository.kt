@@ -313,7 +313,7 @@ class SessionRepository(
         }
     }
 
-    fun recordManualSession(record: PortalSessionRecord) {
+    suspend fun recordManualSession(record: PortalSessionRecord) {
         val manualRecord = record.copy(isManual = true)
         val entity = PortalSessionEntity(
             location = manualRecord.location,
@@ -329,15 +329,13 @@ class SessionRepository(
         )
         val current = _portalHistory.value
         val updated = (listOf(manualRecord) + current)
-            .distinctBy { "${it.loginTime}_${it.durationMillis}_${it.totalBytes}" }
+            .distinctBy { Triple(it.loginTime, it.durationMillis, it.totalBytes) }
             .sortedByDescending { it.loginTime }
         _portalHistory.value = updated
         _isHistoryLoaded.value = true
 
-        scope.launch {
-            statsDao.insertAllPortalSessions(listOf(entity))
-            logger.d(TAG, "Persisted manual portal session: ${manualRecord.durationFormatted}, ${manualRecord.totalBytes} bytes")
-        }
+        statsDao.insertAllPortalSessions(listOf(entity))
+        logger.d(TAG, "Persisted manual portal session: ${manualRecord.durationFormatted}, ${manualRecord.totalBytes} bytes")
     }
 
     private fun matchesSession(manual: PortalSessionRecord, incoming: PortalSessionRecord): Boolean {
