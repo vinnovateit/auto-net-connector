@@ -143,6 +143,17 @@ class LatchEngine(
         }
     }
 
+    /**
+     * Resolves the handle for the network we are acting on and remembers it.
+     *
+     * The engine otherwise only learns a handle from [WifiEvent.Available], which
+     * the desktop pollers never emit when the app starts while already connected
+     * -- they seed their last-seen key from the current snapshot. Caching here
+     * keeps [WifiEvent.Lost] matchable in that case.
+     */
+    private fun resolveHandle(): NetworkHandle? =
+        currentHandle ?: platform.wifi.activeHandle()?.also { currentHandle = it }
+
     private suspend fun onWifiEvent(event: WifiEvent) {
         when (event) {
             is WifiEvent.Available -> {
@@ -159,7 +170,8 @@ class LatchEngine(
             is WifiEvent.Lost -> {
                 val lostHandle = event.handle
                 logger.d(TAG, "Wi-Fi lost: ${lostHandle?.id} (current=${currentHandle?.id})")
-                if (lostHandle != null && lostHandle != currentHandle) {
+                val known = currentHandle
+                if (lostHandle != null && known != null && lostHandle != known) {
                     logger.d(TAG, "Ignoring onLost for non-current network handle.")
                     return
                 }
@@ -185,7 +197,7 @@ class LatchEngine(
                     )
                     return
                 }
-                val handle = currentHandle ?: platform.wifi.activeHandle()
+                val handle = resolveHandle()
                 if (handle == null) {
                     unlatch()
                     ConnectionStatusManager.postStatus(
@@ -197,7 +209,7 @@ class LatchEngine(
             }
 
             LatchCommand.SilentCheck -> {
-                val handle = currentHandle ?: platform.wifi.activeHandle() ?: return
+                val handle = resolveHandle() ?: return
                 checkAndActExclusive(handle, revalidating = false, silent = true)
             }
 
@@ -438,7 +450,7 @@ class LatchEngine(
     private suspend fun logoutNow() {
         healthCheckJob?.cancel()
 
-        val handle = currentHandle ?: platform.wifi.activeHandle()
+        val handle = resolveHandle()
         val wasLatched = _isLatched.value
 
         unlatch()

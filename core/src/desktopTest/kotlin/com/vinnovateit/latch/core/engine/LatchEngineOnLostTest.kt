@@ -101,6 +101,24 @@ class LatchEngineOnLostTest {
         )
     }
 
+    @Test
+    fun `onLost tears down a session that was latched without an Available event`() = withEngine { engine, events ->
+        // The desktop pollers seed their last-seen key from the current snapshot,
+        // so starting while already connected emits no Available at all and the
+        // only handle the engine ever sees comes from the startup check.
+        engine.submitAndAwait(LatchCommand.CheckAndLogin, 10_000)
+        assertTrue(engine.isLatched.value, "session should be latched after initial check")
+
+        events.send(WifiEvent.Lost(OnLostCurrentHandle))
+        delay(200)
+
+        assertEquals(
+            false,
+            engine.isLatched.value,
+            "session should be torn down even though no Available event was seen",
+        )
+    }
+
     private fun withEngine(
         block: suspend (LatchEngine, Channel<WifiEvent>) -> Unit,
     ) = runBlocking {
