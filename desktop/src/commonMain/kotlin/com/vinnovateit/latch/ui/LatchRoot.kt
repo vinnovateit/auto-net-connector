@@ -29,16 +29,13 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.vinnovateit.latch.core.domain.SessionRepository
 import com.vinnovateit.latch.core.engine.LatchController
 import com.vinnovateit.latch.core.platform.PlatformServices
-import com.vinnovateit.latch.core.settings.SettingsManager
 import com.vinnovateit.latch.core.updater.UpdateState
 import com.vinnovateit.latch.desktop.LatchMark
 import com.vinnovateit.latch.ui.components.LatchHomeTopBar
 import com.vinnovateit.latch.ui.navigation.LatchDestination
-import com.vinnovateit.latch.ui.onboarding.DesktopOnboardingScreen
 import com.vinnovateit.latch.ui.screens.AboutScreen
 import com.vinnovateit.latch.ui.screens.CredentialsScreen
 import com.vinnovateit.latch.ui.screens.HomeScreen
@@ -77,7 +74,6 @@ fun LatchRoot(
             color = MaterialTheme.colorScheme.background,
         ) {
             var hasCredentials by remember { mutableStateOf(platform.credentials.exists()) }
-            val hasSeenOnboarding by SettingsManager.hasSeenOnboarding.collectAsStateWithLifecycle()
             var editingCredentials by remember { mutableStateOf(false) }
             var showAbout by remember { mutableStateOf(false) }
             var destination by remember { mutableStateOf(LatchDestination.Home) }
@@ -109,7 +105,6 @@ fun LatchRoot(
             }
 
             val currentRootScreen = when {
-                !hasSeenOnboarding -> "Onboarding"
                 !hasCredentials || editingCredentials -> "Credentials"
                 showAbout -> "About"
                 showUpdateScreen -> "Update"
@@ -148,18 +143,6 @@ fun LatchRoot(
                     modifier = Modifier.fillMaxSize(),
                 ) { rootScreen ->
                     when (rootScreen) {
-                        "Onboarding" -> {
-                            DesktopOnboardingScreen(
-                                platform = platform,
-                                onComplete = {
-                                    SettingsManager.setHasSeenOnboarding(true)
-                                },
-                                onNavigateToCredentials = {
-                                    editingCredentials = true
-                                },
-                            )
-                        }
-
                         "Credentials" -> {
                             CredentialsScreen(
                                 initialRegNo = platform.credentials.userId().orEmpty(),
@@ -169,7 +152,7 @@ fun LatchRoot(
                                     hasCredentials = true
                                     editingCredentials = false
                                 },
-                                onCancel = if (hasCredentials || !hasSeenOnboarding) {
+                                onCancel = if (hasCredentials) {
                                     { editingCredentials = false }
                                 } else {
                                     null
