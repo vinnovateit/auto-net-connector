@@ -500,6 +500,20 @@ internal object LatchIcons {
         )
     }
 
+    // Custom window title bar controls.
+
+    val Minimize: ImageVector by lazy {
+        icon("Minimize", "M6 11h12v2H6z")
+    }
+
+    val Close: ImageVector by lazy {
+        icon(
+            "Close",
+            "M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41" +
+                " 17.59 19 19 17.59 13.41 12z",
+        )
+    }
+
     // Used as navigation rail icons; vendored to avoid relying on material-icons-core internals.
 
     val HomeOutlined: ImageVector by lazy {
