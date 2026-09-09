@@ -78,24 +78,15 @@ class SessionRepository(
     val isSyncing: StateFlow<Boolean> = _isSyncing.asStateFlow()
 
     fun initialize() {
+        // Local session rows stopped being written when portal history became the
+        // source of truth, so the summaries are derived from that instead. Reading
+        // the local table here would leave every consumer permanently empty.
         scope.launch {
-            statsDao.getAllSessions()
-                .map { rows ->
-                    rows.map { row ->
-                        SessionSummary(
-                            startTimestamp = row.startTime,
-                            endTimestamp = row.endTime,
-                            totalData = DataUsage(rxBytes = row.rxBytes, txBytes = row.txBytes),
-                            history = emptyList(),
-                            maxRxBps = row.maxRxBps,
-                            maxTxBps = row.maxTxBps,
-                        )
-                    }
-                }
-                .collect { summaries ->
-                    _sessionSummaries.value = summaries
-                    _lastSession.value = summaries.firstOrNull()
-                }
+            portalHistory.collect { records ->
+                val summaries = records.map { it.toSessionSummary() }
+                _sessionSummaries.value = summaries
+                _lastSession.value = summaries.firstOrNull()
+            }
         }
 
         scope.launch {
@@ -122,6 +113,19 @@ class SessionRepository(
                 }
         }
     }
+
+    /**
+     * Portal records carry no per-second sampling, so the live-only fields are
+     * zero. [PortalSessionRecord.downloadBytes] is rx and upload is tx.
+     */
+    private fun PortalSessionRecord.toSessionSummary() = SessionSummary(
+        startTimestamp = loginTime,
+        endTimestamp = logoutTime,
+        totalData = DataUsage(rxBytes = downloadBytes, txBytes = uploadBytes),
+        history = emptyList(),
+        maxRxBps = 0L,
+        maxTxBps = 0L,
+    )
 
     fun startSession() {
         if (sessionUpdateJob?.isActive == true || _liveStatus.value != null) return

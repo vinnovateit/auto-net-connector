@@ -181,6 +181,28 @@ class PortalSessionRepositoryTest {
     }
 
     @Test
+    fun `session summaries are derived from portal history`() = runBlocking {
+        val repo = SessionRepository(
+            statsDao = db.statsDao(),
+            throughput = ThroughputMonitor(StubCounters()),
+            portalClient = PortalHistoryClient(FakePortalTransport()),
+            activeHandle = { TestWifiHandle },
+        )
+        repo.initialize()
+
+        assertTrue(repo.syncPortalHistory("24BDS0155", "zero", force = true).isSuccess)
+
+        // Local session rows are no longer written, so an empty list here means
+        // every consumer of these flows is showing nothing.
+        val summaries = repo.sessionSummaries.first { it.isNotEmpty() }
+        assertEquals(1, summaries.size)
+        assertEquals(118_804L, summaries[0].totalData.rxBytes)
+        assertEquals(15_513L, summaries[0].totalData.txBytes)
+        assertEquals(summaries[0], repo.lastSession.first { it != null })
+        repo.close()
+    }
+
+    @Test
     fun `portal sync binds every request to the active Wi-Fi handle`() = runBlocking {
         val transport = FakePortalTransport()
         val repo = SessionRepository(
