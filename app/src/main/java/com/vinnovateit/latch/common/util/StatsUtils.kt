@@ -2,27 +2,10 @@ package com.vinnovateit.latch.common.util
 
 import androidx.compose.ui.graphics.Path
 import com.vinnovateit.latch.core.model.LiveDataPoint
-typealias DisplayMode = com.vinnovateit.latch.core.stats.DisplayMode
-
 data class GraphData(
     val totalPath: Path,
     val lineTotalPath: Path
 )
-
-inline fun formatBytes(bytes: Long, unit: String = "B/s"): Pair<String, String> =
-    com.vinnovateit.latch.core.stats.formatBytes(bytes, unit)
-
-inline fun formatBitsPerSecond(bytesPerSecond: Long, unit: String = "bps"): Pair<String, String> =
-    com.vinnovateit.latch.core.stats.formatBitsPerSecond(bytesPerSecond, unit)
-
-inline fun formatDurationDynamic(ms: Long): String =
-    com.vinnovateit.latch.core.stats.formatDurationDynamic(ms)
-
-inline fun formatDate(millis: Long, pattern: String): String =
-    com.vinnovateit.latch.core.stats.formatDate(millis, pattern)
-
-inline fun formatDisplayDate(millis: Long, nowMillis: Long = System.currentTimeMillis()): String =
-    com.vinnovateit.latch.core.stats.formatDisplayDate(millis, nowMillis)
 
 fun createGraphPaths(
     history: List<LiveDataPoint>,

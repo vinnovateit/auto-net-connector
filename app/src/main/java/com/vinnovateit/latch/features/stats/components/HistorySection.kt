@@ -60,8 +60,10 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.vinnovateit.latch.common.util.NoDataCard
 import com.vinnovateit.latch.common.util.StatsColorPalettes
-import com.vinnovateit.latch.common.util.formatBytes
-import com.vinnovateit.latch.common.util.formatDate
+import com.vinnovateit.latch.core.stats.formatBytes
+import com.vinnovateit.latch.core.stats.formatDate
+import com.vinnovateit.latch.core.stats.formatDisplayDate
+import com.vinnovateit.latch.core.stats.formatDurationDynamic
 import com.vinnovateit.latch.core.model.DataUsage
 import com.vinnovateit.latch.core.model.HistoryChartItem
 import com.vinnovateit.latch.features.settings.manager.SettingsManager
@@ -136,7 +138,7 @@ private fun HistoryBarChartContent(chartItems: List<HistoryChartItem>, isLoaded:
             usage = DataUsage(rx, tx),
             label = "Total Data Usage",
             sessionCount = sessions,
-            durationFormatted = com.vinnovateit.latch.common.util.formatDurationDynamic(durationMs)
+            durationFormatted = formatDurationDynamic(durationMs)
         )
         Pair(detail, maxVal)
     }
@@ -153,7 +155,7 @@ private fun HistoryBarChartContent(chartItems: List<HistoryChartItem>, isLoaded:
                 ChartDetailState(
                     usage = initialBarItem.usage,
                     label = initialBarItem.formattedDate.ifBlank {
-                        com.vinnovateit.latch.common.util.formatDisplayDate(initialBarItem.timestamp)
+                        formatDisplayDate(initialBarItem.timestamp)
                     },
                     sessionCount = initialBarItem.sessionCount,
                     durationFormatted = initialBarItem.durationFormatted
@@ -227,7 +229,7 @@ private fun HistoryBarChartContent(chartItems: List<HistoryChartItem>, isLoaded:
                     lastCenteredIndex = centerIdx
                     selectedIndex = centerIdx
                     val formattedDate = item.formattedDate.ifBlank {
-                        com.vinnovateit.latch.common.util.formatDisplayDate(item.timestamp)
+                        formatDisplayDate(item.timestamp)
                     }
                     displayedData = ChartDetailState(
                         usage = item.usage,

@@ -70,12 +70,12 @@ class StatsViewModelPortalTest {
         val fixedNow = cal.timeInMillis
 
         // Same year (2026) -> "08 Mar"
-        val formattedSameYear = com.vinnovateit.latch.common.util.formatDisplayDate(fixedNow, fixedNow)
+        val formattedSameYear = com.vinnovateit.latch.core.stats.formatDisplayDate(fixedNow, fixedNow)
         assertEquals("08 Mar", formattedSameYear)
 
         // Previous year (2025) -> "08 Mar 2025"
         cal.set(2025, Calendar.MARCH, 8, 12, 0, 0)
-        val formattedOlderYear = com.vinnovateit.latch.common.util.formatDisplayDate(cal.timeInMillis, fixedNow)
+        val formattedOlderYear = com.vinnovateit.latch.core.stats.formatDisplayDate(cal.timeInMillis, fixedNow)
         assertEquals("08 Mar 2025", formattedOlderYear)
     }
 

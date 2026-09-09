@@ -55,8 +55,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.vinnovateit.latch.common.util.NoDataCard
-import com.vinnovateit.latch.common.util.formatBytes
-import com.vinnovateit.latch.common.util.formatDate
+import com.vinnovateit.latch.core.stats.formatBytes
+import com.vinnovateit.latch.core.stats.formatDate
 import com.vinnovateit.latch.core.model.DateRangeFilter
 import com.vinnovateit.latch.features.settings.manager.SettingsManager
 import com.vinnovateit.latch.features.stats.components.DayAggregateListItem

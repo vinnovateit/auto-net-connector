@@ -113,7 +113,7 @@ fun SpectrumCard(
         val dominatingBps = if (isDownloadDominant) downloadBps else uploadBps
         val icon = if (isDownloadDominant) Icons.Rounded.ArrowDownward else Icons.Rounded.ArrowUpward
         val iconColor = if (isDownloadDominant) com.vinnovateit.latch.ui.theme.ColorGraphDownload else com.vinnovateit.latch.ui.theme.ColorGraphUpload
-        val (value, unit) = com.vinnovateit.latch.common.util.formatBitsPerSecond(dominatingBps, speedUnit)
+        val (value, unit) = com.vinnovateit.latch.core.stats.formatBitsPerSecond(dominatingBps, speedUnit)
 
         androidx.compose.animation.AnimatedVisibility(
             visible = dominatingBps > 0L,

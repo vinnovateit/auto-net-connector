@@ -27,7 +27,6 @@ private object DesktopBuildInfo : BuildInfo {
 }
 
 private object DesktopCapabilities : PlatformCapabilities {
-    override val supportsDynamicColor: Boolean = false
     override val supportsAutostart: Boolean = AppPaths.isWindows || AppPaths.isLinux
 }
 

@@ -148,7 +148,6 @@ private class DebouncePlatform(
         override val isInstalled = false
     }
     override val capabilities: PlatformCapabilities = object : PlatformCapabilities {
-        override val supportsDynamicColor = false
         override val supportsAutostart = false
     }
     override val settingsStore: KeyValueStore = InMemoryKeyValueStore()

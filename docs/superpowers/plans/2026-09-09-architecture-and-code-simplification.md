@@ -98,17 +98,17 @@ Expected: All pass.
 - Modify: `app/src/main/java/com/vinnovateit/latch/common/util/ReportUtils.kt`
 - Modify: `app/src/main/java/com/vinnovateit/latch/navigation/LatchNavGraph.kt`
 
-- [ ] **Step 1: Delete unused historyToShow and mergeSessions in StatsViewModel**
+- [x] **Step 1: Delete unused historyToShow and mergeSessions in StatsViewModel**
 Remove deprecated `mergeSessions` and unused `historyToShow` flow.
 
-- [ ] **Step 2: Clean up historyToShow in StatsScreen and StatsList**
+- [x] **Step 2: Clean up historyToShow in StatsScreen and StatsList**
 Remove `historyToShow` parameter and unused empty check.
 
-- [ ] **Step 3: Delete legacy generateHtmlReport(List<SessionSummary>) and unused app wrapper**
+- [x] **Step 3: Delete legacy generateHtmlReport(List<SessionSummary>) and unused app wrapper**
 Delete legacy SessionSummary overload from `core/.../ReportUtils.kt`.
 Remove unused `generateHtmlReport` import from `LatchNavGraph.kt`.
 
-- [ ] **Step 4: Verify and commit**
+- [x] **Step 4: Verify and commit**
 Run: `./gradlew :app:testDebugUnitTest :core:desktopTest`
 `git commit -m "chore(stats): purge legacy session accumulation and unused report overload"`
 
@@ -119,16 +119,16 @@ Run: `./gradlew :app:testDebugUnitTest :core:desktopTest`
 - Modify: `app/src/main/java/com/vinnovateit/latch/common/util/StatsUtils.kt`
 - Modify: `core/src/commonMain/kotlin/com/vinnovateit/latch/core/platform/Platform.kt`
 
-- [ ] **Step 1: Delete Test.kt and ExampleUnitTest.kt**
+- [x] **Step 1: Delete Test.kt and ExampleUnitTest.kt**
 Remove dead test file in production theme directory and template unit test.
 
-- [ ] **Step 2: Remove inline trampoline functions in StatsUtils.kt**
+- [x] **Step 2: Remove inline trampoline functions in StatsUtils.kt**
 Direct callers to import `com.vinnovateit.latch.core.stats.*`.
 
-- [ ] **Step 3: Remove unused supportsDynamicColor capability**
+- [x] **Step 3: Remove unused supportsDynamicColor capability**
 Strip `supportsDynamicColor` property from `PlatformCapabilities` and implementations.
 
-- [ ] **Step 4: Verify and commit**
+- [x] **Step 4: Verify and commit**
 Run: `./gradlew :core:desktopTest :app:testDebugUnitTest :desktop:compileKotlinDesktop`
 `git commit -m "chore(core): remove dead template tests and unused capability flags"`
 

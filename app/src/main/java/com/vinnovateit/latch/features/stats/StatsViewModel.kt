@@ -3,7 +3,7 @@ package com.vinnovateit.latch.features.stats
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
-import com.vinnovateit.latch.common.util.formatDate
+import com.vinnovateit.latch.core.stats.formatDate
 import com.vinnovateit.latch.core.model.AggregatedDayRecord
 import com.vinnovateit.latch.core.model.DataUsage
 import com.vinnovateit.latch.core.model.DateRangeFilter

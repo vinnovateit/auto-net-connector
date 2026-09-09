@@ -67,11 +67,11 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.vinnovateit.latch.common.util.DisplayMode
 import com.vinnovateit.latch.common.util.createGraphPaths
-import com.vinnovateit.latch.common.util.formatBitsPerSecond
-import com.vinnovateit.latch.common.util.formatBytes
-import com.vinnovateit.latch.common.util.formatDurationDynamic
+import com.vinnovateit.latch.core.stats.DisplayMode
+import com.vinnovateit.latch.core.stats.formatBitsPerSecond
+import com.vinnovateit.latch.core.stats.formatBytes
+import com.vinnovateit.latch.core.stats.formatDurationDynamic
 import com.vinnovateit.latch.core.model.DataUsage
 import com.vinnovateit.latch.core.model.LiveDataPoint
 import com.vinnovateit.latch.core.model.SessionSummary

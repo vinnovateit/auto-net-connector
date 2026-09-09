@@ -217,7 +217,7 @@ class ForegroundService : Service(), ForegroundController {
                     val dominatingBps = if (isDownloadDominant) downloadBps else uploadBps
 
                     val speedUnit = SettingsManager.speedUnits.value
-                    val (value, unit) = com.vinnovateit.latch.common.util.formatBitsPerSecond(dominatingBps, speedUnit)
+                    val (value, unit) = com.vinnovateit.latch.core.stats.formatBitsPerSecond(dominatingBps, speedUnit)
                     val direction = if (isDownloadDominant) "↓" else "↑"
 
                     val timeFormat = SimpleDateFormat("hh:mm a", Locale.getDefault())
