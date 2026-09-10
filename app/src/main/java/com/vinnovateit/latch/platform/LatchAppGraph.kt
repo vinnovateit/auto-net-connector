@@ -13,6 +13,7 @@ import com.vinnovateit.latch.core.settings.SettingsManager
 import com.vinnovateit.latch.core.stats.ThroughputMonitor
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 
 /**
@@ -43,6 +44,10 @@ object LatchAppGraph {
 
     lateinit var foregroundController: ForegroundControllerHolder
         private set
+
+    // Single application-lifetime scope shared by initialize() launchers and triggerHistorySync().
+    // Avoids spawning an orphan CoroutineScope on every sync call.
+    private val appScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
 
     fun initialize(context: Context) {
         if (_engine != null) return
@@ -75,7 +80,6 @@ object LatchAppGraph {
 
         triggerHistorySync()
 
-        val appScope = CoroutineScope(Dispatchers.Main.immediate)
         appScope.launch {
             SettingsManager.settingsChanged.collect {
                 appContext.sendBroadcast(android.content.Intent("com.vinnovateit.latch.ACTION_SETTINGS_CHANGED"))
@@ -90,7 +94,7 @@ object LatchAppGraph {
                 }
                 if (enabled) {
                     appContext.startService(android.content.Intent(appContext, com.vinnovateit.latch.features.wifi.background.ForegroundService::class.java))
-                } else if (_sessions?.liveStatus?.value != null) {
+                } else if (sessions.liveStatus.value != null) {
                     appContext.startService(
                         android.content.Intent(appContext, com.vinnovateit.latch.features.wifi.background.ForegroundService::class.java).apply {
                             action = com.vinnovateit.latch.features.wifi.background.ForegroundService.ACTION_TRIGGER_LOGOUT
@@ -107,12 +111,12 @@ object LatchAppGraph {
      * repository's atomic slot prevents overlapping syncs.
      */
     fun triggerHistorySync(force: Boolean = false) {
-        val creds = _platform?.credentials ?: return
+        val creds = platform.credentials
         if (!creds.exists()) return
         val userId = creds.userId()?.takeIf { it.isNotBlank() } ?: return
         val password = creds.password()?.takeIf { it.isNotBlank() } ?: return
-        CoroutineScope(Dispatchers.IO).launch {
-            try { _sessions?.syncPortalHistory(userId, password, force = force) } catch (_: Exception) { }
+        appScope.launch(Dispatchers.IO) {
+            try { sessions.syncPortalHistory(userId, password, force = force) } catch (_: Exception) { }
         }
     }
 }

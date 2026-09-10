@@ -3,33 +3,28 @@ package com.vinnovateit.latch.features.stats
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
-import com.vinnovateit.latch.core.stats.formatDate
 import com.vinnovateit.latch.core.model.AggregatedDayRecord
 import com.vinnovateit.latch.core.model.DataUsage
-import com.vinnovateit.latch.core.model.DateRangeFilter
 import com.vinnovateit.latch.core.model.HistoryChartItem
 import com.vinnovateit.latch.core.model.PortalSessionRecord
 import com.vinnovateit.latch.core.model.SessionSummary
 import com.vinnovateit.latch.core.model.StatsOverviewMetrics
 import com.vinnovateit.latch.core.stats.StatsInsights
 import com.vinnovateit.latch.core.stats.computeChartItems
+import com.vinnovateit.latch.core.stats.formatDate
 import com.vinnovateit.latch.platform.LatchAppGraph
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
-import java.util.Calendar
 
 class StatsViewModel(application: Application) : AndroidViewModel(application) {
 
-  // Data now comes from the single source of truth: SessionRepository
   val liveStatus = LatchAppGraph.sessions.liveStatus
   val lastSession = LatchAppGraph.sessions.lastSession
-  private val sessionHistory = LatchAppGraph.sessions.sessionSummaries
 
   val portalHistory: StateFlow<List<PortalSessionRecord>> = LatchAppGraph.sessions.portalHistory
   val isHistoryLoaded: StateFlow<Boolean> = LatchAppGraph.sessions.isHistoryLoaded
@@ -56,40 +51,32 @@ class StatsViewModel(application: Application) : AndroidViewModel(application) {
     LatchAppGraph.triggerHistorySync(force = force)
   }
 
-  // This flow combines live and last sessions to decide what to show in the UI.
+  // Combines live and last sessions to determine what to show in the UI.
   val sessionToShow: StateFlow<SessionSummary?> =
-    combine(
-      liveStatus,
-      lastSession,
-    ) { live, last ->
+    combine(liveStatus, lastSession) { live, last ->
       live?.let {
-        // Create a temporary summary for the UI from the live data
         SessionSummary(
           startTimestamp = it.startTimeMillis,
-          endTimestamp = System.currentTimeMillis(), // It's ongoing
+          endTimestamp = System.currentTimeMillis(),
           totalData = DataUsage(it.totalRxBytes, it.totalTxBytes),
           history = it.liveData,
           maxRxBps = it.maxRxBps,
           maxTxBps = it.maxTxBps
         )
-      } ?: last // If not live, show the last completed session
+      } ?: last
     }.stateIn(viewModelScope, SharingStarted.Lazily, null)
-
-
 
   val chartItems: StateFlow<List<HistoryChartItem>> =
     combine(nonZeroPortalHistory, liveStatus) { records, live ->
-      val liveRx = live?.totalRxBytes ?: 0L
-      val liveTx = live?.totalTxBytes ?: 0L
-      computeChartItems(records, liveRxBytes = liveRx, liveTxBytes = liveTx)
+      computeChartItems(
+        records,
+        liveRxBytes = live?.totalRxBytes ?: 0L,
+        liveTxBytes = live?.totalTxBytes ?: 0L
+      )
     }.flowOn(Dispatchers.Default)
       .stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
 
   fun onClearHistory() {
     LatchAppGraph.sessions.clearHistory()
-  }
-
-  override fun onCleared() {
-    super.onCleared()
   }
 }
