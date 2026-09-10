@@ -52,6 +52,19 @@ fun formatDurationDynamic(ms: Long): String {
     }
 }
 
+/** Formats duration into words (e.g. "2 hr 15 min", "9 min 52 sec", "0 sec"). */
+fun formatDurationWords(ms: Long): String {
+    if (ms <= 0) return "0 sec"
+    val h = TimeUnit.MILLISECONDS.toHours(ms)
+    val m = TimeUnit.MILLISECONDS.toMinutes(ms) % 60
+    val s = TimeUnit.MILLISECONDS.toSeconds(ms) % 60
+    val parts = ArrayList<String>(3)
+    if (h > 0) parts.add("$h hr")
+    if (m > 0) parts.add("$m min")
+    if (s > 0 || parts.isEmpty()) parts.add("$s sec")
+    return parts.joinToString(" ")
+}
+
 /** Locale.US to match Android exactly -- chart labels must not shift by locale. */
 fun formatDate(millis: Long, pattern: String): String =
     SimpleDateFormat(pattern, Locale.US).format(Date(millis))

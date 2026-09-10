@@ -508,37 +508,23 @@ fun DataUsageCircle(
             },
             label = "DataUsageCircleTransition"
         ) { targetMode ->
-            val (value, unit, color, icon) = when (targetMode) {
-                DisplayMode.DOWNLOAD -> Quadruple(
-                    formatBytes(data.rxBytes).first,
-                    formatBytes(data.rxBytes).second,
-                    dlColor,
-                    Icons.Rounded.ArrowDownward
-                )
-                DisplayMode.UPLOAD -> Quadruple(
-                    formatBytes(data.txBytes).first,
-                    formatBytes(data.txBytes).second,
-                    ulColor,
-                    Icons.Rounded.ArrowUpward
-                )
-                DisplayMode.TOTAL -> Quadruple(
-                    formatBytes(totalBytes).first,
-                    formatBytes(totalBytes).second,
-                    MaterialTheme.colorScheme.onSurface,
-                    null
-                )
+            when (targetMode) {
+                DisplayMode.DOWNLOAD -> {
+                    val (v, u) = formatBytes(data.rxBytes)
+                    DataUsageValueBlock(v, u, dlColor, Icons.Rounded.ArrowDownward)
+                }
+                DisplayMode.UPLOAD -> {
+                    val (v, u) = formatBytes(data.txBytes)
+                    DataUsageValueBlock(v, u, ulColor, Icons.Rounded.ArrowUpward)
+                }
+                DisplayMode.TOTAL -> {
+                    val (v, u) = formatBytes(totalBytes)
+                    DataUsageValueBlock(v, u, MaterialTheme.colorScheme.onSurface, null)
+                }
             }
-            DataUsageValueBlock(value, unit, color, icon)
         }
     }
 }
-
-data class Quadruple<A, B, C, D>(
-    val first: A,
-    val second: B,
-    val third: C,
-    val fourth: D
-)
 
 @Composable
 private fun DataUsageValueBlock(

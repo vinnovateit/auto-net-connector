@@ -39,7 +39,7 @@ fun generatePortalHtmlReport(
             .maxByOrNull { it.value }?.key ?: "N/A"
     }
 
-    val totalDurationFormatted = formatReportDuration(totalDurationMillis)
+    val totalDurationFormatted = formatDurationWords(totalDurationMillis)
 
     // Compute day aggregates grouped by month matching Session History
     val currentYear = Calendar.getInstance().get(Calendar.YEAR)
@@ -73,7 +73,7 @@ fun generatePortalHtmlReport(
             downloadBytes = dl,
             uploadBytes = ul,
             totalBytes = tot,
-            durationFormatted = formatReportDuration(durMs),
+            durationFormatted = formatDurationWords(durMs),
             sessionCount = daySessions.size
         )
     }.sortedByDescending { it.timestamp }
@@ -139,7 +139,7 @@ fun generatePortalHtmlReport(
             sessions.forEachIndexed { index, session ->
                 val loginTimeStr = if (session.loginTime > 0) dateFormat.format(Date(session.loginTime)) else "-"
                 val logoutTimeStr = if (session.logoutTime > 0) dateFormat.format(Date(session.logoutTime)) else "-"
-                val durationStr = session.durationFormatted.ifBlank { formatReportDuration(session.durationMillis) }
+                val durationStr = session.durationFormatted.ifBlank { formatDurationWords(session.durationMillis) }
                 val rowTotal = if (session.totalBytes > 0) session.totalBytes else (session.uploadBytes + session.downloadBytes)
                 val loc = session.location.ifBlank { "Unknown" }
                 appendLine("""                        <tr>""")
@@ -613,19 +613,6 @@ private fun formatBytes(bytes: Long): String {
         bytes >= 1024L -> "%.2f KB".format(Locale.US, bytes / 1024.0)
         else -> "$bytes B"
     }
-}
-
-private fun formatReportDuration(millis: Long): String {
-    if (millis <= 0) return "0 sec"
-    val totalSeconds = millis / 1000
-    val hours = totalSeconds / 3600
-    val minutes = (totalSeconds % 3600) / 60
-    val seconds = totalSeconds % 60
-    return buildString {
-        if (hours > 0) append("$hours hr ")
-        if (minutes > 0 || hours > 0) append("$minutes min ")
-        if (seconds > 0 || (hours == 0L && minutes == 0L)) append("$seconds sec")
-    }.trim()
 }
 
 private fun escapeHtml(text: String): String {

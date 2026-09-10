@@ -100,7 +100,7 @@ class ForegroundService : Service(), ForegroundController {
                     // submitAndAwait suspends until logoutNow() has actually
                     // finished (not until some StateFlow happens to already
                     // satisfy a predicate, which raced the command itself --
-                    // see LatchController.submitAndAwait's doc).
+                    // see LatchEngine.submitAndAwait's doc).
                     LatchAppGraph.engine.submitAndAwait(LatchCommand.Logout, LOGOUT_TIMEOUT_MS)
                     stopSelf()
                 }

@@ -52,9 +52,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.vinnovateit.latch.common.util.NoDataCard
 import com.vinnovateit.latch.core.stats.formatBytes
 import com.vinnovateit.latch.core.stats.formatDate
 import com.vinnovateit.latch.core.model.DateRangeFilter
@@ -278,7 +278,12 @@ fun SessionHistoryScreen(
                             .padding(16.dp),
                         contentAlignment = Alignment.Center
                     ) {
-                        NoDataCard("No session history for the selected filter.")
+                        Text(
+                            "No session history for the selected filter.",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            textAlign = TextAlign.Center
+                        )
                     }
                 }
             } else {

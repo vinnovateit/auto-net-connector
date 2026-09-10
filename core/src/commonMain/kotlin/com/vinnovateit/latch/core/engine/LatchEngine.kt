@@ -33,45 +33,13 @@ import java.net.InetAddress
 
 enum class LatchCommand { CheckAndLogin, SilentCheck, Logout, Shutdown }
 
-/** The only engine API the UI knows about. Replaces Android's Intent control plane. */
-interface LatchController {
-    val isLatched: StateFlow<Boolean>
-    val status: StateFlow<ConnectionStatus>
-    fun submit(command: LatchCommand)
-
-    /**
-     * Like [submit], but suspends until [command] has actually finished
-     * processing (not until some StateFlow happens to already satisfy a
-     * predicate -- that races the command itself). Returns false on timeout.
-     */
-    suspend fun submitAndAwait(command: LatchCommand, timeoutMs: Long = 10_000L): Boolean
-}
-
-/**
- * The portal state machine, extracted from Android's ForegroundService.
- *
- * Behaviour carried over unchanged: the 3-retry x 2s revalidation after a
- * successful login, the 60s health check, and the onAvailable/onLost handling.
- *
- * Behaviour deliberately NOT carried over, because it is Android-specific and
- * porting it would cause silent failure:
- *
- *  - The 5h45m proactive stopSelf(). That worked around the Android 15
- *    foreground-service time limit. A tray daemon has no such cap, and porting
- *    it would mean monitoring silently dies mid-day with no error and no log line.
- *  - onTimeout(). Android 15 FGS callback, no analogue.
- *  - reportNetworkConnectivity(). Behind wifi.reportConnectivity(), a no-op here.
- *  - bindProcessToNetwork(). Behind wifi.bindProcess(), a no-op here.
- *  - stopSelf() on failure paths. The desktop daemon must stay alive and keep
- *    listening; failures post a status and return to Idle.
- */
 class LatchEngine(
     private val platform: PlatformServices,
     private val sessions: SessionRepository,
     private val scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.IO),
     /** Overridable so tests can drive the health check without waiting a minute. */
     private val healthCheckIntervalMs: Long = HEALTH_CHECK_INTERVAL_MS,
-) : LatchController {
+) {
 
     private companion object {
         const val TAG = "LatchEngine"
@@ -108,10 +76,10 @@ class LatchEngine(
     private val loginGate = Mutex()
 
     private val _isLatched = MutableStateFlow(false)
-    override val isLatched: StateFlow<Boolean> = _isLatched.asStateFlow()
+    val isLatched: StateFlow<Boolean> = _isLatched.asStateFlow()
 
     private val _status = MutableStateFlow<ConnectionStatus>(ConnectionStatus.Idle)
-    override val status: StateFlow<ConnectionStatus> = _status.asStateFlow()
+    val status: StateFlow<ConnectionStatus> = _status.asStateFlow()
     private var statusResetJob: Job? = null
 
     private fun postStatus(newStatus: ConnectionStatus) {
@@ -132,11 +100,11 @@ class LatchEngine(
         sessions.stopSession()
     }
 
-    override fun submit(command: LatchCommand) {
+    fun submit(command: LatchCommand) {
         commands.trySend(QueuedCommand(command))
     }
 
-    override suspend fun submitAndAwait(command: LatchCommand, timeoutMs: Long): Boolean {
+    suspend fun submitAndAwait(command: LatchCommand, timeoutMs: Long = 10_000L): Boolean {
         val done = CompletableDeferred<Unit>()
         if (commands.trySend(QueuedCommand(command, done)).isFailure) return false
         return withTimeoutOrNull(timeoutMs) { done.await() } != null

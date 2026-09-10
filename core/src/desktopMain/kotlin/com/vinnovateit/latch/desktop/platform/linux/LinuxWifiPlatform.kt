@@ -249,51 +249,6 @@ class LinuxWifiPlatform(private val logger: Logger) : WifiPlatform {
         return null
     }
 
-    override fun connectToBestVitNetwork(): Boolean {
-        enableWifi()
-        logger.d(TAG, "Scanning Wi-Fi access points for -VIT / VIT networks...")
-        val scanOut = runCommand("nmcli", "-t", "-f", "SSID,BSSID,SIGNAL", "dev", "wifi", "list", "--rescan", "yes")
-            ?: runCommand("nmcli", "-t", "-f", "SSID,BSSID,SIGNAL", "dev", "wifi", "list")
-
-        val apList = mutableListOf<com.vinnovateit.latch.core.platform.WifiAccessPoint>()
-        if (scanOut != null) {
-            for (line in scanOut.lines()) {
-                val parts = line.split("(?<!\\\\):".toRegex())
-                if (parts.size >= 3) {
-                    val ssid = parts[0].replace("\\:", ":").trim()
-                    val bssid = parts[1].replace("\\:", ":").trim()
-                    val signal = parts[2].toIntOrNull() ?: 0
-                    if (ssid.isNotEmpty() && bssid.isNotEmpty()) {
-                        apList.add(com.vinnovateit.latch.core.platform.WifiAccessPoint(ssid, bssid, signal))
-                    }
-                }
-            }
-        }
-
-        val vitAps = apList.filter { ap ->
-            ap.ssid.endsWith("-VIT", ignoreCase = true) || ap.ssid.contains("VIT", ignoreCase = true)
-        }.sortedByDescending { it.signalPercentage }
-
-        val bestAp = vitAps.firstOrNull()
-        if (bestAp == null) {
-            logger.w(TAG, "No -VIT / VIT Wi-Fi networks found in scan.")
-            return isConnectedToWifi()
-        }
-
-        logger.d(TAG, "Best VIT AP found: SSID='${bestAp.ssid}', BSSID='${bestAp.bssid}', Signal=${bestAp.signalPercentage}%")
-        runCommand("nmcli", "dev", "wifi", "connect", bestAp.bssid)
-            ?: runCommand("nmcli", "dev", "wifi", "connect", bestAp.ssid, "bssid", bestAp.bssid)
-            ?: runCommand("nmcli", "dev", "wifi", "connect", bestAp.ssid)
-
-        invalidate()
-        repeat(ENABLE_SETTLE_ATTEMPTS) {
-            if (isConnectedToWifi()) return true
-            Thread.sleep(ENABLE_SETTLE_INTERVAL_MS)
-            invalidate()
-        }
-        return isConnectedToWifi()
-    }
-
     override fun isWifiEnabled(): Boolean = snapshot().wifiEnabled
 
     override fun enableWifi(): Boolean {

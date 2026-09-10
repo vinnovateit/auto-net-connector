@@ -44,7 +44,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.vinnovateit.latch.core.domain.SessionRepository
 import com.vinnovateit.latch.core.engine.LatchCommand
-import com.vinnovateit.latch.core.engine.LatchController
+import com.vinnovateit.latch.core.engine.LatchEngine
 import com.vinnovateit.latch.core.model.LiveDataPoint
 import com.vinnovateit.latch.core.platform.PlatformServices
 import com.vinnovateit.latch.core.settings.SettingsManager
@@ -80,7 +80,7 @@ private const val CHART_WINDOW = 150
  */
 @Composable
 fun HomeScreen(
-    controller: LatchController,
+    controller: LatchEngine,
     sessions: SessionRepository,
     platform: PlatformServices,
     onOpenStats: () -> Unit,

@@ -55,10 +55,10 @@ import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.vinnovateit.latch.common.util.NoDataCard
 import com.vinnovateit.latch.common.util.StatsColorPalettes
 import com.vinnovateit.latch.core.stats.formatBytes
 import com.vinnovateit.latch.core.stats.formatDate
@@ -89,6 +89,23 @@ fun HistoryBarChart(
         HistoryBarChartContent(chartItems = history, isLoaded = isLoaded)
     } else {
         NoDataCard("No stats available. Connect to Wi-Fi to start tracking your usage.")
+    }
+}
+
+@Composable
+private fun NoDataCard(msg: String) {
+    Box(
+        Modifier
+            .fillMaxWidth()
+            .height(150.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            msg,
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = TextAlign.Center
+        )
     }
 }
 

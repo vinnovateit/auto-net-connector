@@ -180,8 +180,6 @@ internal object LatchIcons {
 
     val Refresh: ImageVector get() = Autorenew
 
-    val WifiOutlined: ImageVector get() = Wifi
-
     val ArrowOutward: ImageVector by lazy {
         icon("ArrowOutward", "M6 6v2h8.59L5 17.59 6.41 19 16 9.41V18h2V6z")
     }
@@ -215,16 +213,6 @@ internal object LatchIcons {
         icon(
             "Info",
             "M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z",
-        )
-    }
-
-    val InfoOutline: ImageVector by lazy {
-        icon(
-            "InfoOutline",
-            "M11 17h2v-6h-2v6zm1-15C6.48 2 2 6.48 2 12s4.48 10 10" +
-                " 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8" +
-                "s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm-1-12h2V7h-2v1zm0 2h2" +
-                "c1.1 0 2 .9 2 2v6h-2v-6h-2v-2z",
         )
     }
 
@@ -295,24 +283,10 @@ internal object LatchIcons {
         }.build()
     }
 
-    val HelpOutline: ImageVector by lazy {
-        icon(
-            "HelpOutline",
-            "M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm-1-3h2v2h-2v-2zm1.71-9.71c-.38-.38-.88-.59-1.42-.59-1.12 0-2 .88-2 2H8c0-2.21 1.79-4 4-4 1.06 0 2.08.42 2.83 1.17.75.75 1.17 1.77 1.17 2.83 0 1.44-.8 2.2-1.49 2.86-.59.57-1.01.98-1.01 1.84V15h-2v-.89c0-1.75.9-2.6 1.65-3.3.52-.5.85-.84.85-1.48 0-.54-.21-1.04-.59-1.42z",
-        )
-    }
-
     val SystemUpdateAlt: ImageVector by lazy {
         icon(
             "SystemUpdateAlt",
             "M5 20h14v-2H5v2zm7-18L5.33 8h3.84V14h4.66V8h3.84L12 2z",
-        )
-    }
-
-    val VersionTag: ImageVector by lazy {
-        icon(
-            "VersionTag",
-            "M7 4h10l3 4v12H4V4h3zm0 2v12h12V8.73L16.05 6H7zm2 2h2v2H9V8zm0 4h6v2H9v-2zm0 4h4v2H9v-2z",
         )
     }
 
@@ -441,13 +415,6 @@ internal object LatchIcons {
         icon("Add", "M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6z")
     }
 
-    val Lightbulb: ImageVector by lazy {
-        icon(
-            "Lightbulb",
-            "M9 21c0 .55.45 1 1 1h4c.55 0 1-.45 1-1v-1H9v1zM12 2C8.14 2 5 5.14 5 9c0 2.38 1.19 4.47 3 5.74V17c0 .55.45 1 1 1h6c.55 0 1-.45 1-1v-2.26c1.81-1.27 3-3.36 3-5.74 0-3.86-3.14-7-7-7z",
-        )
-    }
-
     // Org-level social links on the About screen, vendored from the Android app's
     // github.xml / linkedin.xml / instagram.xml -- same 35x35 source viewport,
     // ported at that size rather than rescaled to the usual 24x24. Each pathData
@@ -551,20 +518,6 @@ internal object LatchIcons {
         icon(
             "visibility_off",
             "M12 7c2.76 0 5 2.24 5 5 0 .65-.13 1.26-.36 1.83l2.92 2.92c1.51-1.26 2.7-2.89 3.44-4.75C21.27 7.61 17 4.5 12 4.5c-1.4 0-2.74.25-3.98.7l2.16 2.16C10.74 7.13 11.35 7 12 7zM2 4.27l2.28 2.28.46.46C3.08 8.3 1.78 10.02 1 12c1.73 4.39 6 7.5 11 7.5 1.55 0 3.03-.3 4.38-.84l.42.42L19.73 22 21 20.73 3.27 3 2 4.27zM7.53 9.8l1.55 1.55c-.05.21-.08.43-.08.65 0 1.66 1.34 3 3 3 .22 0 .44-.03.65-.08l1.55 1.55c-.67.33-1.41.53-2.2.53-2.76 0-5-2.24-5-5 0-.79.2-1.53.53-2.2zm4.31-.78l3.15 3.15.02-.16c0-1.66-1.34-3-3-3l-.17.01z",
-        )
-    }
-
-    val ArrowDropDown: ImageVector by lazy {
-        icon(
-            "arrow_drop_down",
-            "M7 10l5 5 5-5z",
-        )
-    }
-
-    val CalendarToday: ImageVector by lazy {
-        icon(
-            "calendar_today",
-            "M20 3h-1V1h-2v2H7V1H5v2H4c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 18H4V8h16v13z",
         )
     }
 

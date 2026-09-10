@@ -18,8 +18,7 @@ object PortalLogoutParser {
 
         val uploadBytes = BYTES_SENT_REGEX.find(html)?.groupValues?.getOrNull(1)?.toLongOrNull() ?: 0L
         val downloadBytes = BYTES_RECEIVED_REGEX.find(html)?.groupValues?.getOrNull(1)?.toLongOrNull() ?: 0L
-
-        val durationFormatted = formatDuration(hours, minutes, seconds)
+        val durationFormatted = com.vinnovateit.latch.core.stats.formatDurationWords(durationMillis)
         val loginTime = (logoutTimeMillis - durationMillis).coerceAtLeast(0L)
 
         return PortalSessionRecord(
@@ -34,13 +33,5 @@ object PortalLogoutParser {
             totalBytes = uploadBytes + downloadBytes,
             isManual = true
         )
-    }
-
-    private fun formatDuration(hours: Long, minutes: Long, seconds: Long): String {
-        val parts = mutableListOf<String>()
-        if (hours > 0) parts.add("$hours hr")
-        if (minutes > 0) parts.add("$minutes min")
-        if (seconds > 0 || parts.isEmpty()) parts.add("$seconds sec")
-        return parts.joinToString(" ")
     }
 }
