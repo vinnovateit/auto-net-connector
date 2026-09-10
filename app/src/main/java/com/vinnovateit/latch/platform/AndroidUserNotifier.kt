@@ -55,13 +55,17 @@ class AndroidUserNotifier(
     }
 
     override fun notifyTransient(title: String, text: String, isError: Boolean) {
-        notificationManager.createNotificationChannel(
-            NotificationChannel(TRANSIENT_CHANNEL_ID, "Status Notifications", NotificationManager.IMPORTANCE_HIGH).apply {
-                description = "Shows temporary status messages like Connected/Disconnected"
-            }
-        )
+        val chan = NotificationChannel(
+            TRANSIENT_CHANNEL_ID,
+            "Status Notifications",
+            NotificationManager.IMPORTANCE_HIGH,
+        ).apply {
+            description = "Shows temporary status messages like Connected/Disconnected"
+        }
+        notificationManager.createNotificationChannel(chan)
+
         val notification = NotificationCompat.Builder(context, TRANSIENT_CHANNEL_ID)
-            .setSmallIcon(R.drawable.ic_launcher_foreground)
+            .setSmallIcon(R.drawable.ic_latch)
             .setContentTitle(title)
             .setContentText(text)
             .setPriority(NotificationCompat.PRIORITY_HIGH)
