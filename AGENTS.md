@@ -43,4 +43,29 @@
 - **Git & Push Safety (ABSOLUTE INVARIANT)**:
   - NEVER use force push (`git push --force` or `--force-with-lease`) under any circumstances. All git updates must be standard forward commits or merges to preserve team commits and avoid overwriting work.
 
+## 5. Code Quality, Lifecycle & Security Invariants (Learned from rugbedbugg Reviews)
+- **HttpURLConnection Resource Leakage**:
+  - Always disconnect `HttpURLConnection` in a `finally` block (or `use {}`). Never call `disconnect()` solely at the end of the `try` block where network exceptions (`connect()`, timeout) skip it and leak file descriptors / sockets (Issue #66).
+- **External Intent Safety (No Uncaught ActivityNotFoundException)**:
+  - Any external `Intent` (e.g. `Intent.ACTION_VIEW` for URLs or browser redirects) must be wrapped in try/catch for `ActivityNotFoundException` or routed through `platform.systemActions.openUrl`. Never call `context.startActivity` bare (Issue #77).
+- **Telemetry Rates vs Byte Counts**:
+  - Graph scaling and speed readouts MUST use rate fields (`rxBps` / `txBps`), NEVER raw delta byte counters (`rxBytes` / `txBytes`). Raw byte counts depend on poll interval duration and warp scale (Issue #67).
+  - Stored session reports and history screens must read persisted `maxRxBps` / `maxTxBps` from the database entity, not recompute from `history` (which is empty for historical DB sessions) (Issue #65).
+- **Throughput Baseline Resilience**:
+  - `ThroughputMonitor.start()` must never early-return on an initial null counter sample. Keep monitor loop active and latch baseline on the first valid sample (`hasBaseline`) so connect-time hiccups don't kill session stats (Issue #60).
+- **Credential Storage Cache Invalidation & Salt Hygiene**:
+  - Cache flags (e.g. `has_credentials`) must be wiped whenever the encrypted store is reset or cleared (`clearCorruptedState`). Stale cache flags must never disable credential re-entry (Issue #68).
+  - Linux credential encryption must combine per-install random salt (`.creds_salt`, 0600 POSIX permissions) with machine/user identifiers, never derive keys solely from static `/etc/machine-id` (Issue #64).
+  - Never introduce parallel unencrypted credential storage (e.g. Room `CredentialDatabase`) (Issue #70).
+- **Linux Wi-Fi Radio Detection**:
+  - Linux Wi-Fi detection must consult rfkill (`/sys/class/rfkill/*/soft` and `/hard` for `type == wlan`) and verify `operstate` rather than treating interface existence as enabled (Issue #61).
+- **Zero-Line Files & Dead Receiver Chains**:
+  - Never leave empty 0-byte Kotlin files in tree (Issue #78).
+  - Do not keep manifest `<receiver>` entries without `<intent-filter>` or dead caller chains (Issue #70, #81).
+  - Delete write-only fields (`notificationSent`) immediately (Issue #69).
+- **Dependency & Compiler Lockstep**:
+  - Kotlin compiler bumps must always be paired with exact matching KSP version.
+  - Root `build.gradle.kts` buildscript constraints must match library version declarations.
+
+
 
