@@ -179,6 +179,7 @@ fun LatchNavGraph(
                 CredentialsScreen(
                     editMode = editMode,
                     onCredentialsSaved = {
+                        LatchAppGraph.triggerHistorySync(force = true)
                         triggerBack()
                     }
                 )

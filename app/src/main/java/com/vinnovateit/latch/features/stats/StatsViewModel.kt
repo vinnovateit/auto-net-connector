@@ -22,7 +22,6 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
-import kotlinx.coroutines.launch
 import java.util.Calendar
 
 class StatsViewModel(application: Application) : AndroidViewModel(application) {
@@ -54,16 +53,7 @@ class StatsViewModel(application: Application) : AndroidViewModel(application) {
   val statsInsights: StateFlow<StatsInsights> = LatchAppGraph.sessions.statsInsights
 
   fun refreshHistory(force: Boolean = false) {
-    val platform = LatchAppGraph.platform
-    if (platform.credentials.exists()) {
-      val userId = platform.credentials.userId()
-      val password = platform.credentials.password()
-      if (!userId.isNullOrBlank() && !password.isNullOrBlank()) {
-        viewModelScope.launch(Dispatchers.IO) {
-          LatchAppGraph.sessions.syncPortalHistory(userId, password, force = force)
-        }
-      }
-    }
+    LatchAppGraph.triggerHistorySync(force = force)
   }
 
   // This flow combines live and last sessions to decide what to show in the UI.

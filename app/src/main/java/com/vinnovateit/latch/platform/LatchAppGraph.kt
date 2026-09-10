@@ -73,17 +73,7 @@ object LatchAppGraph {
 
         _engine = LatchEngine(platform, sessions)
 
-        if (platform.credentials.exists()) {
-            val userId = platform.credentials.userId()
-            val password = platform.credentials.password()
-            if (!userId.isNullOrBlank() && !password.isNullOrBlank()) {
-                CoroutineScope(Dispatchers.IO).launch {
-                    try {
-                        sessions.syncPortalHistory(userId, password)
-                    } catch (_: Exception) { }
-                }
-            }
-        }
+        triggerHistorySync()
 
         val appScope = CoroutineScope(Dispatchers.Main.immediate)
         appScope.launch {
@@ -108,6 +98,21 @@ object LatchAppGraph {
                     )
                 }
             }
+        }
+    }
+
+    /**
+     * Fire-and-forget history sync. Reads credentials from the platform store,
+     * so callers do not duplicate that logic. Safe to call any time -- the
+     * repository's atomic slot prevents overlapping syncs.
+     */
+    fun triggerHistorySync(force: Boolean = false) {
+        val creds = _platform?.credentials ?: return
+        if (!creds.exists()) return
+        val userId = creds.userId()?.takeIf { it.isNotBlank() } ?: return
+        val password = creds.password()?.takeIf { it.isNotBlank() } ?: return
+        CoroutineScope(Dispatchers.IO).launch {
+            try { _sessions?.syncPortalHistory(userId, password, force = force) } catch (_: Exception) { }
         }
     }
 }
