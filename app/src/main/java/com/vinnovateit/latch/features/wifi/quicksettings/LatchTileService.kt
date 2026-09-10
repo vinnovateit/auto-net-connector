@@ -8,6 +8,7 @@ import android.service.quicksettings.TileService
 import android.util.Log
 import com.vinnovateit.latch.features.wifi.background.ForegroundService
 import com.vinnovateit.latch.core.settings.SettingsManager
+import com.vinnovateit.latch.core.stats.formatBytes
 import com.vinnovateit.latch.platform.LatchAppGraph
 import kotlinx.coroutines.*
 
@@ -24,6 +25,7 @@ class LatchTileService : TileService() {
     override fun onStartListening() {
         super.onStartListening()
         Log.d(TAG, "=== onStartListening called ===")
+        LatchAppGraph.initialize(applicationContext)
         updateTileState()
 
         serviceScope.launch {
@@ -124,7 +126,8 @@ class LatchTileService : TileService() {
         serviceScope.launch {
             try {
                 val qsTile = qsTile ?: return@launch
-                val isConnected = LatchAppGraph.sessions.liveStatus.value != null
+                val liveStatus = LatchAppGraph.sessions.liveStatus.value
+                val isConnected = liveStatus != null
 
                 val wifi = LatchAppGraph.platform.wifi
                 val isWifiReady = wifi.isWifiEnabled() && wifi.isConnectedToWifi()
@@ -132,23 +135,41 @@ class LatchTileService : TileService() {
                 if (!isWifiReady) {
                     qsTile.state = Tile.STATE_UNAVAILABLE
                     qsTile.label = "Latch"
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                        qsTile.subtitle = if (!wifi.isWifiEnabled()) "Wi-Fi off" else "Wi-Fi disconnected"
+                    }
                 } else {
+                    val ssid = wifi.currentSsid()
                     when {
                         isConnected && !isProcessing -> {
                             qsTile.state = Tile.STATE_ACTIVE
                             qsTile.label = "Latched"
+                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                                val totalBytes = liveStatus.totalRxBytes + liveStatus.totalTxBytes
+                                val (amount, unit) = formatBytes(totalBytes)
+                                qsTile.subtitle = "$amount $unit used"
+                            }
                         }
                         !isConnected && !isProcessing -> {
                             qsTile.state = Tile.STATE_INACTIVE
                             qsTile.label = "Latch"
+                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                                qsTile.subtitle = ssid ?: "Disconnected"
+                            }
                         }
                         isProcessing && isConnected -> {
                             qsTile.state = Tile.STATE_ACTIVE
                             qsTile.label = "Disconnecting..."
+                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                                qsTile.subtitle = null
+                            }
                         }
                         isProcessing && !isConnected -> {
                             qsTile.state = Tile.STATE_INACTIVE
                             qsTile.label = "Latching..."
+                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                                qsTile.subtitle = ssid
+                            }
                         }
                     }
                 }
