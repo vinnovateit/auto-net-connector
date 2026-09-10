@@ -54,11 +54,17 @@ class ForegroundService : Service(), ForegroundController {
         Log.d("ForegroundService", "Service created")
 
         val manager = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
+        manager.cancelAll()
+
         val chan = NotificationChannel(
             channelId,
             getString(R.string.notification_channel_name),
             NotificationManager.IMPORTANCE_LOW
-        )
+        ).apply {
+            setSound(null, null)
+            enableVibration(false)
+            enableLights(false)
+        }
         manager.createNotificationChannel(chan)
 
         try {
@@ -178,11 +184,9 @@ class ForegroundService : Service(), ForegroundController {
                     val timeString = SimpleDateFormat("hh:mm a", Locale.getDefault()).format(Date())
                     updateNotification("Latched", "Connected at $timeString")
                     startNotificationUpdates()
-                    LatchAppGraph.platform.notifier.notifyTransient("Connected", "Latched onto VIT WiFi at $timeString")
                 } else if (!latched && wasLatched) {
                     notificationUpdateJob?.cancel()
                     updateNotification("Latch is Running", getString(R.string.notification_text))
-                    LatchAppGraph.platform.notifier.notifyTransient("Disconnected", "No longer latched.")
                 }
                 wasLatched = latched
             }
@@ -196,6 +200,7 @@ class ForegroundService : Service(), ForegroundController {
             .setSmallIcon(R.drawable.ic_latch)
             .setContentIntent(ongoingNotificationTapIntent())
             .setOnlyAlertOnce(true)
+            .setSilent(true)
     }
 
     private fun updateNotification(title: String, text: String) {
